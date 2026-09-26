@@ -13,6 +13,8 @@ from llm.lemonade.provider import LemonadeProvider
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     provider = LemonadeProvider()
     history: list[ChatMessage] = []
     one_shot = sys.argv[1] if len(sys.argv) > 1 else None

@@ -10,3 +10,4 @@ LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 300  # thinking-on synthesis calls measured
                                           # 98s warm at ~4 tok/s; 90s is not
                                           # enough once reasoning is enabled
 ENABLE_THINKING_DEFAULT = False  # per Stage 1 benchmarking decision
+EMBEDDING_MODEL = "nomic-embed-text-v1-GGUF"

@@ -31,6 +31,8 @@ def _call_model(provider, history):
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) < 2:
         print("Usage: python -m scripts.agent_loop \"your question\"")
         return
