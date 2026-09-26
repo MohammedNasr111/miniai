@@ -2,7 +2,11 @@
 
 ## Hardware
 - AMD Ryzen AI 9 HX 370 (12C/24T), Radeon 890M iGPU (gfx1150, RDNA 3.5),
-  32GB DDR5-5600 shared RAM/VRAM, AMD XDNA NPU, 1TB SSD, Windows 11.
+  AMD XDNA NPU, 1TB SSD, Windows 11.
+- 32GB DDR5-5600 installed, but ~23.6GB usable by the OS — roughly 8GB is
+  reserved for the iGPU below the OS level and never appears as system RAM.
+  Practical model-size budget: keep on-disk model size under ~14GB with real
+  caution above that.
 - Memory behaves like a unified-memory system (GPU has no dedicated VRAM) —
   closer to Apple Silicon than a discrete-GPU PC.
 
@@ -11,9 +15,19 @@
   server), not Ollama. Ollama's ROCm backend does not officially support
   this GPU (gfx1150); Lemonade auto-selects NPU/iGPU/CPU backends and is
   purpose-built for this hardware tier.
-- Starting model: **Qwen3 14B** (tool-calling, /think mode). Coding-specific
-  work later uses Qwen3-Coder 14B or Devstral. Do not jump to 30B+ models
-  before the 14B loop is proven working.
+  Install: `winget install --id AMD.LemonadeServer -e --source winget`.
+  The CLI command is `lemonade` (not `lemonade-server`). The default port
+  is 13305 (not 8000). The installer runs the server automatically as a
+  background service — no manual `lemonade serve` step is needed.
+- Default model: **Qwen3-14B-GGUF** (llamacpp/vulkan recipe, ~8GB on disk).
+  Thinking mode (`chat_template_kwargs.enable_thinking`) is OFF by default in
+  the provider layer — verified in benchmarking that disabling it cuts
+  wall-clock time ~24x for simple responses with no token-rate change and no
+  quality loss. NPU/Hybrid path (Qwen3-14B-Hybrid, ryzenai-llm recipe) was
+  tested and PARKED: model loads and shows healthy status, but generation
+  never completes (proxy and direct-backend timeouts on v1.7.0). Revisit only
+  after a Lemonade/AMD driver update, or if GPU-path throughput proves
+  insufficient once real tool-calling load is added.
 - Structured memory: SQLite. Semantic/vector memory: LanceDB or Chroma
   (embedded, file-based — no separate DB server to run).
 - Browser automation: Playwright. General Windows UI control: Windows UI
