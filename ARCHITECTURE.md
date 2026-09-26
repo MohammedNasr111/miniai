@@ -20,10 +20,15 @@
   is 13305 (not 8000). The installer runs the server automatically as a
   background service — no manual `lemonade serve` step is needed.
 - Default model: **Qwen3-14B-GGUF** (llamacpp/vulkan recipe, ~8GB on disk).
-  Thinking mode (`chat_template_kwargs.enable_thinking`) is OFF by default in
-  the provider layer — verified in benchmarking that disabling it cuts
-  wall-clock time ~24x for simple responses with no token-rate change and no
-  quality loss. NPU/Hybrid path (Qwen3-14B-Hybrid, ryzenai-llm recipe) was
+  Thinking mode (`chat_template_kwargs.enable_thinking`) is PER-CALL, not a
+  blanket default: OFF for tool-selection calls (deciding which tool to call
+  needs no reasoning), ON for any call where the conversation history already
+  contains a tool-role message (i.e. synthesizing/counting/aggregating real
+  tool output). Verified in Stage 3 testing: thinking-off correctly listed 18
+  directory entries but miscounted them as 15; thinking-on with the identical
+  prompt and tool result counted correctly (18) at roughly 8x the wall-clock
+  cost. The cost is worth paying only on the synthesis call, not every call.
+  NPU/Hybrid path (Qwen3-14B-Hybrid, ryzenai-llm recipe) was
   tested and PARKED: model loads and shows healthy status, but generation
   never completes (proxy and direct-backend timeouts on v1.7.0). Revisit only
   after a Lemonade/AMD driver update, or if GPU-path throughput proves

@@ -28,6 +28,7 @@ class LemonadeProvider(LLMProvider):
         **kwargs: Any,
     ) -> ChatResponse:
         enable_thinking = kwargs.pop("enable_thinking", self.enable_thinking)
+        timeout = kwargs.pop("timeout", self.timeout)
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [m.model_dump(exclude_none=True) for m in messages],
@@ -39,7 +40,7 @@ class LemonadeProvider(LLMProvider):
         response = requests.post(
             f"{self.base_url}/chat/completions",
             json=payload,
-            timeout=self.timeout,
+            timeout=timeout,
         )
         response.raise_for_status()
         data = response.json()
