@@ -31,7 +31,10 @@ def search_memory(query: str, category: Optional[str] = None) -> list[dict]:
         tier=Tier.AUTO_ALLOW,
         description=f"Search memory for: {query}" + (f" in category {category}" if category else ""),
     )
-    return _search_memory(query, category)
+    results = _search_memory(query, category)
+    if not results and category:
+        results = _list_memories(category, limit=10)
+    return results
 
 
 def list_memories(category: Optional[str] = None) -> list[dict]:

@@ -1,8 +1,8 @@
-"""Stage 3 agent loop: the model can now call list_directory,
-search_files, and read_file on its own. This is a one-shot script, not
-the interactive REPL yet - it sends one user message, lets the model
-call tools if it wants to, feeds the results back, and prints the
-model's final answer.
+"""Stage 4 agent loop: the model can call any tool currently
+registered in tools/registry.py (see TOOL_SCHEMAS for the live list).
+This is a one-shot script, not the interactive REPL yet - it sends one
+user message, lets the model call tools if it wants to, feeds the
+results back, and prints the model's final answer.
 Usage:
     python -m scripts.agent_loop "your question here"
 """

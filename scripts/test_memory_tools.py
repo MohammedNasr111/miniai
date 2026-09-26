@@ -10,6 +10,11 @@ from tools.memory.memory_tools import list_memories, save_memory, search_memory
 
 
 def main() -> None:
+    from memory.database.db import DB_PATH
+    if DB_PATH.exists():
+        DB_PATH.unlink()
+        print(f"Reset: removed existing test database at {DB_PATH}\n")
+
     print("=== save_memory x3 (each SHOULD prompt - answer yes) ===")
     print(save_memory("James teaches Grade 4 ICT and mathematics.", "fact"))
     print(save_memory("Prefers concise responses without unnecessary preamble.", "preference"))
@@ -41,6 +46,11 @@ def main() -> None:
     print(save_memory("Battery reported at 100% charge during the test.", "fact"))
     print("Searching literal '100%' (should match only the exact substring):")
     for m in search_memory("100%"):
+        print(f"  #{m['id']} [{m['category']}] {m['content']}")
+
+    print("\n=== category fallback: query matches nothing, category given ===")
+    print("Searching 'totally unrelated phrase' in category='fact' (should fall back to listing facts, not return empty):")
+    for m in search_memory("totally unrelated phrase xyz", category="fact"):
         print(f"  #{m['id']} [{m['category']}] {m['content']}")
 
 

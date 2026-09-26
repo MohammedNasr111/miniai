@@ -10,6 +10,7 @@ from tools.filesystem.fs_tools import (
     search_files,
     write_file,
 )
+from tools.memory.memory_tools import list_memories, save_memory, search_memory
 
 TOOL_FUNCTIONS = {
     "list_directory": list_directory,
@@ -18,7 +19,12 @@ TOOL_FUNCTIONS = {
     "create_file": create_file,
     "write_file": write_file,
     "delete_file": delete_file,
+    "save_memory": save_memory,
+    "search_memory": search_memory,
+    "list_memories": list_memories,
 }
+
+MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
 
 TOOL_SCHEMAS = [
     {
@@ -105,6 +111,62 @@ TOOL_SCHEMAS = [
                     "path": {"type": "string", "description": "Absolute path to the file to delete."},
                 },
                 "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_memory",
+            "description": "Save an important fact, preference, project detail, or research finding to long-term memory for future conversations. This will prompt the user for confirmation. Only use this for information worth remembering long-term - not for casual conversational context.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "description": "The information to remember, written as a self-contained statement."},
+                    "category": {
+                        "type": "string",
+                        "enum": MEMORY_CATEGORIES,
+                        "description": "Which kind of memory this is.",
+                    },
+                },
+                "required": ["content", "category"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_memory",
+            "description": "Search long-term memory for previously saved information matching a text query. This is literal substring matching, not semantic search - it will not find conceptually related content phrased differently. If a category is specified and the exact query finds nothing, this automatically falls back to showing recent memories in that category instead of returning empty. If you get no results at all and no category was specified, try list_memories with a likely category, or retry with simpler/different keywords, before concluding nothing is remembered.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Text to look for in saved memories."},
+                    "category": {
+                        "type": "string",
+                        "enum": MEMORY_CATEGORIES,
+                        "description": "Optional: restrict the search to one category.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_memories",
+            "description": "List recently saved long-term memories, optionally filtered by category.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": MEMORY_CATEGORIES,
+                        "description": "Optional: only list memories in this category.",
+                    },
+                },
+                "required": [],
             },
         },
     },
