@@ -52,11 +52,21 @@ def main() -> None:
     rounds = 0
     while response.tool_calls and rounds < 5:
         history.append(
-            ChatMessage(role="assistant", content=response.content or "")
+            ChatMessage(
+                role="assistant",
+                content=response.content or "",
+                tool_calls=response.tool_calls,
+            )
         )
         history.extend(execute_tool_calls(response.tool_calls))
         response = _call_model(provider, history)
         rounds += 1
+    if response.tool_calls:
+        print(
+            f"\nStopped after {rounds} tool rounds without a final answer "
+            f"(round cap reached)."
+        )
+        return
     print(f"\nFinal answer: {response.content}")
 
 

@@ -1,15 +1,23 @@
 """Maps tool names to their callables and their JSON-schema
-descriptions for the LLM. Only the three AUTO_ALLOW filesystem tools
-are registered for now - CONFIRM/ALWAYS_CONFIRM tools (create, write,
-delete) get wired in once this loop is proven working.
+descriptions for the LLM.
 """
 
-from tools.filesystem.fs_tools import list_directory, read_file, search_files
+from tools.filesystem.fs_tools import (
+    create_file,
+    delete_file,
+    list_directory,
+    read_file,
+    search_files,
+    write_file,
+)
 
 TOOL_FUNCTIONS = {
     "list_directory": list_directory,
     "search_files": search_files,
     "read_file": read_file,
+    "create_file": create_file,
+    "write_file": write_file,
+    "delete_file": delete_file,
 }
 
 TOOL_SCHEMAS = [
@@ -51,6 +59,50 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Absolute path to the file to read."},
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_file",
+            "description": "Create a new file with the given content at the given path. Fails if the file already exists. This will prompt the user for confirmation before proceeding.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Absolute path to the file to create."},
+                    "content": {"type": "string", "description": "Text content to write into the new file."},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Overwrite an existing file's content at the given path, replacing whatever was there. This will prompt the user for confirmation before proceeding.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Absolute path to the file to overwrite."},
+                    "content": {"type": "string", "description": "Text content to replace the file's contents with."},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_file",
+            "description": "Permanently delete the file at the given path. This cannot be undone and will always prompt the user for confirmation, even if create_file or write_file was just confirmed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Absolute path to the file to delete."},
                 },
                 "required": ["path"],
             },

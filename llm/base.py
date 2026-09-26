@@ -14,6 +14,9 @@ class ChatMessage(BaseModel):
     role: str  # "system" | "user" | "assistant" | "tool"
     content: str
     tool_call_id: Optional[str] = None
+    # An assistant turn that requested tools must carry them, or the
+    # following tool-role message references a call the model cannot see.
+    tool_calls: Optional[list[dict[str, Any]]] = None
 
 
 class ChatResponse(BaseModel):

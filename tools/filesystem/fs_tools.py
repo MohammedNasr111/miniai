@@ -1,5 +1,10 @@
 """Filesystem tools. Each function checks its permission tier before
 acting - see security/gate.py for tiers.
+
+The mutating tools return a descriptive success string rather than None:
+the model reads the tool result to decide whether it is done, and a
+bare None serialized to "null" reads as a non-answer, which made it
+retry the same destructive call until the round cap.
 """
 
 import os
@@ -40,28 +45,37 @@ def read_file(path: str) -> str:
     return Path(path).read_text(encoding="utf-8", errors="replace")
 
 
-def create_file(path: str, content: str) -> None:
+def create_file(path: str, content: str) -> str:
     check_permission(
         action="create_file",
         tier=Tier.CONFIRM,
         description=f"Create new file: {path}\n---\n{content}\n---",
     )
-    Path(path).write_text(content, encoding="utf-8")
+    target = Path(path)
+    if target.exists():
+        raise FileExistsError(
+            f"File already exists, not overwriting: {path}. "
+            "Use write_file if you intend to replace its contents."
+        )
+    target.write_text(content, encoding="utf-8")
+    return f"Created {path} ({len(content.encode('utf-8'))} bytes written)."
 
 
-def write_file(path: str, content: str) -> None:
+def write_file(path: str, content: str) -> str:
     check_permission(
         action="write_file",
         tier=Tier.CONFIRM,
         description=f"Overwrite existing file: {path}\n---\n{content}\n---",
     )
     Path(path).write_text(content, encoding="utf-8")
+    return f"Overwrote {path} ({len(content.encode('utf-8'))} bytes written)."
 
 
-def delete_file(path: str) -> None:
+def delete_file(path: str) -> str:
     check_permission(
         action="delete_file",
         tier=Tier.ALWAYS_CONFIRM,
         description=f"PERMANENTLY DELETE: {path}",
     )
     os.remove(path)
+    return f"Deleted {path}. This cannot be undone."
