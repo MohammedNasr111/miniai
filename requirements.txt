@@ -2,3 +2,5 @@ requests>=2.32
 pydantic>=2.9
 lancedb>=0.13
 pyarrow>=17
+pypdf>=5.0
+reportlab>=4.0  # dev-only: generates the test PDF fixture in tests/fixtures/, never imported by app code
