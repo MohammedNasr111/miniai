@@ -1,0 +1,2 @@
+This is a standalone test file for incremental indexing.
+The secret test phrase is: purple caterpillar bicycle.

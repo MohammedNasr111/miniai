@@ -10,6 +10,7 @@ from tools.filesystem.fs_tools import (
     search_files,
     write_file,
 )
+from tools.knowledge.knowledge_tools import index_documents, search_knowledge
 from tools.memory.memory_tools import list_memories, save_memory, search_memory
 
 TOOL_FUNCTIONS = {
@@ -22,6 +23,8 @@ TOOL_FUNCTIONS = {
     "save_memory": save_memory,
     "search_memory": search_memory,
     "list_memories": list_memories,
+    "search_knowledge": search_knowledge,
+    "index_documents": index_documents,
 }
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
@@ -167,6 +170,38 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_knowledge",
+            "description": "Search the local knowledge base of indexed documents (PDFs, text, markdown files) for relevant content. Returns matching excerpts with their source file and page number for citation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Text to search for in indexed documents."},
+                    "top_k": {
+                        "type": "integer",
+                        "description": "Maximum number of matching excerpts to return. Defaults to 5.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "index_documents",
+            "description": "Index all supported documents (.pdf, .md, .txt) in a folder into the local knowledge base so they become searchable via search_knowledge. This will prompt the user for confirmation before proceeding, and will show how many files were found first.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "folder_path": {"type": "string", "description": "Absolute path to the folder whose documents should be indexed."},
+                },
+                "required": ["folder_path"],
             },
         },
     },
