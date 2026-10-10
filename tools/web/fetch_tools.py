@@ -84,8 +84,8 @@ def validate_url(url: str) -> None:
         rendered = ", ".join(str(ip) for ip in blocked)
         raise ValueError(
             f"Host {host!r} resolves to a blocked address ({rendered}). "
-            "Loopback, private, link-local, multicast, reserved, and "
-            "unspecified addresses are not fetched."
+            "Loopback, private, link-local, multicast, reserved, unspecified, "
+            "and other non-public addresses are not fetched."
         )
 
 

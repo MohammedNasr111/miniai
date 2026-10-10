@@ -52,15 +52,21 @@
   used for search only; pages are fetched and processed locally, so the
   search provider sees queries but not which pages are read. All fetched
   web content is untrusted data and must never be treated as instructions.
+  Page fetching (fetch_url) is CONFIRM-tier because an auto-allowed fetch
+  would let injected page text exfiltrate data through URLs; it blocks
+  non-public addresses on every redirect hop, caps size (3 MB) and time
+  (30 s total), and returns only the top-ranked chunks inside
+  untrusted-content markers. Known accepted gap: DNS is resolved
+  separately for validation and connection.
 - LLM access goes through a provider-swappable interface with a single
   chat() method (tools optional) - local (Lemonade) is default, cloud
   (OpenAI/Anthropic) is optional and explicit. Streaming is deferred until
   a latency-sensitive use case exists.
 - Every tool call must route through a single permission-gate middleware
   (security/) — not per-tool checks. Tiers: auto-allow (read/search/web
-  search/web fetch), confirm-first (create/modify files, terminal, memory
-  writes, indexing folders), always-confirm (delete, install, run unknown
-  executables).
+  search), confirm-first (create/modify files, terminal, memory
+  writes, indexing folders, web fetch), always-confirm (delete, install,
+  run unknown executables).
 
 ## Known model limitations (design around, do not rely on the model)
 - Qwen3-14B is unreliable at counting/enumeration even with thinking on.
