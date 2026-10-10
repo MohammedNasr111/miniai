@@ -232,3 +232,23 @@ Append one dated entry here after every completed task, in the form:
 - Cosmetic wrinkle on TEST 1, not a defect: the model recased the path as `...\Tests\fixtures\sample.pdf`. Windows is case-insensitive, the file is the same one, and page 1 is correct. Left alone.
 - **TEST 2 (index, CONFIRM) — PASS.** `python -m scripts.agent_loop "Index all documents in the folder tests/fixtures/knowledge_folder into the knowledge base."` with `yes` piped. The model resolved the relative folder against the project root from the system prompt and called `index_documents({'folder_path': 'C:\\Users\\...\\miniai\\tests\\fixtures\\knowledge_folder'})`. The CONFIRM prompt fired mid-loop — `[PERMISSION REQUIRED - CONFIRM]`, action `index_documents`, description showing `Found 1 supported file(s) (.md, .pdf, .txt)` — same interrupt pattern as Stage 3/4's mutating tools. After `yes`: `[TOOL RESULT] Indexed 1 chunks from 1 file(s) under ...\knowledge_folder.` Final answer accurately reported 1 file and 1 chunk, and pointed at `search_knowledge` for follow-up. Exactly one `[TOOL CALL]` line, so no retry. 91.3s.
 - Committed as `Stage 5: search_knowledge and index_documents verified working through real agent-loop tool-calling`.
+
+## 2026-10-10 — Stage 6 pre-flight: ctx 16384 persisted per-model; architecture synced
+- **Context size persisted, per-model only.** `lemonade load Qwen3-14B-GGUF --ctx-size 16384 --save-options`. Did not run `lemonade config set`. Unloaded (`No models loaded`), then a tiny chat with no `--ctx-size` reloaded the model. After that: `lemonade status` shows Qwen3-14B-GGUF **Ctx 16384**; llama-server command line contains `--ctx-size 16384`; `lemonade export Qwen3-14B-GGUF` has `"recipe_options": {"ctx_size": 16384}`; `lemonade config` still shows `ctx_size -1`. So the setting survives unload and is not global.
+- **Benchmark this decision rests on** (2026-10-09, thinking off, no tools, unique nonce, llama.cpp `timings.prompt_per_second`; cached_tokens 0–6). Prompt speed tracks prompt length, not allocated ctx:
+
+  | ctx | prompt_tokens | prompt tok/s | idle private GB | system used / 23.62 GB |
+  |---|---:|---:|---:|---|
+  | 4096 | 1508 | 93.40 | 9.05 | 13.73 |
+  | 4096 | 3440 | 110.20 | | |
+  | 8192 | 3442 | 116.80 | 9.72 | 14.38 |
+  | 8192 | 7285 | 82.00 | | |
+  | 16384 | 7282 | 80.69 | 10.98 | 15.68 |
+  | 16384 | 14542 | 65.05 | | |
+
+  Allocating 16384 vs 4096 cost ~1.9 GB private RAM and no speed. Real prompt rate at 1.5–7.5K tokens is ~80–117 tok/s. Stage 1's **29.1 tok/s prompt figure was a tiny-prompt artifact** (29 prompt tokens on the first chat), not the rate to plan web fetches around. Working target recorded in ARCHITECTURE.md: ~6K prompt tokens per call; tool results bounded in code; timeouts stay 90 s tool-selection / 300 s synthesis.
+- **Embedding model unaffected.** `python -m scripts.test_embeddings` PASS (768-dim, similarity 0.7365 vs 0.4588). With both loaded, `lemonade status` shows nomic-embed-text-v1-GGUF **Ctx 8192** (not 16384). System RAM with both resident: **13.69 / 23.62 GB**.
+- **Web search decision: Tavily.** Free tier, no card on file, so it cannot accidentally bill. Brave Search API now requires billing, which is why it was not chosen. Key lives in `.env` as `TAVILY_API_KEY` (gitignored). `.env.example` gained the placeholder line `TAVILY_API_KEY=` only; `.env` was not edited in this task. ARCHITECTURE.md records that Tavily is search-only, pages are fetched locally, and fetched web content is untrusted.
+- **No duplicate-tool-call guard exists**, despite the Stage 6 handoff claiming one. `scripts/agent_loop.py` has a 5-round cap; `agent/executor/executor.py` only appends "Do not retry this call." to a denial message. Recorded under Known model limitations. A guard is planned before web tools land.
+- ARCHITECTURE.md also synced to Stages 0–5 as done and Stage 6 as current, and to the actual provider shape (single `chat()`, streaming deferred), LanceDB + nomic embeddings + `distance` (lower is more similar), and the expanded permission tiers (memory writes and folder indexing are confirm-first; web fetch is auto-allow).
+- Current state: uncommitted, awaiting review. Qwen context is persisted at 16384. No web-search code yet.
