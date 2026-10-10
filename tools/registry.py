@@ -2,6 +2,7 @@
 descriptions for the LLM.
 """
 
+from security.gate import Tier
 from tools.filesystem.fs_tools import (
     create_file,
     delete_file,
@@ -26,6 +27,23 @@ TOOL_FUNCTIONS = {
     "search_knowledge": search_knowledge,
     "index_documents": index_documents,
 }
+
+# Used only by the duplicate-call guard. Each tool still enforces its own
+# tier through check_permission(); do not change a tool's tier here.
+TOOL_TIERS = {
+    "list_directory": Tier.AUTO_ALLOW,
+    "search_files": Tier.AUTO_ALLOW,
+    "read_file": Tier.AUTO_ALLOW,
+    "create_file": Tier.CONFIRM,
+    "write_file": Tier.CONFIRM,
+    "delete_file": Tier.ALWAYS_CONFIRM,
+    "save_memory": Tier.CONFIRM,
+    "search_memory": Tier.AUTO_ALLOW,
+    "list_memories": Tier.AUTO_ALLOW,
+    "search_knowledge": Tier.AUTO_ALLOW,
+    "index_documents": Tier.CONFIRM,
+}
+assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
 

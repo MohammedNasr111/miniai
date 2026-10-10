@@ -12,6 +12,7 @@ import platform
 import sys
 
 from agent.executor.executor import execute_tool_calls
+from agent.executor.guard import CallGuard
 from config import settings
 from llm.base import ChatMessage
 from llm.lemonade.provider import LemonadeProvider
@@ -51,6 +52,7 @@ def main() -> None:
     response = _call_model(provider, history)
     # Allow a couple of rounds of tool calls in case the model needs
     # more than one tool to answer (e.g. list, then read).
+    guard = CallGuard()
     rounds = 0
     while response.tool_calls and rounds < 5:
         history.append(
@@ -60,7 +62,7 @@ def main() -> None:
                 tool_calls=response.tool_calls,
             )
         )
-        history.extend(execute_tool_calls(response.tool_calls))
+        history.extend(execute_tool_calls(response.tool_calls, guard=guard))
         response = _call_model(provider, history)
         rounds += 1
     if response.tool_calls:

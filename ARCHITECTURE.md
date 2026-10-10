@@ -68,9 +68,10 @@
   as facts.
 - It may invent plausible reasons for things it does not know (e.g. why
   a permission was denied). Report facts, not guesses.
-- There is currently NO duplicate-tool-call guard; only a 5-round cap and
-  a 'Do not retry' message after denials. A guard is planned before web
-  tools land.
+- Duplicate tool calls are blocked by agent/executor/guard.py: an
+  identical mutating call is never re-run or re-prompted in one session;
+  an identical read-only call is re-run only if a mutating call has
+  succeeded since. Blocked calls still return a matching tool result.
 
 ## Roadmap
 Stage 0: environment setup (done)
