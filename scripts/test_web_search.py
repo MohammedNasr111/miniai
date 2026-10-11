@@ -222,13 +222,13 @@ def test_8() -> None:
         else:
             TOOL_FUNCTIONS["web_search"] = saved
         reset_session()
-    registry_unchanged = UNTRUSTED_SOURCE_TOOLS == {"fetch_url"}
-    not_registered = "web_search" not in TOOL_FUNCTIONS
-    ok = tainted and registry_unchanged and not_registered
+    registry_set = UNTRUSTED_SOURCE_TOOLS == {"fetch_url", "web_search"}
+    restored = TOOL_FUNCTIONS.get("web_search") is saved
+    ok = tainted and registry_set and restored
     _check(
         "8",
         ok,
-        f"tainted={tainted} registry={registry_unchanged} unregistered={not_registered}",
+        f"tainted={tainted} registry={registry_set} restored={restored}",
     )
 
 

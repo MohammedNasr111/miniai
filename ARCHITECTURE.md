@@ -67,7 +67,7 @@
   search), confirm-first (create/modify files, terminal, memory
   writes, indexing folders, web fetch), always-confirm (delete, install,
   run unknown executables). Session taint: once a tool in
-  UNTRUSTED_SOURCE_TOOLS (currently fetch_url) succeeds, the session is
+  UNTRUSTED_SOURCE_TOOLS (fetch_url and web_search) succeeds, the session is
   tainted. In a tainted session every CONFIRM/ALWAYS_CONFIRM prompt shows
   a warning banner, and every such action except fetch_url requires
   typing the exact action name - a plain 'yes' is denied. Live testing
