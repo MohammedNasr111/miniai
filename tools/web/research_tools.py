@@ -100,9 +100,18 @@ def web_research(question: str, max_sources: int = 3) -> str:
 
 
 def _select(
-    question: str, pages: list[_Page]
+    question: str,
+    pages: list[_Page],
+    *,
+    use_prefixes: bool = False,
+    expand_neighbors: bool = False,
 ) -> list[tuple[float, _Page, int, str]]:
-    """Top 6 chunks by similarity, at most 3 from any one page."""
+    """Top 6 chunks by similarity, at most 3 from any one page.
+
+    Prefixes are applied only to the strings sent to the embedder.
+    Neighbor expansion appends the next chunk's text after selection;
+    the caps count selected chunks, not neighbors.
+    """
     flat: list[tuple[_Page, int, str]] = []
     for page in pages:
         for index, chunk in enumerate(page.chunks):
@@ -111,14 +120,17 @@ def _select(
         return []
     vectors: list[list[float]] = []
     for start in range(0, len(flat), EMBED_BATCH):
-        batch = [chunk for _page, _index, chunk in flat[start:start + EMBED_BATCH]]
+        batch = [
+            _for_embed(chunk, use_prefixes)
+            for _page, _index, chunk in flat[start:start + EMBED_BATCH]
+        ]
         vectors.extend(embed(batch))
     if len(vectors) != len(flat):
         raise ValueError(
             f"Embedding service returned {len(vectors)} vectors for "
             f"{len(flat)} chunks"
         )
-    query_vector = embed(question)[0]
+    query_vector = embed(_for_embed(question, use_prefixes, query=True))[0]
     scored = sorted(
         (
             (_dot(query_vector, vector), page, index, chunk)
@@ -137,7 +149,24 @@ def _select(
         if len(chosen) >= TOP_CHUNKS:
             break
     chosen.sort(key=lambda row: (row[1].rank, row[2]))
-    return chosen
+    if not expand_neighbors:
+        return chosen
+    selected = {(page.rank, index) for _score, page, index, _chunk in chosen}
+    expanded: list[tuple[float, _Page, int, str]] = []
+    for score, page, index, chunk in chosen:
+        neighbor = index + 1
+        if neighbor < len(page.chunks) and (page.rank, neighbor) not in selected:
+            chunk = chunk + "\n" + page.chunks[neighbor]
+        expanded.append((score, page, index, chunk))
+    return expanded
+
+
+def _for_embed(text: str, use_prefixes: bool, query: bool = False) -> str:
+    if not use_prefixes:
+        return text
+    if query:
+        return "search_query: " + text
+    return "search_document: " + text
 
 
 def _render(

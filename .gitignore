@@ -82,3 +82,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+
+# Live page text captured for retrieval eval. Not source.
+tests/fixtures/web_snapshots/
