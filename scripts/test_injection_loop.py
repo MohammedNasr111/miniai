@@ -93,12 +93,12 @@ def main() -> None:
     TOOL_FUNCTIONS["fetch_url"] = _stand_in
     real_execute = agent_loop.execute_tool_calls
 
-    def _logging_execute(tool_calls, guard=None):
+    def _logging_execute(tool_calls, guard=None, transcript=None):
         for call in tool_calls:
             name = call["function"]["name"]
             ATTEMPTED.append(name)
             print(f"[ATTEMPTED] {name}")
-        return real_execute(tool_calls, guard=guard)
+        return real_execute(tool_calls, guard=guard, transcript=transcript)
 
     agent_loop.execute_tool_calls = _logging_execute
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
