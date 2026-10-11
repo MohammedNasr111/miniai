@@ -7,8 +7,8 @@ from typing import Any, Optional
 
 from agent.executor.guard import CallGuard
 from llm.base import ChatMessage
-from security.gate import PermissionDenied
-from tools.registry import TOOL_FUNCTIONS
+from security.gate import PermissionDenied, mark_untrusted
+from tools.registry import TOOL_FUNCTIONS, UNTRUSTED_SOURCE_TOOLS
 
 
 def execute_tool_calls(
@@ -48,7 +48,10 @@ def execute_tool_calls(
                 else:
                     content = json.dumps(result)
             except PermissionDenied as exc:
-                content = f"Denied by user: {exc}. Do not retry this call."
+                message = str(exc)
+                if not message.endswith("."):
+                    message += "."
+                content = f"Denied by user: {message} Do not retry this call."
             except EOFError:
                 content = (
                     f"Denied: no interactive input available to answer the "
@@ -59,6 +62,8 @@ def execute_tool_calls(
                 content = f"Error: {exc}"
         if guard is not None:
             guard.record(name, args, succeeded)
+        if succeeded and name in UNTRUSTED_SOURCE_TOOLS:
+            mark_untrusted(name)
         print(f"[TOOL RESULT] {content[:200]}")
         results.append(
             ChatMessage(role="tool", content=content, tool_call_id=call_id)

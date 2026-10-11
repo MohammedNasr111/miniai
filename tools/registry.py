@@ -48,6 +48,10 @@ TOOL_TIERS = {
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
+# A successful call to one of these marks the session as having read
+# untrusted content. The executor does the marking, not the tool.
+UNTRUSTED_SOURCE_TOOLS = {"fetch_url"}
+
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
 
 TOOL_SCHEMAS = [

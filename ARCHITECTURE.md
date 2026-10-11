@@ -66,7 +66,15 @@
   (security/) — not per-tool checks. Tiers: auto-allow (read/search/web
   search), confirm-first (create/modify files, terminal, memory
   writes, indexing folders, web fetch), always-confirm (delete, install,
-  run unknown executables).
+  run unknown executables). Session taint: once a tool in
+  UNTRUSTED_SOURCE_TOOLS (currently fetch_url) succeeds, the session is
+  tainted. In a tainted session every CONFIRM/ALWAYS_CONFIRM prompt shows
+  a warning banner, and every such action except fetch_url requires
+  typing the exact action name - a plain 'yes' is denied. Live testing
+  showed the model will attempt injected deletes after a user's 'go
+  ahead'; this gate, not the model, is the safety boundary. Accepted
+  residual risk: a manipulated model can still ask the user to type the
+  action name, so the banner relies on the user.
 
 ## Known model limitations (design around, do not rely on the model)
 - Qwen3-14B is unreliable at counting/enumeration even with thinking on.
