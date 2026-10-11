@@ -272,12 +272,6 @@ TOOL_SCHEMAS = [
                         "type": "string",
                         "description": "The question to research on the public web.",
                     },
-                    "max_sources": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 4,
-                        "description": "How many pages to read. Optional. Defaults to 3.",
-                    },
                 },
                 "required": ["question"],
             },

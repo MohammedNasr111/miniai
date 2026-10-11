@@ -12,9 +12,8 @@ LEMONADE_BASE_URL = "http://localhost:13305/api/v1"
 LEMONADE_MODEL = "Qwen3-14B-GGUF"
 LEMONADE_TIMEOUT_SECONDS = 90  # generous: covers the ~20s cold-load seen
                                # in Stage 1 (idle-unload) plus generation
-LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 300  # thinking-on synthesis calls measured
-                                          # 98s warm at ~4 tok/s; 90s is not
-                                          # enough once reasoning is enabled
+LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 450  # Measured up to 263 s for web_research synthesis (thinking on, ~4K
+                                          # prompt tokens); Lemonade's own proxy limit is 600 s.
 ENABLE_THINKING_DEFAULT = False  # per Stage 1 benchmarking decision
 EMBEDDING_MODEL = "nomic-embed-text-v1-GGUF"
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")  # may be None; never print or log this

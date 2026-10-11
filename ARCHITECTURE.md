@@ -38,8 +38,8 @@
   and no speed). Prompt processing runs ~65-117 tok/s and slows as prompts
   grow, so the working target is ~6K prompt tokens per call. Tool results
   must be bounded in code (e.g. return relevant chunks, never whole web
-  pages). Timeouts are per-call: 90 s for tool-selection, 300 s for
-  synthesis.
+  pages). Timeouts are per-call: 90 s for tool-selection, 450 s for
+  synthesis (web_research synthesis measured up to 263 s).
 - Structured memory: SQLite. Vector store: LanceDB (embedded, file-based -
   no separate DB server). Embeddings: nomic-embed-text-v1-GGUF served by
   Lemonade's /embeddings endpoint, 768-dim, pre-normalized (cosine and dot
@@ -47,16 +47,20 @@
   LOWER means more similar.
 - Browser automation: Playwright. General Windows UI control: Windows UI
   Automation first; screenshot/vision only as a fallback of last resort.
-- Web search: Tavily API (free tier, no card on file, key in .env as
-  TAVILY_API_KEY), behind a swappable search-provider interface. Tavily is
-  used for search only; pages are fetched and processed locally, so the
-  search provider sees queries but not which pages are read. All fetched
-  web content is untrusted data and must never be treated as instructions.
-  Page fetching (fetch_url) is CONFIRM-tier because an auto-allowed fetch
-  would let injected page text exfiltrate data through URLs; it blocks
-  non-public addresses on every redirect hop, caps size (3 MB) and time
-  (30 s total), and returns only the top-ranked chunks inside
-  untrusted-content markers. Known accepted gap: DNS is resolved
+- Web research: the model's web tool is web_research (AUTO_ALLOW,
+  taints the session). In code, not by model choice: it searches Tavily
+  (free tier, no card, key in .env as TAVILY_API_KEY, behind a swappable
+  SearchProvider), fetches the top 4 live pages, chunks them, ranks
+  passages across pages with local embeddings, and returns the top 6
+  (max 3 per page) each with its next chunk appended, plus source URLs,
+  inside untrusted-content markers. Verification is done in code because
+  live tests showed the model never chose to fetch pages when given only
+  search snippets, and answered from stale snippets. Tavily sees queries
+  only; pages are fetched locally. fetch_url (CONFIRM) remains for a
+  specific URL the user gives: it blocks non-public addresses on every
+  redirect hop, caps size (3 MB) and time (30 s), and returns only
+  top-ranked chunks. web_search exists as an internal building block and
+  is not exposed to the model. Known accepted gap: DNS is resolved
   separately for validation and connection.
 - LLM access goes through a provider-swappable interface with a single
   chat() method (tools optional) - local (Lemonade) is default, cloud
@@ -86,6 +90,14 @@
   identical mutating call is never re-run or re-prompted in one session;
   an identical read-only call is re-run only if a mutating call has
   succeeded since. Blocked calls still return a matching tool result.
+- Web answers depend on what search returns that day. Live fetching,
+  4 sources and neighbor expansion reduced but did not eliminate cases
+  where no authoritative page is retrieved; a correct answer is not
+  guaranteed.
+- Quotes the model attributes to sources are not verified against the
+  retrieved text (planned for Stage 10 evaluation).
+- The vector index does not yet detect files changed since indexing, so
+  search_knowledge can return outdated content (fix in progress).
 
 ## Roadmap
 Stage 0: environment setup (done)
@@ -94,8 +106,8 @@ Stage 2: minimal agent loop (chat only, no tools) (done)
 Stage 3: filesystem tools + permission gate (done)
 Stage 4: memory (SQLite) (done)
 Stage 5: RAG (LanceDB) (done)
-Stage 6: web research (current stage)
-Stage 7: browser automation (Playwright)
+Stage 6: web research (done)
+Stage 7: browser automation (Playwright) (next)
 Stage 8: computer control (UI Automation)
 Stage 9: coding agent
 Stage 10: evaluation / self-improvement loop

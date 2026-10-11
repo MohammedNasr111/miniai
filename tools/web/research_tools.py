@@ -54,7 +54,7 @@ def _short_reason(exc: ValueError) -> str:
     return _safe(str(exc))[:200]
 
 
-def web_research(question: str, max_sources: int = 3) -> str:
+def web_research(question: str, max_sources: int = 4) -> str:
     """Search, fetch up to max_sources pages, and return ranked passages."""
     check_permission(
         action="web_research",
@@ -95,7 +95,7 @@ def web_research(question: str, max_sources: int = 3) -> str:
                 chunks=chunks,
             )
         )
-    chosen = _select(question, pages)
+    chosen = _select(question, pages, expand_neighbors=True)
     return _render(question, pages, chosen, skipped)
 
 
