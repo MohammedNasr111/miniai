@@ -12,13 +12,12 @@ from unittest.mock import patch
 from agent.executor.executor import execute_tool_calls
 from config import settings
 from security.gate import is_tainted, reset_session
-from tools.registry import TOOL_FUNCTIONS, UNTRUSTED_SOURCE_TOOLS
+from tools.registry import TOOL_FUNCTIONS, TOOL_SCHEMAS, TOOL_TIERS, UNTRUSTED_SOURCE_TOOLS
 from tools.web.search_tools import web_search
 from tools.web.untrusted import BEGIN_MARKER, END_MARKER
 
 FAILURES = 0
 FAKE_KEY = "tvly-FAKEKEY-DO-NOT-LEAK"
-_MISSING = object()
 
 
 def _check(name: str, ok: bool, detail: str) -> None:
@@ -195,8 +194,16 @@ def test_7() -> None:
 
 
 def test_8() -> None:
+    """web_search is not registered. A stubbed success still taints when
+    the executor's untrusted set names that tool.
+    """
     reset_session()
-    saved = TOOL_FUNCTIONS.get("web_search", _MISSING)
+    schema_names = {item["function"]["name"] for item in TOOL_SCHEMAS}
+    not_registered = (
+        "web_search" not in TOOL_FUNCTIONS
+        and "web_search" not in TOOL_TIERS
+        and "web_search" not in schema_names
+    )
 
     def _ok(**_kwargs):
         return "searched"
@@ -217,18 +224,16 @@ def test_8() -> None:
             )
         tainted = is_tainted()
     finally:
-        if saved is _MISSING:
-            TOOL_FUNCTIONS.pop("web_search", None)
-        else:
-            TOOL_FUNCTIONS["web_search"] = saved
+        TOOL_FUNCTIONS.pop("web_search", None)
         reset_session()
-    registry_set = UNTRUSTED_SOURCE_TOOLS == {"fetch_url", "web_search"}
-    restored = TOOL_FUNCTIONS.get("web_search") is saved
-    ok = tainted and registry_set and restored
+    untrusted = UNTRUSTED_SOURCE_TOOLS == {"fetch_url", "web_research"}
+    still_absent = "web_search" not in TOOL_FUNCTIONS
+    ok = not_registered and tainted and untrusted and still_absent
     _check(
         "8",
         ok,
-        f"tainted={tainted} registry={registry_set} restored={restored}",
+        f"not_registered={not_registered} tainted={tainted} "
+        f"untrusted={untrusted} still_absent={still_absent}",
     )
 
 

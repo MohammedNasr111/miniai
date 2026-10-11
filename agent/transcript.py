@@ -6,6 +6,7 @@ variables, or HTTP headers.
 """
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -15,13 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Transcript:
-    """Opened once per agent run at logs/agent_<YYYYMMDD-HHMMSS>.log."""
+    """Opened once per agent run at logs/agent_<YYYYMMDD-HHMMSS>_<pid>.log."""
 
     def __init__(self) -> None:
         log_dir = ROOT / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.path = log_dir / f"agent_{stamp}.log"
+        self.path = log_dir / f"agent_{stamp}_{os.getpid()}.log"
         self._file = self.path.open("w", encoding="utf-8")
         self.rounds = 0
         self.round_cap_hit = False
