@@ -96,8 +96,11 @@
   guaranteed.
 - Quotes the model attributes to sources are not verified against the
   retrieved text (planned for Stage 10 evaluation).
-- The vector index does not yet detect files changed since indexing, so
-  search_knowledge can return outdated content (fix in progress).
+- search_knowledge flags each result's freshness (current / modified
+  since indexing / file missing / unknown) using a per-file fingerprint
+  recorded at indexing time; it never re-indexes on its own, because
+  indexing is CONFIRM-tier. Accepted limitation: a content change that preserves the file's exact
+  modification time is reported as current.
 
 ## Roadmap
 Stage 0: environment setup (done)

@@ -205,7 +205,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_knowledge",
-            "description": "Search the local knowledge base of indexed documents (PDFs, text, markdown files) for relevant content. Returns matching excerpts with their source file and page number for citation.",
+            "description": "Search the local knowledge base of indexed documents (PDFs, text, markdown files) for relevant content. Returns matching excerpts with their source file and page number for citation. Each result has a freshness field. If it is not 'current', the indexed text may be outdated: say so, and use read_file on the source path for the current content.",
             "parameters": {
                 "type": "object",
                 "properties": {

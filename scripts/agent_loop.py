@@ -13,6 +13,8 @@ import sys
 import time
 from datetime import datetime
 
+import requests
+
 from agent.executor.executor import execute_tool_calls
 from agent.executor.guard import CallGuard
 from agent.transcript import Transcript
@@ -22,6 +24,20 @@ from llm.lemonade.provider import LemonadeProvider
 from security.gate import reset_session
 from tools.registry import TOOL_SCHEMAS
 from tools.web.untrusted import BEGIN_MARKER, END_MARKER
+
+
+def _require_lemonade() -> None:
+    """Exit 2 if Lemonade is unreachable. No transcript is created yet."""
+    health_url = f"{settings.LEMONADE_BASE_URL.rstrip('/')}/health"
+    try:
+        response = requests.get(health_url, timeout=3)
+        response.raise_for_status()
+    except requests.RequestException:
+        print(
+            f"Lemonade Server is not reachable at {settings.LEMONADE_BASE_URL}. "
+            "Start it (see ARCHITECTURE.md) and try again."
+        )
+        sys.exit(2)
 
 
 def clean_final_answer(text: str) -> str:
@@ -163,6 +179,7 @@ def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python -m scripts.agent_loop \"your question\"")
         return
+    _require_lemonade()
     provider = LemonadeProvider()
     transcript = Transcript()
     started = time.perf_counter()
