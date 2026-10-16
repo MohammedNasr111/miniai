@@ -6,3 +6,5 @@ pypdf>=5.0
 reportlab>=4.0  # dev-only: generates the test PDF fixture in tests/fixtures/, never imported by app code
 trafilatura>=2.0
 python-dotenv>=1.0
+# Pinned: session.py uses Playwright internals (ws._impl_obj) for WebSocket close.
+playwright==1.64.0

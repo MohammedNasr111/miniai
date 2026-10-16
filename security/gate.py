@@ -6,14 +6,19 @@ Tiers, per ARCHITECTURE.md's security section:
   ALWAYS_CONFIRM  - delete files, install software, run unknown executables
 
 After untrusted web content has been read, CONFIRM and ALWAYS_CONFIRM
-actions other than fetch_url require the user to type the action name.
-Untainted sessions still accept "yes".
+actions other than those in TAINT_YESNO_ACTIONS require the user to type
+the action name. Untainted sessions still accept "yes".
 """
 
 from enum import Enum
 
 _tainted = False
 _sources: list[str] = []
+
+# When the session is tainted, these CONFIRM actions still accept a plain
+# "yes". They cannot type into fields (so they cannot exfiltrate via form
+# input); the only user-data channel is a URL shown in full on the prompt.
+TAINT_YESNO_ACTIONS = {"fetch_url", "browser_open", "browser_click"}
 
 
 class Tier(Enum):
@@ -53,8 +58,8 @@ def check_permission(action: str, tier: Tier, description: str) -> None:
     "remember my choice" option yet, by design — every CONFIRM and
     ALWAYS_CONFIRM action asks every time until we decide otherwise.
     Once the session is tainted, the same prompt is shown under a warning,
-    and every action except fetch_url requires the action name instead of
-    "yes".
+    and every action except those in TAINT_YESNO_ACTIONS requires the
+    action name instead of "yes".
     """
     if tier == Tier.AUTO_ALLOW:
         return
@@ -68,7 +73,11 @@ def check_permission(action: str, tier: Tier, description: str) -> None:
     print(f"\n[PERMISSION REQUIRED - {tier.value.upper()}]")
     print(f"Action: {action}")
     print(description)
-    if is_tainted() and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM) and action != "fetch_url":
+    if (
+        is_tainted()
+        and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM)
+        and action not in TAINT_YESNO_ACTIONS
+    ):
         answer = input(f"Type {action} to approve, anything else denies: ").strip()
         if answer != action:
             raise PermissionDenied(

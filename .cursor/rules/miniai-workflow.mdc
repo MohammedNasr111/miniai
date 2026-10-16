@@ -1,0 +1,20 @@
+---
+description: MiniAI working rules for every task
+alwaysApply: true
+---
+
+# MiniAI working rules (apply to every task)
+- If your own tooling surfaces a clarifying question, STOP and report it
+  back for an answer - do not pick a default and continue.
+- Never commit unless the task explicitly says to commit.
+- In every report, paste the FULL contents of every new file and the FULL
+  diff of every changed code file. Never summarize, abbreviate or elide
+  code or test output with '...' or 'see workspace'.
+- Verify results independently (on disk, in the database, in logs) rather
+  than trusting a model's or a script's own claims.
+- Never print, log or paste secrets from .env.
+- Append a dated PROJECT_LOG.md entry for every completed task.
+- If full code or output is too long for the report, write ALL of it to
+  logs/review_<YYYYMMDD-HHMM>_<task>.log (git-ignored) and say so at the
+  top of the report. The user attaches that file. Never point to 'tool
+  output above' or 'the workspace' - the reviewer cannot see either.

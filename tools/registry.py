@@ -13,6 +13,7 @@ from tools.filesystem.fs_tools import (
 )
 from tools.knowledge.knowledge_tools import index_documents, search_knowledge
 from tools.memory.memory_tools import list_memories, save_memory, search_memory
+from tools.browser.browser_tools import browser_click, browser_observe, browser_open
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
 
@@ -30,6 +31,9 @@ TOOL_FUNCTIONS = {
     "index_documents": index_documents,
     "fetch_url": fetch_url,
     "web_research": web_research,
+    "browser_open": browser_open,
+    "browser_observe": browser_observe,
+    "browser_click": browser_click,
 }
 
 # Used only by the duplicate-call guard. Each tool still enforces its own
@@ -48,12 +52,21 @@ TOOL_TIERS = {
     "index_documents": Tier.CONFIRM,
     "fetch_url": Tier.CONFIRM,
     "web_research": Tier.AUTO_ALLOW,
+    "browser_open": Tier.CONFIRM,
+    "browser_observe": Tier.AUTO_ALLOW,
+    "browser_click": Tier.CONFIRM,
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
 # A successful call to one of these marks the session as having read
 # untrusted content. The executor does the marking, not the tool.
-UNTRUSTED_SOURCE_TOOLS = {"fetch_url", "web_research"}
+UNTRUSTED_SOURCE_TOOLS = {
+    "fetch_url",
+    "web_research",
+    "browser_open",
+    "browser_observe",
+    "browser_click",
+}
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
 
@@ -274,6 +287,57 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["question"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_open",
+            "description": "Open a web page in the agent's own visible browser and return what is on it (numbered clickable elements plus text), wrapped as untrusted content. Requires user confirmation. Use only when the user asks to look at or interact with a specific website; for questions, use web_research.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "Public http or https URL to open in the browser.",
+                    },
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_observe",
+            "description": "Re-read the current browser page. Optionally pass looking_for (a few words) to bring matching elements and text to the top. Element numbers are only valid until the page changes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "looking_for": {
+                        "type": "string",
+                        "description": "Optional words to prioritize in the observation.",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_click",
+            "description": "Click a numbered element from the most recent observation. Requires user confirmation. Returns the page after the click.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ref": {
+                        "type": "integer",
+                        "description": "Element number from the most recent observation.",
+                    },
+                },
+                "required": ["ref"],
             },
         },
     },

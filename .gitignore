@@ -85,3 +85,6 @@ $RECYCLE.BIN/
 
 # Live page text captured for retrieval eval. Not source.
 tests/fixtures/web_snapshots/
+
+# Chromium profile used by tools/browser/session.py. Holds cookies and history.
+browser_profile/

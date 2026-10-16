@@ -22,8 +22,15 @@ from config import settings
 from llm.base import ChatMessage
 from llm.lemonade.provider import LemonadeProvider
 from security.gate import reset_session
+from tools.browser.browser_tools import close_session
 from tools.registry import TOOL_SCHEMAS
 from tools.web.untrusted import BEGIN_MARKER, END_MARKER
+
+BROWSER_TOOL_NAMES = frozenset({"browser_open", "browser_observe", "browser_click"})
+BROWSER_OMITTED = (
+    "[Earlier browser observation omitted to save context. "
+    "Use the latest observation or call browser_observe.]"
+)
 
 
 def _require_lemonade() -> None:
@@ -73,7 +80,34 @@ def clean_final_answer(text: str) -> str:
     return "\n".join(collapsed).strip()
 
 
+def compress_browser_history(history: list) -> None:
+    """Replace older browser tool results in place; keep the latest full.
+
+    The transcript already logged the full tool results. tool_call_id and
+    message count are unchanged.
+    """
+    id_to_name: dict[str, str] = {}
+    for message in history:
+        if message.role == "assistant" and message.tool_calls:
+            for call in message.tool_calls:
+                call_id = call.get("id")
+                name = (call.get("function") or {}).get("name")
+                if call_id and name:
+                    id_to_name[call_id] = name
+    browser_indices = [
+        index
+        for index, message in enumerate(history)
+        if message.role == "tool"
+        and id_to_name.get(message.tool_call_id) in BROWSER_TOOL_NAMES
+    ]
+    if len(browser_indices) <= 1:
+        return
+    for index in browser_indices[:-1]:
+        history[index].content = BROWSER_OMITTED
+
+
 def _call_model(provider, history, transcript=None):
+    compress_browser_history(history)
     has_tool_results = any(m.role == "tool" for m in history)
     if has_tool_results:
         enable_thinking = True
@@ -168,7 +202,9 @@ def system_prompt() -> str:
         "for a specific URL the user gives you. Cite the URLs your answer relies "
         "on. "
         "Never copy the untrusted-content markers or blocks of quoted page "
-        "text into your answer; summarize in your own words and cite URLs."
+        "text into your answer; summarize in your own words and cite URLs. "
+        "Browser element numbers are only valid for the most recent "
+        "observation; if unsure, call browser_observe first."
     )
 
 
@@ -211,6 +247,7 @@ def main() -> None:
             round_cap_hit=transcript.round_cap_hit,
         )
     finally:
+        close_session()
         transcript.close()
         print(f"Transcript: {transcript.path}")
 

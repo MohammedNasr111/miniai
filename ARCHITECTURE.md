@@ -17,8 +17,10 @@
   purpose-built for this hardware tier.
   Install: `winget install --id AMD.LemonadeServer -e --source winget`.
   The CLI command is `lemonade` (not `lemonade-server`). The default port
-  is 13305 (not 8000). The installer runs the server automatically as a
-  background service — no manual `lemonade serve` step is needed.
+  is 13305 (not 8000). The installer adds a Startup-folder shortcut (LemonadeServer.exe
+  --silent), so the server starts at login; it is not a Windows
+  service. scripts/agent_loop.py checks /health first and exits with a
+  clear message if the server is down.
 - Default model: **Qwen3-14B-GGUF** (llamacpp/vulkan recipe, ~8GB on disk).
   Thinking mode (`chat_template_kwargs.enable_thinking`) is PER-CALL, not a
   blanket default: OFF for tool-selection calls (deciding which tool to call
@@ -101,6 +103,20 @@
   recorded at indexing time; it never re-indexes on its own, because
   indexing is CONFIRM-tier. Accepted limitation: a content change that preserves the file's exact
   modification time is reported as current.
+- Browser DNS rebinding: requests are checked per host when first seen,
+  and Chromium's own local-network protection could not be verified to
+  apply; a page that rebinds its domain to a local address might reach
+  local services. Mitigated by per-open confirmation and a visible
+  browser window.
+- A hostile page controls what its own elements do: browser_click
+  verifies the clicked element is the one observed (same node, label and
+  link), but cannot stop a page from changing its own button's behaviour.
+  This is why the agent uses its own browser profile and never the
+  user's accounts.
+- search_memory is AUTO_ALLOW, so injected content can make the model
+  read memories without a prompt; any attempt to send them out through
+  browser_open or fetch_url is stopped at the confirmation prompt, which
+  shows the full URL.
 
 ## Roadmap
 Stage 0: environment setup (done)
