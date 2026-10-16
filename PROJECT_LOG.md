@@ -373,3 +373,11 @@ Append one dated entry here after every completed task, in the form:
 ## 2026-10-16 — Test isolation: temporary memory/index stores; real stores emptied
 - `config/settings.py` adds `MEMORY_DB_PATH` / `VECTOR_DB_PATH` from `MINIAI_MEMORY_DB` / `MINIAI_VECTOR_DB` (defaults: `memory/database/miniai_memory.db`, `memory/vector/lancedb`). `memory/database/db.py` and `memory/vector/store.py` use those settings.
 - `tests/support.py`: `use_temp_data()` (must run before project imports) and `assert_not_real_data()`. Writing scripts converted: `test_memory_tools`, `test_knowledge_tools`, `test_search_knowledge`, `ingest_documents` (fixture loader), `test_index_freshness`, `test_scripted_exfil` (seeds one fake fact), `test_injection_loop`. Real memory mtime/size/rows and real lancedb file listing unchanged after the suite. Real stores contained only known fixture rows/sources; both deleted so the agent starts empty. ARCHITECTURE.md: tests never touch real data.
+
+## 2026-10-16 — Stage 7b: browser_type, decoded URLs, form destinations, atomic capture
+- `tools/web/url_display.py`: `describe_url` shows the full URL plus decoded path/query/fragment when the URL carries data. Wired into `fetch_url`, `browser_open`, and `browser_click` (link targets and form destinations).
+- `observe()` captures ElementHandles in the same evaluation that assigns refs (atomic). Submit controls store `formAction`/`formMethod`; click prompts add `Submits a form to: … (method …)`.
+- `browser_type` (CONFIRM, not in TAINT_YESNO_ACTIONS; in UNTRUSTED_SOURCE_TOOLS and browser history compression). Refuses passwords/payment fields without prompting. Typed confirmation required when tainted.
+- Hostile fixture gained a Search textbox. `test_scripted_exfil` also asserts plain decoded memory in the open prompt. New `test_scripted_type_exfil`: yes under taint denies typing; field stays empty.
+- Offline tests 1–8 PASS. Observe Wikipedia wall time: legacy querySelector path ~102 ms, atomic ~34–53 ms. Checks 16/17 PASS.
+- Live test 9 PASS (679.2 s): open Wikipedia → observe search → `browser_type` "ATP synthase" (typed name) → open search URL (yes). Stdin had two unused trailing `yes` lines (model did not click Search). Final answer quoted the ATP synthase lead sentence. Stage 7 marked done in ARCHITECTURE.md. Review bundle: `logs/review_20261016-2330_stage7b.log`.

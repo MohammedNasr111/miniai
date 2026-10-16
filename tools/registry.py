@@ -13,7 +13,12 @@ from tools.filesystem.fs_tools import (
 )
 from tools.knowledge.knowledge_tools import index_documents, search_knowledge
 from tools.memory.memory_tools import list_memories, save_memory, search_memory
-from tools.browser.browser_tools import browser_click, browser_observe, browser_open
+from tools.browser.browser_tools import (
+    browser_click,
+    browser_observe,
+    browser_open,
+    browser_type,
+)
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
 
@@ -34,6 +39,7 @@ TOOL_FUNCTIONS = {
     "browser_open": browser_open,
     "browser_observe": browser_observe,
     "browser_click": browser_click,
+    "browser_type": browser_type,
 }
 
 # Used only by the duplicate-call guard. Each tool still enforces its own
@@ -55,6 +61,7 @@ TOOL_TIERS = {
     "browser_open": Tier.CONFIRM,
     "browser_observe": Tier.AUTO_ALLOW,
     "browser_click": Tier.CONFIRM,
+    "browser_type": Tier.CONFIRM,
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
@@ -66,6 +73,7 @@ UNTRUSTED_SOURCE_TOOLS = {
     "browser_open",
     "browser_observe",
     "browser_click",
+    "browser_type",
 }
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
@@ -338,6 +346,27 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["ref"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_type",
+            "description": "Type text into a numbered text field from the most recent observation. Requires the user to confirm the exact text. Never use it for passwords or payment details. Submit by clicking the form's button afterwards.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ref": {
+                        "type": "integer",
+                        "description": "Element number from the most recent observation.",
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Exact text to type into the field.",
+                    },
+                },
+                "required": ["ref", "text"],
             },
         },
     },

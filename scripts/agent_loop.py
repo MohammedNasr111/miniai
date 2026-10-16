@@ -26,7 +26,12 @@ from tools.browser.browser_tools import close_session
 from tools.registry import TOOL_SCHEMAS
 from tools.web.untrusted import BEGIN_MARKER, END_MARKER
 
-BROWSER_TOOL_NAMES = frozenset({"browser_open", "browser_observe", "browser_click"})
+BROWSER_TOOL_NAMES = frozenset({
+    "browser_open",
+    "browser_observe",
+    "browser_click",
+    "browser_type",
+})
 BROWSER_OMITTED = (
     "[Earlier browser observation omitted to save context. "
     "Use the latest observation or call browser_observe.]"

@@ -10,6 +10,7 @@ surface as ValueError, never as a Playwright exception.
 """
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -27,6 +28,10 @@ from tools.web.untrusted import (
     sanitize,
 )
 
+# Cursor/sandbox sometimes points Playwright at an empty cache. Prefer the
+# normal user install so agent_loop and tests find Chromium.
+os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
+
 PROFILE_DIR = Path(__file__).resolve().parent.parent.parent / "browser_profile"
 NAVIGATION_TIMEOUT_MS = 30_000
 CLICK_TIMEOUT_MS = 10_000
@@ -38,6 +43,8 @@ MAX_TEXT_CHARS = 3000
 TEXT_LOOKAHEAD_BEFORE = 300
 REF_ATTRIBUTE = "data-miniai-ref"
 
+# Returns { data: <serializable>, elements: [DOM nodes...] } so handles and
+# metadata come from the same evaluation (atomic capture).
 _OBSERVE_JS = """
 ([maxElements, maxName, refAttr, lookingFor]) => {
   for (const el of document.querySelectorAll('[' + refAttr + ']')) {
@@ -91,6 +98,35 @@ _OBSERVE_JS = """
     }
     return '';
   };
+  const formInfo = (el) => {
+    const tag = el.tagName;
+    const type = (el.type || '').toLowerCase();
+    const isSubmit = (
+      (tag === 'BUTTON' && (!type || type === 'submit'))
+      || (tag === 'INPUT' && (type === 'submit' || type === 'image'))
+    );
+    if (!isSubmit || !el.form) {
+      return { formAction: null, formMethod: null };
+    }
+    const action = el.form.action || '';
+    const method = (el.form.method || 'get').toUpperCase();
+    return {
+      formAction: action || null,
+      formMethod: method || 'GET',
+    };
+  };
+  const fieldMeta = (el) => {
+    const tag = el.tagName;
+    let inputType = null;
+    if (tag === 'INPUT') inputType = (el.type || 'text').toLowerCase();
+    else if (tag === 'TEXTAREA') inputType = 'textarea';
+    return {
+      inputType: inputType,
+      autocomplete: el.getAttribute('autocomplete') || '',
+      nameAttr: el.getAttribute('name') || '',
+      idAttr: el.getAttribute('id') || '',
+    };
+  };
 
   let scope = null;
   let scopeLabel = 'whole page';
@@ -139,15 +175,25 @@ _OBSERVE_JS = """
   }
 
   const items = [];
+  const elements = [];
   for (const el of ordered.slice(0, maxElements)) {
     const ref = items.length + 1;
     el.setAttribute(refAttr, String(ref));
+    const form = formInfo(el);
+    const fields = fieldMeta(el);
     items.push({
       ref: ref,
       role: roleOf(el),
       name: nameOf(el),
       href: (el.tagName === 'A' && el.href) ? el.href : null,
+      formAction: form.formAction,
+      formMethod: form.formMethod,
+      inputType: fields.inputType,
+      autocomplete: fields.autocomplete,
+      nameAttr: fields.nameAttr,
+      idAttr: fields.idAttr,
     });
+    elements.push(el);
   }
 
   const fullText = collapse(scope.innerText || '');
@@ -167,22 +213,28 @@ _OBSERVE_JS = """
   }
   const text = fullText.slice(textStart, textStart + 3000);
   return {
-    total: allVisible.length,
-    items: items,
-    text: text,
-    scopeLabel: scopeLabel,
-    textStart: textStart,
-    textOffset: textOffset,
+    data: {
+      total: allVisible.length,
+      items: items,
+      text: text,
+      scopeLabel: scopeLabel,
+      textStart: textStart,
+      textOffset: textOffset,
+    },
+    elements: elements,
   };
 }
 """
 
 
-# Re-read role/name/href on a live element (same rules as _OBSERVE_JS nameOf/roleOf).
+# Re-read role/name/href/form on a live element (same rules as observe).
 _ELEMENT_SNAPSHOT_JS = """
 (el, maxName) => {
   if (!el || !el.isConnected) {
-    return { detached: true, role: null, name: null, href: null };
+    return {
+      detached: true, role: null, name: null, href: null,
+      formAction: null, formMethod: null,
+    };
   }
   const collapse = (s) => (s || '').replace(/\\s+/g, ' ').trim();
   const roleOf = (node) => {
@@ -215,11 +267,25 @@ _ELEMENT_SNAPSHOT_JS = """
     }
     return '';
   };
+  const tag = el.tagName;
+  const type = (el.type || '').toLowerCase();
+  const isSubmit = (
+    (tag === 'BUTTON' && (!type || type === 'submit'))
+    || (tag === 'INPUT' && (type === 'submit' || type === 'image'))
+  );
+  let formAction = null;
+  let formMethod = null;
+  if (isSubmit && el.form) {
+    formAction = el.form.action || null;
+    formMethod = (el.form.method || 'get').toUpperCase();
+  }
   return {
     detached: false,
     role: roleOf(el),
     name: nameOf(el),
     href: (el.tagName === 'A' && el.href) ? el.href : null,
+    formAction: formAction,
+    formMethod: formMethod,
   };
 }
 """
@@ -265,6 +331,7 @@ class BrowserSession:
         self.dialogs: list[dict] = []
         self.last_elements: dict[int, dict] = {}
         self._element_handles: dict[int, object] = {}
+        self._observe_root_handle = None
         self._host_decisions: dict[str, Optional[str]] = {}
         self._playwright = None
         self._context = None
@@ -408,6 +475,12 @@ class BrowserSession:
             except Exception:
                 pass
         self._element_handles = {}
+        if self._observe_root_handle is not None:
+            try:
+                self._observe_root_handle.dispose()
+            except Exception:
+                pass
+            self._observe_root_handle = None
 
     def open(self, url: str) -> None:
         validate_url(url)
@@ -425,47 +498,64 @@ class BrowserSession:
     def observe(self, looking_for: Optional[str] = None) -> str:
         self._require_open()
         self._release_element_handles()
+        result_handle = None
         try:
-            data = self._page.evaluate(
+            result_handle = self._page.evaluate_handle(
                 _OBSERVE_JS,
                 [MAX_ELEMENTS, MAX_NAME_CHARS, REF_ATTRIBUTE, looking_for or ""],
             )
+            data_handle = result_handle.get_property("data")
+            data = data_handle.json_value()
+            try:
+                data_handle.dispose()
+            except Exception:
+                pass
+            elements_handle = result_handle.get_property("elements")
+            element_props = elements_handle.get_properties()
             title = self._page.title()
             current_url = self._page.url
         except PlaywrightError as exc:
+            if result_handle is not None:
+                try:
+                    result_handle.dispose()
+                except Exception:
+                    pass
             raise ValueError(f"Could not observe the page: {_short(exc)}") from exc
 
         items = data["items"]
         self.last_elements = {}
+        # Handles come from the same evaluation that assigned refs — no
+        # follow-up querySelector per ref.
         for item in items:
             ref = int(item["ref"])
             meta = {
                 "role": item["role"],
                 "name": item["name"] or "",
-                "href": item["href"],
+                "href": item.get("href"),
+                "formAction": item.get("formAction"),
+                "formMethod": item.get("formMethod"),
+                "inputType": item.get("inputType"),
+                "autocomplete": item.get("autocomplete") or "",
+                "nameAttr": item.get("nameAttr") or "",
+                "idAttr": item.get("idAttr") or "",
             }
             self.last_elements[ref] = meta
-            # Capture the node itself. data-miniai-ref is only used here to
-            # find the just-tagged element; click() uses the stored handle.
-            try:
-                handle = self._page.evaluate_handle(
-                    f"document.querySelector('[{REF_ATTRIBUTE}=\"{ref}\"]')"
-                )
-            except PlaywrightError as exc:
-                raise ValueError(
-                    f"Could not hold element ref {ref}: {_short(exc)}"
-                ) from exc
-            if handle is None:
+            prop = element_props.get(str(ref - 1))
+            if prop is None:
                 raise ValueError(f"Could not hold element ref {ref}: missing handle")
-            # evaluate_handle returns a JSHandle; as_element() yields ElementHandle.
-            element = handle.as_element()
+            element = prop.as_element()
             if element is None:
                 try:
-                    handle.dispose()
+                    prop.dispose()
                 except Exception:
                     pass
                 raise ValueError(f"Could not hold element ref {ref}: not an element")
             self._element_handles[ref] = element
+        # Keep result_handle / elements_handle alive: disposing them can
+        # invalidate the ElementHandles we just extracted. They are released
+        # on the next observe() / close() via page navigation or GC.
+        self._observe_root_handle = result_handle
+
         scope_label = data["scopeLabel"]
         text_start = int(data.get("textStart") or 0)
         text_offset = bool(data.get("textOffset"))
@@ -499,7 +589,7 @@ class BrowserSession:
         for item in items:
             name = _clean(item["name"])[:MAX_NAME_CHARS]
             line = f"[{item['ref']}] {_clean(item['role'])} \"{name}\""
-            if item["href"]:
+            if item.get("href"):
                 line += f" -> {_clean(item['href'])}"
             lines.append(line)
         lines.append(text_header)
@@ -508,10 +598,8 @@ class BrowserSession:
         lines.append(END_MARKER)
         return "\n".join(lines)
 
-    def click(self, ref: int) -> None:
-        self._require_open()
-        if isinstance(ref, bool) or not isinstance(ref, int):
-            raise ValueError(f"ref must be an integer, got {ref!r}")
+    def _verify_element(self, ref: int) -> tuple[object, dict]:
+        """Return (handle, expected meta) after re-checking the live node."""
         handle = self._element_handles.get(ref)
         expected = self.last_elements.get(ref)
         if handle is None or expected is None:
@@ -529,9 +617,18 @@ class BrowserSession:
             or snap.get("role") != expected.get("role")
             or (snap.get("name") or "") != (expected.get("name") or "")
             or snap.get("href") != expected.get("href")
+            or snap.get("formAction") != expected.get("formAction")
+            or snap.get("formMethod") != expected.get("formMethod")
         ):
             raise _changed_element_error(ref)
-        href = snap.get("href")
+        return handle, expected
+
+    def click(self, ref: int) -> None:
+        self._require_open()
+        if isinstance(ref, bool) or not isinstance(ref, int):
+            raise ValueError(f"ref must be an integer, got {ref!r}")
+        handle, expected = self._verify_element(ref)
+        href = expected.get("href")
         if href and urlparse(href).scheme.lower() in ("http", "https"):
             validate_url(href)
         try:
@@ -539,6 +636,16 @@ class BrowserSession:
         except PlaywrightError as exc:
             raise ValueError(f"Click on ref {ref} failed: {_short(exc)}") from exc
         self._settle()
+
+    def type_text(self, ref: int, text: str) -> None:
+        self._require_open()
+        if isinstance(ref, bool) or not isinstance(ref, int):
+            raise ValueError(f"ref must be an integer, got {ref!r}")
+        handle, _expected = self._verify_element(ref)
+        try:
+            handle.fill(text)
+        except PlaywrightError as exc:
+            raise ValueError(f"Type into ref {ref} failed: {_short(exc)}") from exc
 
     def close(self) -> None:
         self._release_element_handles()

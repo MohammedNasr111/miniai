@@ -25,6 +25,7 @@ from tools.web.untrusted import (
     one_line,
     sanitize,
 )
+from tools.web.url_display import describe_url
 
 MAX_REDIRECTS = 5
 MAX_BYTES = 3_000_000
@@ -294,7 +295,7 @@ def fetch_url(url: str, query: str, top_k: int = 4) -> str:
     check_permission(
         action="fetch_url",
         tier=Tier.CONFIRM,
-        description=f"Fetch URL: {url}\nQuery: {query}",
+        description=f"Fetch URL:\n{describe_url(url)}\nQuery: {query}",
     )
     if top_k < 1:
         top_k = 1

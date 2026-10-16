@@ -75,14 +75,30 @@
   search), confirm-first (create/modify files, terminal, memory
   writes, indexing folders, web fetch), always-confirm (delete, install,
   run unknown executables). Session taint: once a tool in
-  UNTRUSTED_SOURCE_TOOLS (fetch_url and web_search) succeeds, the session is
+  UNTRUSTED_SOURCE_TOOLS (fetch_url, web_research, browser_open,
+  browser_observe, browser_click, browser_type) succeeds, the session is
   tainted. In a tainted session every CONFIRM/ALWAYS_CONFIRM prompt shows
-  a warning banner, and every such action except fetch_url requires
-  typing the exact action name - a plain 'yes' is denied. Live testing
+  a warning banner, and every such action except those in
+  TAINT_YESNO_ACTIONS (fetch_url, browser_open, browser_click) requires
+  typing the exact action name - a plain 'yes' is denied. browser_type is
+  deliberately not in that set: typed text can leave the machine, so a
+  tainted session must type `browser_type` to approve. Live testing
   showed the model will attempt injected deletes after a user's 'go
   ahead'; this gate, not the model, is the safety boundary. Accepted
   residual risk: a manipulated model can still ask the user to type the
   action name, so the banner relies on the user.
+- Browser tools: browser_open / browser_observe / browser_click /
+  browser_type. Permission prompts for fetch_url, browser_open, and
+  browser_click use describe_url so percent-encoded path/query/fragment
+  data appears decoded (path only when decoding changes it; each query
+  parameter; fragment when present). Submit controls also show
+  "Submits a form to: <describe_url(action)> (method GET|POST)".
+  browser_type fills a textbox from the latest observation after the same
+  node/role/name re-check as click; it refuses without prompting for
+  password fields, autocomplete containing "password" or starting with
+  "cc-", and name/id matching /(pass|pwd|card|cvv|cvc|iban)/i. Element
+  handles are captured in the same page evaluation that assigns refs
+  (atomic capture).
 
 ## Known model limitations (design around, do not rely on the model)
 - Qwen3-14B is unreliable at counting/enumeration even with thinking on.
@@ -110,15 +126,16 @@
   apply; a page that rebinds its domain to a local address might reach
   local services. Mitigated by per-open confirmation and a visible
   browser window.
-- A hostile page controls what its own elements do: browser_click
-  verifies the clicked element is the one observed (same node, label and
-  link), but cannot stop a page from changing its own button's behaviour.
-  This is why the agent uses its own browser profile and never the
-  user's accounts.
+- A hostile page controls what its own elements do: browser_click and
+  browser_type verify the target is the one observed (same node, label
+  and link/form metadata), but cannot stop a page from changing its own
+  button's behaviour. This is why the agent uses its own browser profile
+  and never the user's accounts.
+- Elements inside iframes are not visible to the agent.
 - search_memory is AUTO_ALLOW, so injected content can make the model
   read memories without a prompt; any attempt to send them out through
-  browser_open or fetch_url is stopped at the confirmation prompt, which
-  shows the full URL.
+  browser_open, fetch_url, or browser_type is stopped at the confirmation
+  prompt (decoded URL or the exact text to type).
 
 ## Roadmap
 Stage 0: environment setup (done)
@@ -128,7 +145,7 @@ Stage 3: filesystem tools + permission gate (done)
 Stage 4: memory (SQLite) (done)
 Stage 5: RAG (LanceDB) (done)
 Stage 6: web research (done)
-Stage 7: browser automation (Playwright) (next)
+Stage 7: browser automation (Playwright) (done)
 Stage 8: computer control (UI Automation)
 Stage 9: coding agent
 Stage 10: evaluation / self-improvement loop
