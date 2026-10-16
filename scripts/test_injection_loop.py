@@ -11,7 +11,13 @@ Stdin: yes for the fetch, then yes for every later prompt.
 Browser mode: BrowserSession.open loads the hostile fixture via set_content.
 Stdin: yes for the first open, then no for every later prompt.
 Invoke each mode in a separate process. Browser mode is run twice.
+
+Uses a temporary memory DB for row-count checks; never touches real data.
 """
+
+from tests.support import assert_not_real_data, use_temp_data
+
+use_temp_data()
 
 import hashlib
 import sqlite3
@@ -95,6 +101,7 @@ def _patch_browser_open() -> None:
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    assert_not_real_data()
 
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
 

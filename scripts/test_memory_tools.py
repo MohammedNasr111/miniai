@@ -4,16 +4,19 @@ exposed to the model.
 
 Expect: the three save_memory calls each prompt once (CONFIRM). The
 search/list calls should NOT prompt at all.
+
+Writes only to a temporary memory DB (tests.support.use_temp_data).
 """
+
+from tests.support import assert_not_real_data, use_temp_data
+
+use_temp_data()
 
 from tools.memory.memory_tools import list_memories, save_memory, search_memory
 
 
 def main() -> None:
-    from memory.database.db import DB_PATH
-    if DB_PATH.exists():
-        DB_PATH.unlink()
-        print(f"Reset: removed existing test database at {DB_PATH}\n")
+    assert_not_real_data()
 
     print("=== save_memory x3 (each SHOULD prompt - answer yes) ===")
     print(save_memory("James teaches Grade 4 ICT and mathematics.", "fact"))

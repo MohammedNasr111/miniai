@@ -1,6 +1,5 @@
 """Freshness tracking for the knowledge index. Uses a temporary database
-directory and a temporary source folder. Never opens memory/vector/lancedb
-except to record that it was not modified.
+directory and a temporary source folder. Never opens the real lancedb.
 """
 
 import os
@@ -8,17 +7,22 @@ import tempfile
 import time
 from pathlib import Path
 
-from memory.vector.store import DB_PATH
+from tests.support import REAL_VECTOR_DB, assert_not_real_data, use_temp_data
+
+use_temp_data()
+
 from memory.vector.store import SOURCES_TABLE
 from memory.vector.store import add_documents
 from memory.vector.store import get_db
 from memory.vector.store import search_knowledge
 from tools.filesystem.chunking import chunk_text
 
-REAL_DB = DB_PATH
+REAL_DB = REAL_VECTOR_DB
 
 
 def _snapshot(root: Path) -> tuple:
+    if not root.exists():
+        return (None, ())
     files = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames.sort()
@@ -81,6 +85,7 @@ def _rewrite_same_bytes(path: Path) -> None:
 
 
 def main() -> None:
+    assert_not_real_data()
     before = _snapshot(REAL_DB)
     print(f"Real DB mtime_ns before: {before[0]}")
     print(f"Real DB files before ({len(before[1])}):")
@@ -102,6 +107,7 @@ def main() -> None:
             "Beta note: a copper kettle whistled beside the quiet greenhouse.",
             encoding="utf-8",
         )
+        assert_not_real_data()
         add_documents(_records(alpha) + _records(beta), db_path=db_path)
 
         alpha_q = "violet locomotive marble bridge"
@@ -146,6 +152,7 @@ def main() -> None:
             "Beta note: a copper kettle whistled beside a rebuilt greenhouse.",
             encoding="utf-8",
         )
+        assert_not_real_data()
         add_documents(_records(beta), db_path=db_path)
         b6 = _freshness(db_path, beta_q, beta)
         count = _fingerprint_count(db_path, beta)

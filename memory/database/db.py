@@ -11,7 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-DB_PATH = Path(__file__).parent / "miniai_memory.db"
+from config.settings import MEMORY_DB_PATH
+
+DB_PATH = Path(MEMORY_DB_PATH)
 VALID_CATEGORIES = {"fact", "preference", "project", "research"}
 
 

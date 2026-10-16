@@ -25,9 +25,10 @@ from pathlib import Path
 import lancedb
 import pyarrow as pa
 
+from config.settings import VECTOR_DB_PATH
 from llm.lemonade.embeddings import embed
 
-DB_PATH = Path(__file__).parent / "lancedb"
+DB_PATH = Path(VECTOR_DB_PATH)
 TABLE_NAME = "document_chunks"
 SOURCES_TABLE = "document_sources"
 

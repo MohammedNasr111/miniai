@@ -3,10 +3,13 @@ at this stage.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 LEMONADE_BASE_URL = "http://localhost:13305/api/v1"
 LEMONADE_MODEL = "Qwen3-14B-GGUF"
@@ -17,3 +20,18 @@ LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 450  # Measured up to 263 s for web_researc
 ENABLE_THINKING_DEFAULT = False  # per Stage 1 benchmarking decision
 EMBEDDING_MODEL = "nomic-embed-text-v1-GGUF"
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")  # may be None; never print or log this
+
+# Store paths: overridable for tests via MINIAI_MEMORY_DB / MINIAI_VECTOR_DB.
+# Defaults are the production locations under the project tree.
+MEMORY_DB_PATH = Path(
+    os.environ.get(
+        "MINIAI_MEMORY_DB",
+        str(_PROJECT_ROOT / "memory" / "database" / "miniai_memory.db"),
+    )
+)
+VECTOR_DB_PATH = Path(
+    os.environ.get(
+        "MINIAI_VECTOR_DB",
+        str(_PROJECT_ROOT / "memory" / "vector" / "lancedb"),
+    )
+)

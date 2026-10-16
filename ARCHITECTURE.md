@@ -11,6 +11,8 @@
   closer to Apple Silicon than a discrete-GPU PC.
 
 ## Core decisions (do not change without the architect's sign-off)
+- Tests never touch real data: every test that writes uses temporary
+  stores via `tests/support.py` and refuses to run against the real paths.
 - Local inference runtime: **Lemonade** (AMD's OpenAI-compatible local
   server), not Ollama. Ollama's ROCm backend does not officially support
   this GPU (gfx1150); Lemonade auto-selects NPU/iGPU/CPU backends and is

@@ -1,9 +1,16 @@
 """Proves search_knowledge does real semantic retrieval with correct
 citations - queries deliberately avoid the exact wording in the source
 documents, so a pass can't be explained by substring luck.
+
+Uses a temporary vector store shared with the fixture loader.
 """
 
+from tests.support import assert_not_real_data, use_temp_data
+
+use_temp_data()
+
 from memory.vector.store import search_knowledge
+from scripts.ingest_documents import load_fixture_index
 
 
 def check(query: str, expected_source_contains: str, expected_page) -> None:
@@ -25,6 +32,10 @@ def check(query: str, expected_source_contains: str, expected_page) -> None:
 
 
 def main() -> None:
+    assert_not_real_data()
+    count = load_fixture_index()
+    print(f"Fixture index loaded: {count} chunks (temporary store).")
+
     # Paraphrased, not copied verbatim from "mitochondria is the powerhouse
     # of the cell" - proves semantic match, not substring luck.
     check(
