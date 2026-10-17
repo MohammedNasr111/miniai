@@ -23,6 +23,7 @@ from tools.browser.session import BrowserSession
 
 FAILURES: list[str] = []
 URL = "https://example.com"
+URL_DENIED = "https://example.org"
 
 
 def report(name: str, ok: bool, detail: str) -> None:
@@ -158,6 +159,71 @@ def main() -> None:
                 f"denied={r7a[0].content[:40]!r} blocked={'Blocked' in r7b[0].content}",
             )
             print(f"PROMPT_LOG={prompt_log!r}")
+
+            # 8. denial survives crash; successful URL can reopen
+            reset_session()
+            close_session()
+            guard8 = CallGuard()
+            prompt_count = {"n": 0}
+            answers8 = iter(["yes", "no", "yes"])
+
+            def stdin8(prompt=""):
+                prompt_count["n"] += 1
+                answer = next(answers8)
+                print(f"[INPUT8] {prompt!r} -> {answer!r}")
+                return answer
+
+            with patch("builtins.input", side_effect=stdin8):
+                r8a = execute_tool_calls(
+                    [_call("8a", "browser_open", {"url": URL})],
+                    guard=guard8,
+                    transcript=transcript,
+                )
+                r8b = execute_tool_calls(
+                    [_call("8b", "browser_open", {"url": URL_DENIED})],
+                    guard=guard8,
+                    transcript=transcript,
+                )
+                prompts_after_deny = prompt_count["n"]
+                session8 = browser_tools._session
+                assert session8 is not None
+                session8.context.close()
+                r8c = execute_tool_calls(
+                    [_call("8c", "browser_observe", {})],
+                    guard=guard8,
+                    transcript=transcript,
+                )
+                r8d = execute_tool_calls(
+                    [_call("8d", "browser_open", {"url": URL})],
+                    guard=guard8,
+                    transcript=transcript,
+                )
+                prompts_before_retry_denied = prompt_count["n"]
+                r8e = execute_tool_calls(
+                    [_call("8e", "browser_open", {"url": URL_DENIED})],
+                    guard=guard8,
+                    transcript=transcript,
+                )
+                prompts_after_retry_denied = prompt_count["n"]
+
+            ok8 = (
+                "Error:" not in r8a[0].content[:20]
+                and r8b[0].content.startswith("Denied by user:")
+                and "The browser closed unexpectedly" in r8c[0].content
+                and "Blocked duplicate call" not in r8d[0].content
+                and "Error:" not in r8d[0].content[:20]
+                and "Blocked duplicate call" in r8e[0].content
+                and prompts_after_retry_denied == prompts_before_retry_denied
+                and prompts_after_deny == 2
+            )
+            report(
+                "8",
+                ok8,
+                f"prompts={prompt_count['n']} after_deny={prompts_after_deny} "
+                f"before_retry_denied={prompts_before_retry_denied} "
+                f"after_retry_denied={prompts_after_retry_denied} "
+                f"r8e={r8e[0].content[:60]!r}",
+            )
     finally:
         close_session()
         transcript.close()

@@ -6,6 +6,9 @@ in outcome "error" may be retried once. Read-only calls (AUTO_ALLOW) may
 be repeated only after a mutating call has succeeded (which clears the
 read-only memory), except that a read-only call ending in "error" is not
 recorded, so an identical retry is allowed.
+
+forget() clears successes, errors, and read-only fingerprints for named
+tools, but never clears denials — a "no" survives a browser crash.
 """
 
 import json
@@ -36,8 +39,10 @@ def _fingerprint(name: str, args: Any) -> tuple[str, str]:
 
 class CallGuard:
     def __init__(self) -> None:
-        # Mutating: ok/denied — never allow again.
-        self._mutating_terminal: set[tuple[str, str]] = set()
+        # Mutating: succeeded — never allow again (cleared by forget).
+        self._mutating_succeeded: set[tuple[str, str]] = set()
+        # Mutating: denied — never allow again (survives forget).
+        self._mutating_denied: set[tuple[str, str]] = set()
         # Mutating: first attempt ended in error — one retry still allowed.
         self._mutating_error_once: set[tuple[str, str]] = set()
         # Mutating: the one allowed retry after error has already been used.
@@ -51,7 +56,7 @@ class CallGuard:
             return None
         fp = _fingerprint(name, args)
         if tier in _MUTATING:
-            if fp in self._mutating_terminal:
+            if fp in self._mutating_succeeded or fp in self._mutating_denied:
                 return _BLOCK.format(name=name)
             if fp in self._mutating_error_retry_used:
                 return _BLOCK.format(name=name)
@@ -72,10 +77,12 @@ class CallGuard:
             return
         fp = _fingerprint(name, args)
         if tier in _MUTATING:
-            if outcome in ("ok", "denied"):
-                self._mutating_terminal.add(fp)
-                if outcome == "ok":
-                    self._readonly_since_mutation.clear()
+            if outcome == "ok":
+                self._mutating_succeeded.add(fp)
+                self._readonly_since_mutation.clear()
+                return
+            if outcome == "denied":
+                self._mutating_denied.add(fp)
                 return
             if outcome == "error":
                 if fp in self._mutating_error_once:
@@ -89,11 +96,14 @@ class CallGuard:
         self._readonly_since_mutation.add(fp)
 
     def forget(self, names: set[str]) -> None:
-        """Drop every stored fingerprint whose tool name is in names."""
+        """Drop fingerprints for names, except denials (those survive)."""
+
         def _keep(fp: tuple[str, str]) -> bool:
             return fp[0] not in names
 
-        self._mutating_terminal = {fp for fp in self._mutating_terminal if _keep(fp)}
+        self._mutating_succeeded = {
+            fp for fp in self._mutating_succeeded if _keep(fp)
+        }
         self._mutating_error_once = {
             fp for fp in self._mutating_error_once if _keep(fp)
         }
@@ -103,3 +113,4 @@ class CallGuard:
         self._readonly_since_mutation = {
             fp for fp in self._readonly_since_mutation if _keep(fp)
         }
+        # _mutating_denied is intentionally not cleared.

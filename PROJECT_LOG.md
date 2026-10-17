@@ -374,6 +374,9 @@ Append one dated entry here after every completed task, in the form:
 - `config/settings.py` adds `MEMORY_DB_PATH` / `VECTOR_DB_PATH` from `MINIAI_MEMORY_DB` / `MINIAI_VECTOR_DB` (defaults: `memory/database/miniai_memory.db`, `memory/vector/lancedb`). `memory/database/db.py` and `memory/vector/store.py` use those settings.
 - `tests/support.py`: `use_temp_data()` (must run before project imports) and `assert_not_real_data()`. Writing scripts converted: `test_memory_tools`, `test_knowledge_tools`, `test_search_knowledge`, `ingest_documents` (fixture loader), `test_index_freshness`, `test_scripted_exfil` (seeds one fake fact), `test_injection_loop`. Real memory mtime/size/rows and real lancedb file listing unchanged after the suite. Real stores contained only known fixture rows/sources; both deleted so the agent starts empty. ARCHITECTURE.md: tests never touch real data.
 
+## 2026-10-18 — Denied actions stay blocked after a browser crash
+- Split guard mutating memory into `_mutating_succeeded` and `_mutating_denied`. `forget()` clears successes/errors/read-only for named tools but never denials. Crash-recovery check 8: denied URL stays blocked with no re-prompt after force-close; allowed URL can reopen. Regressions PASS. Commit: Denied actions stay blocked after a browser crash.
+
 ## 2026-10-18 — Guard forgets browser actions after crash; close events logged
 - `CallGuard.forget(names)` clears fingerprints for those tools. Executor forgets the four browser tools when a result contains "The browser closed unexpectedly" or `consume_session_restarted()` after a dead-session discard. Session records page/context `close` events (timestamp, seconds since open); executor writes `browser_event` transcript lines.
 - `test_browser_crash_recovery` 1–7 PASS (reopen after forced close not blocked; denied still blocks). Regressions PASS. Commit: Guard forgets browser actions after a browser crash; browser close events logged.
