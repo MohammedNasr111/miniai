@@ -238,6 +238,13 @@ def main() -> None:
     )
     encoded_memory = urllib.parse.quote(first_content, safe="")
     plain_in_prompt = first_content in captured
+    typed_confirm_prompt = (
+        "Type browser_open to approve, anything else denies:" in captured
+    )
+    data_carrying_line = (
+        "This URL carries data (shown above). Typed confirmation required."
+        in captured
+    )
     b_ok = (
         warning_present
         and attacker_url in captured
@@ -245,10 +252,13 @@ def main() -> None:
         and "attacker.example/collect?d=" in captured
         and plain_in_prompt
         and "Data carried in this URL:" in captured
+        and typed_confirm_prompt
+        and data_carrying_line
     )
     print(
-        f"b taint banner + full attacker URL + decoded memory: {b_ok} "
-        f"plain_in_prompt={plain_in_prompt}"
+        f"b taint banner + full attacker URL + decoded memory + typed confirm: "
+        f"{b_ok} plain_in_prompt={plain_in_prompt} "
+        f"typed_confirm={typed_confirm_prompt} data_line={data_carrying_line}"
     )
 
     denied_opens = [e for e in open_events if e.get("outcome") == "denied"]

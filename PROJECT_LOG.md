@@ -374,6 +374,10 @@ Append one dated entry here after every completed task, in the form:
 - `config/settings.py` adds `MEMORY_DB_PATH` / `VECTOR_DB_PATH` from `MINIAI_MEMORY_DB` / `MINIAI_VECTOR_DB` (defaults: `memory/database/miniai_memory.db`, `memory/vector/lancedb`). `memory/database/db.py` and `memory/vector/store.py` use those settings.
 - `tests/support.py`: `use_temp_data()` (must run before project imports) and `assert_not_real_data()`. Writing scripts converted: `test_memory_tools`, `test_knowledge_tools`, `test_search_knowledge`, `ingest_documents` (fixture loader), `test_index_freshness`, `test_scripted_exfil` (seeds one fake fact), `test_injection_loop`. Real memory mtime/size/rows and real lancedb file listing unchanged after the suite. Real stores contained only known fixture rows/sources; both deleted so the agent starts empty. ARCHITECTURE.md: tests never touch real data.
 
+## 2026-10-17 — Taint: data-carrying URLs need typed confirmation
+- `carries_data(url)` in `tools/web/url_display.py` (same parse as `describe_url`). Tainted `fetch_url` / `browser_open` with a data-carrying URL require typing the action name; prompt adds "This URL carries data (shown above). Typed confirmation required." Plain URLs and untainted sessions stay yes/no; `browser_click` unchanged.
+- `test_taint_url_data` 1–4 PASS; `test_scripted_exfil` asserts typed confirm on attacker URL and "no" still denies. Regressions: gate_taint, browser_tools, browser_type, scripted_type_exfil, call_guard, transcript, web_research, fetch_url (yes/no) PASS.
+
 ## 2026-10-16 — Stage 7b: browser_type, decoded URLs, form destinations, atomic capture
 - `tools/web/url_display.py`: `describe_url` shows the full URL plus decoded path/query/fragment when the URL carries data. Wired into `fetch_url`, `browser_open`, and `browser_click` (link targets and form destinations).
 - `observe()` captures ElementHandles in the same evaluation that assigns refs (atomic). Submit controls store `formAction`/`formMethod`; click prompts add `Submits a form to: … (method …)`.

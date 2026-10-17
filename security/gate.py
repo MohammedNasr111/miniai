@@ -7,17 +7,23 @@ Tiers, per ARCHITECTURE.md's security section:
 
 After untrusted web content has been read, CONFIRM and ALWAYS_CONFIRM
 actions other than those in TAINT_YESNO_ACTIONS require the user to type
-the action name. Untainted sessions still accept "yes".
+the action name. Untainted sessions still accept "yes". For fetch_url and
+browser_open, a tainted session also requires the action name when the
+URL carries data (query, fragment, or a path that changes when decoded).
 """
 
 from enum import Enum
+from typing import Optional
+
+from tools.web.url_display import carries_data
 
 _tainted = False
 _sources: list[str] = []
 
 # When the session is tainted, these CONFIRM actions still accept a plain
-# "yes". They cannot type into fields (so they cannot exfiltrate via form
-# input); the only user-data channel is a URL shown in full on the prompt.
+# "yes" — unless fetch_url / browser_open is given a data-carrying URL
+# (see check_permission). browser_click stays yes/no: link targets are
+# chosen by the page, not the model. They cannot type into fields.
 TAINT_YESNO_ACTIONS = {"fetch_url", "browser_open", "browser_click"}
 
 
@@ -50,7 +56,12 @@ def is_tainted() -> bool:
     return _tainted
 
 
-def check_permission(action: str, tier: Tier, description: str) -> None:
+def check_permission(
+    action: str,
+    tier: Tier,
+    description: str,
+    url: Optional[str] = None,
+) -> None:
     """Enforce the permission tier for one action.
     AUTO_ALLOW returns immediately. CONFIRM and ALWAYS_CONFIRM print the
     description and require an explicit "yes" (case-insensitive) typed
@@ -59,7 +70,8 @@ def check_permission(action: str, tier: Tier, description: str) -> None:
     ALWAYS_CONFIRM action asks every time until we decide otherwise.
     Once the session is tainted, the same prompt is shown under a warning,
     and every action except those in TAINT_YESNO_ACTIONS requires the
-    action name instead of "yes".
+    action name instead of "yes". Exception: fetch_url and browser_open
+    with a data-carrying URL also require the action name when tainted.
     """
     if tier == Tier.AUTO_ALLOW:
         return
@@ -73,11 +85,23 @@ def check_permission(action: str, tier: Tier, description: str) -> None:
     print(f"\n[PERMISSION REQUIRED - {tier.value.upper()}]")
     print(f"Action: {action}")
     print(description)
-    if (
+
+    data_carrying = (
+        is_tainted()
+        and action in ("fetch_url", "browser_open")
+        and url is not None
+        and carries_data(url)
+    )
+    require_typed_name = (
         is_tainted()
         and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM)
-        and action not in TAINT_YESNO_ACTIONS
-    ):
+        and (action not in TAINT_YESNO_ACTIONS or data_carrying)
+    )
+    if require_typed_name:
+        if data_carrying:
+            print(
+                "This URL carries data (shown above). Typed confirmation required."
+            )
         answer = input(f"Type {action} to approve, anything else denies: ").strip()
         if answer != action:
             raise PermissionDenied(

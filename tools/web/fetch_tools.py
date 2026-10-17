@@ -296,6 +296,7 @@ def fetch_url(url: str, query: str, top_k: int = 4) -> str:
         action="fetch_url",
         tier=Tier.CONFIRM,
         description=f"Fetch URL:\n{describe_url(url)}\nQuery: {query}",
+        url=url,
     )
     if top_k < 1:
         top_k = 1

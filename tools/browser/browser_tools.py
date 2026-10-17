@@ -61,6 +61,7 @@ def browser_open(url: str) -> str:
         action="browser_open",
         tier=Tier.CONFIRM,
         description=f"Open in browser:\n{describe_url(url)}",
+        url=url,
     )
     session = get_session()
     session.open(url)

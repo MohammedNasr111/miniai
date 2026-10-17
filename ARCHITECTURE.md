@@ -80,11 +80,15 @@
   tainted. In a tainted session every CONFIRM/ALWAYS_CONFIRM prompt shows
   a warning banner, and every such action except those in
   TAINT_YESNO_ACTIONS (fetch_url, browser_open, browser_click) requires
-  typing the exact action name - a plain 'yes' is denied. browser_type is
-  deliberately not in that set: typed text can leave the machine, so a
-  tainted session must type `browser_type` to approve. Live testing
-  showed the model will attempt injected deletes after a user's 'go
-  ahead'; this gate, not the model, is the safety boundary. Accepted
+  typing the exact action name - a plain 'yes' is denied. Exception:
+  fetch_url and browser_open still require the action name when the URL
+  carries data (query string, fragment, or a path that changes when
+  percent-decoded); the prompt then adds "This URL carries data (shown
+  above). Typed confirmation required." Plain URLs and untainted sessions
+  keep yes/no. browser_click stays yes/no (link targets are chosen by the
+  page). browser_type is deliberately not in TAINT_YESNO_ACTIONS. Live
+  testing showed the model will attempt injected deletes after a user's
+  'go ahead'; this gate, not the model, is the safety boundary. Accepted
   residual risk: a manipulated model can still ask the user to type the
   action name, so the banner relies on the user.
 - Browser tools: browser_open / browser_observe / browser_click /
