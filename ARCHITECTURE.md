@@ -112,12 +112,17 @@
   browser_type fills a textbox from the latest observation after the same
   node/role/name re-check as click; it refuses without prompting for
   password fields, autocomplete containing "password" or starting with
-  "cc-", and name/id matching /(pass|pwd|card|cvv|cvc|iban)/i. Optional
+  "cc-", and name/id matching /(pass|pwd|card|cvv|cvc|iban)/i.   Optional
   `submit=true` presses Enter after fill (prompt shows the form's
   action/method from observe, or that the field is not in a form); textbox
   observe capture includes the enclosing form's submission destination the
   same way submit buttons do. Element handles are captured in the same page
-  evaluation that assigns refs (atomic capture).
+  evaluation that assigns refs (atomic capture). `observe()` page text prefers
+  `extract_text` / trafilatura ("from article text"), else scope `innerText`
+  ("from main content" / "from whole page"); always shows a start section
+  (up to 1500 or 3000 chars) and, when a non-stop `looking_for` word matches
+  after character 1500, an around-match excerpt from the nearest sentence
+  start.
 
 ## Known model limitations (design around, do not rely on the model)
 - Qwen3-14B is unreliable at counting/enumeration even with thinking on.

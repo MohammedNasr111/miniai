@@ -20,7 +20,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from security.provenance import remember_url
-from tools.web.fetch_tools import validate_url
+from tools.web.fetch_tools import extract_text, validate_url
 from tools.web.untrusted import (
     BEGIN_MARKER,
     END_MARKER,
@@ -43,8 +43,34 @@ MAX_ELEMENTS = 50
 MAX_NAME_CHARS = 80
 MAX_TITLE_CHARS = 200
 MAX_TEXT_CHARS = 3000
-TEXT_LOOKAHEAD_BEFORE = 300
+START_SECTION_CHARS = 1500
+MATCH_LOOKBACK_CHARS = 200
 REF_ATTRIBUTE = "data-miniai-ref"
+
+# Dropped when splitting looking_for for element ranking and text match.
+_LOOKING_FOR_STOP = frozenset(
+    {
+        "first",
+        "last",
+        "sentence",
+        "sentences",
+        "paragraph",
+        "page",
+        "article",
+        "text",
+        "section",
+        "heading",
+        "the",
+        "a",
+        "an",
+        "of",
+        "and",
+        "to",
+        "in",
+        "on",
+        "for",
+    }
+)
 
 # Returns { data: <serializable>, elements: [DOM nodes...] } so handles and
 # metadata come from the same evaluation (atomic capture).
@@ -218,30 +244,16 @@ _OBSERVE_JS = """
     elements.push(el);
   }
 
-  const fullText = collapse(scope.innerText || '');
-  let textStart = 0;
-  let textOffset = false;
-  if (words.length && fullText) {
-    const lower = fullText.toLowerCase();
-    let first = -1;
-    for (const word of words) {
-      const at = lower.indexOf(word);
-      if (at !== -1 && (first === -1 || at < first)) first = at;
-    }
-    if (first !== -1) {
-      textStart = Math.max(0, first - 300);
-      textOffset = textStart > 0;
-    }
-  }
-  const text = fullText.slice(textStart, textStart + 3000);
+  // Full scope text for Python fallback when trafilatura finds nothing.
+  // Keep newlines so sentence/line breaks survive for match excerpts.
+  const fullText = (scope.innerText || '').replace(/[ \\t]+/g, ' ')
+    .replace(/ ?\\n ?/g, '\\n').trim();
   return {
     data: {
       total: allVisible.length,
       items: items,
-      text: text,
+      fullText: fullText,
       scopeLabel: scopeLabel,
-      textStart: textStart,
-      textOffset: textOffset,
     },
     elements: elements,
   };
@@ -332,6 +344,94 @@ def _clean(text: Optional[str]) -> str:
 def _short(exc: Exception) -> str:
     message = str(exc).strip().splitlines()
     return message[0] if message else type(exc).__name__
+
+
+def looking_for_words(looking_for: Optional[str]) -> list[str]:
+    """Split looking_for into match tokens, dropping stop words."""
+    raw = (looking_for or "").lower()
+    parts = []
+    buf = []
+    for ch in raw:
+        if ch.isalnum():
+            buf.append(ch)
+        else:
+            if buf:
+                parts.append("".join(buf))
+                buf = []
+    if buf:
+        parts.append("".join(buf))
+    return [w for w in parts if len(w) >= 2 and w not in _LOOKING_FOR_STOP]
+
+
+def _first_match(text: str, words: list[str]) -> tuple[Optional[int], Optional[str]]:
+    """Return (index, matched_word) for the earliest case-insensitive hit."""
+    if not text or not words:
+        return None, None
+    lower = text.lower()
+    best_at: Optional[int] = None
+    best_word: Optional[str] = None
+    for word in words:
+        at = lower.find(word)
+        if at != -1 and (best_at is None or at < best_at):
+            best_at = at
+            best_word = word
+    return best_at, best_word
+
+
+def _sentence_start(text: str, match_at: int) -> int:
+    """Nearest sentence start at or before match, within MATCH_LOOKBACK_CHARS."""
+    window_start = max(0, match_at - MATCH_LOOKBACK_CHARS)
+    region = text[window_start:match_at]
+    best = None
+    # ". " boundary: start just after the space.
+    pos = 0
+    while True:
+        found = region.find(". ", pos)
+        if found == -1:
+            break
+        best = window_start + found + 2
+        pos = found + 1
+    # Line break: start on the next character.
+    pos = 0
+    while True:
+        found = region.find("\n", pos)
+        if found == -1:
+            break
+        cand = window_start + found + 1
+        if best is None or cand > best:
+            best = cand
+        pos = found + 1
+    if best is not None:
+        return best
+    return window_start
+
+
+def layout_page_text(
+    full_text: str, words: list[str], source_label: str
+) -> list[str]:
+    """Build Page text start / around sections (total budget MAX_TEXT_CHARS)."""
+    match_at, matched_word = _first_match(full_text, words)
+    need_around = (
+        match_at is not None
+        and matched_word is not None
+        and match_at > START_SECTION_CHARS
+    )
+    start_budget = START_SECTION_CHARS if need_around else MAX_TEXT_CHARS
+    start_chunk = full_text[:start_budget]
+    lines = [
+        f"Page text - start (up to {start_budget} characters, from {source_label}):",
+        _clean(start_chunk)[:start_budget],
+    ]
+    if need_around:
+        assert match_at is not None and matched_word is not None
+        begin = _sentence_start(full_text, match_at)
+        around = full_text[begin : begin + START_SECTION_CHARS]
+        lines.append(
+            f"Page text - around '{matched_word}' "
+            f"(up to {START_SECTION_CHARS} characters, from {source_label}):"
+        )
+        lines.append(_clean(around)[:START_SECTION_CHARS])
+    return lines
 
 
 def _http_probe_url(url: str) -> str:
@@ -543,11 +643,19 @@ class BrowserSession:
     def observe(self, looking_for: Optional[str] = None) -> str:
         self._require_open()
         self._release_element_handles()
+        words = looking_for_words(looking_for)
+        # Pass only non-stop words so JS element ranking matches text matching.
+        looking_for_filtered = " ".join(words)
         result_handle = None
         try:
             result_handle = self._page.evaluate_handle(
                 _OBSERVE_JS,
-                [MAX_ELEMENTS, MAX_NAME_CHARS, REF_ATTRIBUTE, looking_for or ""],
+                [
+                    MAX_ELEMENTS,
+                    MAX_NAME_CHARS,
+                    REF_ATTRIBUTE,
+                    looking_for_filtered,
+                ],
             )
             data_handle = result_handle.get_property("data")
             data = data_handle.json_value()
@@ -559,6 +667,7 @@ class BrowserSession:
             element_props = elements_handle.get_properties()
             title = self._page.title()
             current_url = self._page.url
+            html = self._page.content()
         except PlaywrightError as exc:
             if result_handle is not None:
                 try:
@@ -569,7 +678,7 @@ class BrowserSession:
 
         items = data["items"]
         self.last_elements = {}
-        # Handles come from the same evaluation that assigned refs — no
+        # Handles come from the same evaluation that assigns refs — no
         # follow-up querySelector per ref.
         for item in items:
             ref = int(item["ref"])
@@ -608,28 +717,18 @@ class BrowserSession:
         remember_url(current_url)
 
         scope_label = data["scopeLabel"]
-        text_start = int(data.get("textStart") or 0)
-        text_offset = bool(data.get("textOffset"))
-        if scope_label == "main content":
-            if text_offset:
-                text_header = (
-                    f"Page text ({MAX_TEXT_CHARS} characters from main content, "
-                    f"starting at offset {text_start}):"
-                )
-            else:
-                text_header = (
-                    f"Page text ({MAX_TEXT_CHARS} characters from main content):"
-                )
-        else:
-            if text_offset:
-                text_header = (
-                    f"Page text ({MAX_TEXT_CHARS} characters from whole page, "
-                    f"starting at offset {text_start}):"
-                )
-            else:
-                text_header = (
-                    f"Page text ({MAX_TEXT_CHARS} characters from whole page):"
-                )
+        fallback_text = data.get("fullText") or ""
+        source_label = (
+            "main content" if scope_label == "main content" else "whole page"
+        )
+        full_text = fallback_text
+        try:
+            _title, extracted = extract_text(html, "text/html")
+            if extracted and str(extracted).strip():
+                full_text = str(extracted).strip()
+                source_label = "article text"
+        except ValueError:
+            pass
 
         lines = list(PREAMBLE)
         lines.append(BEGIN_MARKER)
@@ -643,8 +742,7 @@ class BrowserSession:
             if item.get("href"):
                 line += f" -> {_clean(item['href'])}"
             lines.append(line)
-        lines.append(text_header)
-        lines.append(_clean(data["text"])[:MAX_TEXT_CHARS])
+        lines.extend(layout_page_text(full_text, words, source_label))
         lines.append(f"Blocked requests this session: {len(self.blocked)}")
         lines.append(END_MARKER)
         return "\n".join(lines)

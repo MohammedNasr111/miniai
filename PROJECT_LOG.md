@@ -374,6 +374,11 @@ Append one dated entry here after every completed task, in the form:
 - `config/settings.py` adds `MEMORY_DB_PATH` / `VECTOR_DB_PATH` from `MINIAI_MEMORY_DB` / `MINIAI_VECTOR_DB` (defaults: `memory/database/miniai_memory.db`, `memory/vector/lancedb`). `memory/database/db.py` and `memory/vector/store.py` use those settings.
 - `tests/support.py`: `use_temp_data()` (must run before project imports) and `assert_not_real_data()`. Writing scripts converted: `test_memory_tools`, `test_knowledge_tools`, `test_search_knowledge`, `ingest_documents` (fixture loader), `test_index_freshness`, `test_scripted_exfil` (seeds one fake fact), `test_injection_loop`. Real memory mtime/size/rows and real lancedb file listing unchanged after the suite. Real stores contained only known fixture rows/sources; both deleted so the agent starts empty. ARCHITECTURE.md: tests never touch real data.
 
+## 2026-10-17 — observe(): article text via trafilatura, start + match excerpt
+- `observe()` uses `extract_text` (trafilatura) on `page.content()`; falls back to scope `innerText`. Layout: always "Page text - start"; optional "around '<word>'" when a non-stop `looking_for` match begins after char 1500 (sentence-start lookback 200). Stop words ignored for element ranking and text match.
+- Timing on ATP synthase: before mean 63.8 ms, after mean 293.6 ms.
+- Offline tests 1–4 PASS; regressions PASS. Live W×3: grounded 2/3 (runs 1–2 submit+article+lead sentence; run 3 browser closed mid-session, no final). Stage 7 remains done. Commit: observe(): article text via trafilatura, start always shown, match excerpt added; stop words ignored.
+
 ## 2026-10-17 — browser_type submit option; policy comparison recorded
 - `observe()` captures each textbox's enclosing form action/method (null if none); verification snapshot includes it. `browser_type(..., submit=True)` presses Enter after fill; permission prompt shows form destination or the not-in-a-form line. Schema: optional `submit` boolean.
 - Offline tests 7–10 (form submit+route, no-form Enter, submit=False, action-changed refuse) PASS; browser/session/tools/provenance/gate/scripted regressions PASS.
