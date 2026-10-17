@@ -92,6 +92,9 @@ class Transcript:
     def final(self, raw: str, shown: str) -> None:
         self.write("final", raw=raw, shown=shown)
 
+    def browser_event(self, **fields: Any) -> None:
+        self.write("browser_event", **fields)
+
     def run_end(
         self, wall_clock_seconds: float, rounds: int, round_cap_hit: bool
     ) -> None:

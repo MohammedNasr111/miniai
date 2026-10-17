@@ -87,3 +87,19 @@ class CallGuard:
         if outcome == "error":
             return
         self._readonly_since_mutation.add(fp)
+
+    def forget(self, names: set[str]) -> None:
+        """Drop every stored fingerprint whose tool name is in names."""
+        def _keep(fp: tuple[str, str]) -> bool:
+            return fp[0] not in names
+
+        self._mutating_terminal = {fp for fp in self._mutating_terminal if _keep(fp)}
+        self._mutating_error_once = {
+            fp for fp in self._mutating_error_once if _keep(fp)
+        }
+        self._mutating_error_retry_used = {
+            fp for fp in self._mutating_error_retry_used if _keep(fp)
+        }
+        self._readonly_since_mutation = {
+            fp for fp in self._readonly_since_mutation if _keep(fp)
+        }

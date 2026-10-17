@@ -11,8 +11,10 @@ surface as ValueError, never as a Playwright exception.
 
 import asyncio
 import os
+import time
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 from playwright.sync_api import Error as PlaywrightError
@@ -522,11 +524,13 @@ class BrowserSession:
         self.request_log: list[tuple[str, str]] = []
         self.popups: list[str] = []
         self.dialogs: list[dict] = []
+        self.close_events: list[dict[str, Any]] = []
         self.last_elements: dict[int, dict] = {}
         self._element_handles: dict[int, object] = {}
         self._observe_root_handle = None
         self._observe_elements_handle = None
         self._host_decisions: dict[str, Optional[str]] = {}
+        self._last_open_mono: Optional[float] = None
         self._playwright = None
         self._context = None
         self._page = None
@@ -548,7 +552,9 @@ class BrowserSession:
                 self.popups.append(extra.url)
                 extra.close()
             self._context.on("page", self._on_page)
+            self._context.on("close", self._on_context_close)
             self._page.on("dialog", self._on_dialog)
+            self._page.on("close", self._on_page_close)
         except PlaywrightError as exc:
             self.close()
             raise ValueError(f"Could not start the browser: {_short(exc)}") from exc
@@ -664,6 +670,31 @@ class BrowserSession:
         except PlaywrightError:
             pass
 
+    def _record_close(self, which: str) -> None:
+        now = time.monotonic()
+        if self._last_open_mono is None:
+            since = None
+        else:
+            since = round(now - self._last_open_mono, 3)
+        self.close_events.append(
+            {
+                "object": which,
+                "closed_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "seconds_since_open": since,
+            }
+        )
+
+    def _on_page_close(self, page) -> None:
+        self._record_close("page")
+
+    def _on_context_close(self, context) -> None:
+        self._record_close("context")
+
+    def drain_close_events(self) -> list[dict[str, Any]]:
+        events = list(self.close_events)
+        self.close_events = []
+        return events
+
     def _require_open(self) -> None:
         if self._page is None or self._page.is_closed():
             raise ValueError("The browser session is closed.")
@@ -708,6 +739,7 @@ class BrowserSession:
         except PlaywrightError as exc:
             raise ValueError(f"Navigation to {url!r} failed: {_short(exc)}") from exc
         self._settle()
+        self._last_open_mono = time.monotonic()
         remember_url(self._page.url)
 
     def observe(self, looking_for: Optional[str] = None) -> str:

@@ -17,6 +17,12 @@ from tools.web.url_display import describe_url
 
 _session: BrowserSession | None = None
 _last_elements: dict[int, dict] = {}
+_session_restarted = False
+_pending_close_events: list = []
+
+BROWSER_TOOL_NAMES = frozenset(
+    {"browser_open", "browser_observe", "browser_click", "browser_type"}
+)
 
 _SENSITIVE_NAME_RE = re.compile(r"(pass|pwd|card|cvv|cvc|iban)", re.IGNORECASE)
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -33,18 +39,42 @@ _PROFILE_IN_USE = (
 )
 
 
+def consume_session_restarted() -> bool:
+    """True once after a dead session was discarded; clears the flag."""
+    global _session_restarted
+    value = _session_restarted
+    _session_restarted = False
+    return value
+
+
+def consume_close_events() -> list:
+    """Drain close events from the live session and any discarded one."""
+    global _pending_close_events
+    events: list = []
+    if _session is not None:
+        events.extend(_session.drain_close_events())
+    events.extend(_pending_close_events)
+    _pending_close_events = []
+    return events
+
+
 def _discard_dead_session() -> None:
-    global _session, _last_elements
+    global _session, _last_elements, _session_restarted, _pending_close_events
     if _session is None:
         return
     if _session.is_alive():
         return
+    try:
+        _pending_close_events.extend(_session.drain_close_events())
+    except Exception:
+        pass
     try:
         _session.close()
     except Exception:
         pass
     _session = None
     _last_elements = {}
+    _session_restarted = True
 
 
 def _launch_session() -> BrowserSession:
@@ -83,13 +113,19 @@ def require_live_session() -> BrowserSession:
 
 
 def close_session() -> None:
-    global _session, _last_elements
+    global _session, _last_elements, _session_restarted, _pending_close_events
     if _session is not None:
+        try:
+            _pending_close_events.extend(_session.drain_close_events())
+        except Exception:
+            pass
         try:
             _session.close()
         finally:
             _session = None
     _last_elements = {}
+    _session_restarted = False
+    # Leave pending close events for the executor to flush once.
 
 
 def _remember(session: BrowserSession) -> None:

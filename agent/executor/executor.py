@@ -12,6 +12,11 @@ from llm.base import ChatMessage
 from security.gate import PermissionDenied, mark_untrusted
 from tools.registry import TOOL_FUNCTIONS, UNTRUSTED_SOURCE_TOOLS
 
+_BROWSER_TOOLS = frozenset(
+    {"browser_open", "browser_observe", "browser_click", "browser_type"}
+)
+_CLOSED_MARKER = "The browser closed unexpectedly"
+
 
 def _log_tool(
     transcript: Optional[Transcript],
@@ -30,6 +35,26 @@ def _log_tool(
         outcome=outcome,
         wall_clock_seconds=round(time.perf_counter() - started, 3),
     )
+
+
+def _flush_browser_side_effects(
+    name: str,
+    content: str,
+    guard: Optional[CallGuard],
+    transcript: Optional[Transcript],
+) -> None:
+    if name not in _BROWSER_TOOLS:
+        return
+    from tools.browser import browser_tools as bt
+
+    for event in bt.consume_close_events():
+        if transcript is not None:
+            transcript.browser_event(**event)
+    restarted = bt.consume_session_restarted()
+    if guard is not None and (
+        _CLOSED_MARKER in content or restarted
+    ):
+        guard.forget(set(_BROWSER_TOOLS))
 
 
 def execute_tool_calls(
@@ -92,6 +117,7 @@ def execute_tool_calls(
             guard.record(name, args, outcome)
         if outcome == "ok" and name in UNTRUSTED_SOURCE_TOOLS:
             mark_untrusted(name)
+        _flush_browser_side_effects(name, content, guard, transcript)
         print(f"[TOOL RESULT] {content[:200]}")
         _log_tool(transcript, name, args, content, outcome, started)
         results.append(
