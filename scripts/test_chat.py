@@ -24,7 +24,14 @@ from tools.browser.browser_tools import close_session
 from tools.browser.session import BrowserSession
 from tools.registry import TOOL_FUNCTIONS
 
-from scripts.agent_loop import CROSS_TURN_OMITTED, compress_cross_turn_history
+from scripts.agent_loop import (
+    CROSS_TURN_OMITTED,
+    QUOTE_CHECK_NOTE,
+    check_quotes_against_evidence,
+    compress_cross_turn_history,
+    get_evidence,
+    reset_evidence,
+)
 from scripts.chat import (
     end_session,
     handle_command,
@@ -365,69 +372,54 @@ def main() -> None:
     report("5", ok5, f"len={len(session.history)} pre={pre} matched={_matched(session.history)}")
     end_session(session)
 
-    # --- 6: cross-turn compression ---
-    reset_session()
-    close_session()
-    with patch.object(browser_tools, "_launch_session", side_effect=_launch):
-        with patch.object(BrowserSession, "open", _open_fixture):
-            # Different looking_for so observe is not blocked as a duplicate.
-            responses6 = [
-                ChatResponse(
-                    content="",
-                    finish_reason="tool_calls",
-                    tool_calls=[
-                        _tool_call("b0", "browser_open", {"url": "https://example.com"})
-                    ],
-                ),
-                ChatResponse(content="turn0", finish_reason="stop", tool_calls=None),
-                ChatResponse(
-                    content="",
-                    finish_reason="tool_calls",
-                    tool_calls=[
-                        _tool_call("b1", "browser_observe", {"looking_for": "one"})
-                    ],
-                ),
-                ChatResponse(content="turn1", finish_reason="stop", tool_calls=None),
-                ChatResponse(
-                    content="",
-                    finish_reason="tool_calls",
-                    tool_calls=[
-                        _tool_call("b2", "browser_observe", {"looking_for": "two"})
-                    ],
-                ),
-                ChatResponse(content="turn2", finish_reason="stop", tool_calls=None),
-            ]
-            provider = ScriptedProvider(responses6)
-            session = new_session(provider)
-            with answer_by_action({"browser_open": "yes"}):
-                run_user_turn(session, "t0")
-                run_user_turn(session, "t1")
-                run_user_turn(session, "t2")
-            # Snapshot history and apply compression as _call_model would
-            # before a 4th turn's model call: append a synthetic user msg.
-            hist = [m.model_copy(deep=True) for m in session.history]
-            hist.append(ChatMessage(role="user", content="t3"))
-            before_ids = [m.tool_call_id for m in hist if m.role == "tool"]
-            before_n = len(hist)
-            compress_cross_turn_history(hist)
-            tools = [m for m in hist if m.role == "tool"]
-            # Latest browser obs (b2) intact; earlier-turn tools omitted.
-            latest = tools[-1].content if tools else ""
-            earlier = [m.content for m in tools[:-1]]
-            ok6 = (
-                len(hist) == before_n
-                and [m.tool_call_id for m in tools] == before_ids
-                and all(c == CROSS_TURN_OMITTED for c in earlier)
-                and latest != CROSS_TURN_OMITTED
-                and "Untrusted" in latest
-            )
-            report(
-                "6",
-                ok6,
-                f"n_tools={len(tools)} earlier={earlier!r} "
-                f"latest_start={latest[:40]!r}",
-            )
-            end_session(session)
+    # --- 6: cross-turn compression keeps latest per tool name ---
+    # Build 3 turns with two web_research and two browser_observe results.
+    hist6 = [
+        ChatMessage(role="system", content="sys"),
+        ChatMessage(role="user", content="t1"),
+        ChatMessage(
+            role="assistant",
+            content="",
+            tool_calls=[
+                _tool_call("wr1", "web_research", {"question": "q1"}),
+                _tool_call("bo1", "browser_observe", {"looking_for": "one"}),
+            ],
+        ),
+        ChatMessage(role="tool", content="web_research result ONE full", tool_call_id="wr1"),
+        ChatMessage(role="tool", content="browser_observe result ONE full", tool_call_id="bo1"),
+        ChatMessage(role="assistant", content="turn1 done"),
+        ChatMessage(role="user", content="t2"),
+        ChatMessage(
+            role="assistant",
+            content="",
+            tool_calls=[
+                _tool_call("wr2", "web_research", {"question": "q2"}),
+                _tool_call("bo2", "browser_observe", {"looking_for": "two"}),
+            ],
+        ),
+        ChatMessage(role="tool", content="web_research result TWO full", tool_call_id="wr2"),
+        ChatMessage(role="tool", content="browser_observe result TWO full", tool_call_id="bo2"),
+        ChatMessage(role="assistant", content="turn2 done"),
+        ChatMessage(role="user", content="t3"),
+    ]
+    before_ids = [m.tool_call_id for m in hist6 if m.role == "tool"]
+    before_n = len(hist6)
+    compress_cross_turn_history(hist6)
+    tools6 = [m for m in hist6 if m.role == "tool"]
+    by_id = {m.tool_call_id: m.content for m in tools6}
+    ok6 = (
+        len(hist6) == before_n
+        and [m.tool_call_id for m in tools6] == before_ids
+        and by_id["wr1"] == CROSS_TURN_OMITTED
+        and by_id["bo1"] == CROSS_TURN_OMITTED
+        and by_id["wr2"] == "web_research result TWO full"
+        and by_id["bo2"] == "browser_observe result TWO full"
+    )
+    report(
+        "6",
+        ok6,
+        f"by_id={by_id!r}",
+    )
 
     # --- 7: /status ---
     reset_session()
@@ -459,6 +451,127 @@ def main() -> None:
             )
             report("7", ok7, f"status={text!r}")
             end_session(session)
+
+    # --- 8: quote check against live-log evidence ---
+    reset_evidence()
+    log_path = ROOT / "logs" / "agent_20261018-004417_22344.log"
+    evidence8: list[str] = []
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        if rec.get("type") == "tool_call" and isinstance(rec.get("result"), str):
+            evidence8.append(rec["result"])
+    misquote = (
+        'The first sentence of the Wikipedia article on ATP synthase is:\n\n'
+        '**"ATP synthase is an enzyme that produces ATP (energy currency of '
+        'cells) by combining ADP and inorganic phosphate (Pi)."**\n\n'
+        "This is based on the content retrieved from the earlier web research "
+        "results."
+    )
+    out_mis = check_quotes_against_evidence(misquote, evidence=evidence8)
+    ok8a = QUOTE_CHECK_NOTE in out_mis
+    # Real first sentence (appears in that run's web_research chunks when
+    # joined would still need contiguous text — use a passage that is in
+    # the evidence verbatim).
+    real_in_evidence = (
+        "ATP synthase is an enzyme that catalyzes the formation of the "
+        "energy storage molecule adenosine triphosphate (ATP) using "
+        "adenosine diphosphate (ADP) and inorganic phosphate (Pi)."
+    )
+    # Ensure it is actually in evidence for a fair "found" case; if the log
+    # truncates mid-sentence, seed that sentence into evidence for this check.
+    evidence_with_real = list(evidence8)
+    if not any(
+        real_in_evidence.lower().replace("*", "").replace("_", "")
+        in " ".join(e.lower().split())
+        for e in evidence_with_real
+    ):
+        # Prefer contiguous match: add the real sentence as evidence text.
+        evidence_with_real.append(real_in_evidence)
+    real_answer = f'The article opens with: "{real_in_evidence}"'
+    out_real = check_quotes_against_evidence(real_answer, evidence=evidence_with_real)
+    ok8b = QUOTE_CHECK_NOTE not in out_real
+    out_none = check_quotes_against_evidence(
+        "ATP synthase makes ATP from ADP and phosphate.", evidence=evidence8
+    )
+    ok8c = QUOTE_CHECK_NOTE not in out_none
+    report(
+        "8a-misquote",
+        ok8a,
+        f"note_appended={QUOTE_CHECK_NOTE in out_mis} n_ev={len(evidence8)}",
+    )
+    report("8b-real", ok8b, f"note_absent={QUOTE_CHECK_NOTE not in out_real}")
+    report("8c-no-quotes", ok8c, f"note_absent={QUOTE_CHECK_NOTE not in out_none}")
+
+    # --- 9: /new clears evidence ---
+    reset_evidence()
+    from scripts.agent_loop import append_evidence
+
+    append_evidence("some tool text")
+    provider9 = ScriptedProvider(
+        [ChatResponse(content="hi", finish_reason="stop", tool_calls=None)]
+    )
+    session9 = new_session(provider9)
+    ok9 = get_evidence() == []
+    report("9-evidence-clear", ok9, f"evidence={get_evidence()!r}")
+    end_session(session9)
+
+    # --- 10: stale refs within one step ---
+    from agent.executor.executor import execute_tool_calls
+    from agent.executor.guard import CallGuard as _CG
+
+    reset_session()
+    close_session()
+    clicked: list[str] = []
+    typed: list[str] = []
+
+    def _fake_click(ref: int) -> str:
+        clicked.append(str(ref))
+        return "clicked ok"
+
+    def _fake_type(ref: int, text: str, submit: bool = False) -> str:
+        typed.append(text)
+        return "typed ok"
+
+    with patch.dict(
+        TOOL_FUNCTIONS,
+        {"browser_click": _fake_click, "browser_type": _fake_type},
+    ):
+        guard10 = _CG()
+        batch = [
+            _tool_call("c10", "browser_click", {"ref": 5}),
+            _tool_call(
+                "t10",
+                "browser_type",
+                {"ref": 3, "text": "ATP synthase", "submit": True},
+            ),
+        ]
+        with answer_by_action({"browser_click": "yes", "browser_type": "browser_type"}):
+            msgs = execute_tool_calls(batch, guard=guard10)
+    stale_msg = (
+        "Not run: the page changed earlier in this step. Call browser_observe and "
+        "use element numbers from that."
+    )
+    ok10 = (
+        clicked == ["5"]
+        and typed == []
+        and msgs[0].content == "clicked ok"
+        and msgs[1].content == stale_msg
+        and msgs[0].tool_call_id == "c10"
+        and msgs[1].tool_call_id == "t10"
+    )
+    # Guard must not have recorded the skipped type (identical type allowed later).
+    blocked_later = guard10.check(
+        "browser_type", {"ref": 3, "text": "ATP synthase", "submit": True}
+    )
+    ok10 = ok10 and blocked_later is None
+    report(
+        "10-stale-refs",
+        ok10,
+        f"clicked={clicked} typed={typed} m1={msgs[1].content[:60]!r} "
+        f"later_block={blocked_later!r}",
+    )
 
     print(f"FAILURES {len(FAILURES)} {FAILURES}")
     sys.exit(1 if FAILURES else 0)

@@ -25,6 +25,7 @@ import scripts.agent_loop as agent_loop
 from scripts.agent_loop import (
     CONTEXT_WARN_TOKENS,
     _require_lemonade,
+    reset_evidence,
     run_tool_rounds,
     system_prompt,
 )
@@ -52,6 +53,7 @@ def new_session(provider: Any) -> ChatSession:
     """Start a fresh chat session (also used by /new)."""
     reset_session()
     close_session()
+    reset_evidence()
     transcript = Transcript()
     system = system_prompt()
     transcript.run_start(
@@ -194,7 +196,10 @@ def main() -> None:
                 answer = run_user_turn(session, line)
                 print(f"\nAssistant> {answer}")
             except KeyboardInterrupt:
-                print("\nCancelled.")
+                print(
+                    "\nCancelled. Any actions you already approved during "
+                    "this message were not undone."
+                )
     finally:
         end_session(session)
 

@@ -16,6 +16,12 @@ _BROWSER_TOOLS = frozenset(
     {"browser_open", "browser_observe", "browser_click", "browser_type"}
 )
 _CLOSED_MARKER = "The browser closed unexpectedly"
+_STALE_REF_MSG = (
+    "Not run: the page changed earlier in this step. Call browser_observe and "
+    "use element numbers from that."
+)
+_PAGE_CHANGING_TOOLS = frozenset({"browser_open", "browser_click"})
+_STALE_REF_TOOLS = frozenset({"browser_click", "browser_type"})
 
 
 def _log_tool(
@@ -57,12 +63,27 @@ def _flush_browser_side_effects(
         guard.forget(set(_BROWSER_TOOLS))
 
 
+def _args_submit_true(args: Any) -> bool:
+    if isinstance(args, dict):
+        return args.get("submit") is True
+    return False
+
+
+def _marks_page_changed(name: str, args: Any) -> bool:
+    if name in _PAGE_CHANGING_TOOLS:
+        return True
+    if name == "browser_type" and _args_submit_true(args):
+        return True
+    return False
+
+
 def execute_tool_calls(
     tool_calls: list[dict[str, Any]],
     guard: Optional[CallGuard] = None,
     transcript: Optional[Transcript] = None,
 ) -> list[ChatMessage]:
     results = []
+    page_changed = False
     for call in tool_calls:
         started = time.perf_counter()
         name = call["function"]["name"]
@@ -73,6 +94,14 @@ def execute_tool_calls(
         except json.JSONDecodeError:
             args = raw_args
         print(f"\n[TOOL CALL] {name}({args})")
+        if page_changed and name in _STALE_REF_TOOLS:
+            content = _STALE_REF_MSG
+            print(f"[TOOL RESULT] {content[:200]}")
+            _log_tool(transcript, name, args, content, "skipped", started)
+            results.append(
+                ChatMessage(role="tool", content=content, tool_call_id=call_id)
+            )
+            continue
         if guard is not None:
             blocked = guard.check(name, args)
             if blocked is not None:
@@ -117,6 +146,8 @@ def execute_tool_calls(
             guard.record(name, args, outcome)
         if outcome == "ok" and name in UNTRUSTED_SOURCE_TOOLS:
             mark_untrusted(name)
+        if outcome == "ok" and _marks_page_changed(name, args):
+            page_changed = True
         _flush_browser_side_effects(name, content, guard, transcript)
         print(f"[TOOL RESULT] {content[:200]}")
         _log_tool(transcript, name, args, content, outcome, started)

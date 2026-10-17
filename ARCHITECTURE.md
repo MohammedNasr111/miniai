@@ -128,12 +128,22 @@
   and denials never reset between turns (only at start and on `/new`). Chat
   replies such as "yes, go ahead" are never approvals — only the permission
   gate's own prompts approve actions. Before each model call, tool results
-  from earlier user turns are replaced with a short omitted note except the
-  single most recent browser observation (kept full); the transcript retains
-  originals. `/new` closes the browser, clears taint/guard, and starts a
+  from earlier user turns keep the most recent result of each tool name in
+  full; older ones are replaced with a short omitted note (call the tool
+  again if needed). Every tool result's full text is also kept in a
+  per-session evidence store (cleared on `/new`) before compression. After
+  each final answer, quoted passages of 25+ characters are checked
+  word-for-word against that evidence; if any quote is missing, a note is
+  appended telling the user to treat it as a paraphrase, and a
+  `quote_check` transcript event is logged. Within one tool_calls batch,
+  after a page-changing action (`browser_open`, `browser_click`, or
+  `browser_type` with `submit=true`) has run, later `browser_click` /
+  `browser_type` calls in that batch are skipped (stale element refs).
+  `/new` closes the browser, clears taint/guard/evidence, and starts a
   fresh history; `/exit` ends the session; `/status` shows taint sources,
   turn count, and last prompt token count. Ctrl+C mid-turn cancels that
-  turn and truncates history to its pre-turn length.
+  turn and truncates history to its pre-turn length (approved actions are
+  not undone).
 
 ## Known model limitations (design around, do not rely on the model)
 - Qwen3-14B is unreliable at counting/enumeration even with thinking on.
@@ -149,8 +159,8 @@
   4 sources and neighbor expansion reduced but did not eliminate cases
   where no authoritative page is retrieved; a correct answer is not
   guaranteed.
-- Quotes the model attributes to sources are not verified against the
-  retrieved text (planned for Stage 10 evaluation).
+- Quotes are checked word-for-word against retrieved text; paraphrases
+  presented as quotes are flagged, not corrected.
 - search_knowledge flags each result's freshness (current / modified
   since indexing / file missing / unknown) using a per-file fingerprint
   recorded at indexing time; it never re-indexes on its own, because

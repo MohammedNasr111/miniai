@@ -9,6 +9,7 @@ Usage:
 
 import os
 import platform
+import re
 import sys
 import time
 from datetime import datetime
@@ -38,9 +39,33 @@ BROWSER_OMITTED = (
     "Use the latest observation or call browser_observe.]"
 )
 CROSS_TURN_OMITTED = (
-    "[Tool result from an earlier message omitted to save context.]"
+    "[Older tool result omitted to save context. If you need its content, "
+    "call the tool again rather than relying on memory.]"
+)
+QUOTE_CHECK_NOTE = (
+    "\n\nNote: a quoted passage above was not found word-for-word in the "
+    "sources I read during this conversation, so treat it as a paraphrase."
 )
 CONTEXT_WARN_TOKENS = 10_000
+
+# Per-session full tool-result texts (before compression). Cleared by
+# reset_evidence(); chat.py clears on /new and keeps across turns.
+_session_evidence: list[str] = []
+
+
+def reset_evidence() -> None:
+    """Clear the per-session evidence store."""
+    _session_evidence.clear()
+
+
+def get_evidence() -> list[str]:
+    """Return the current session evidence list (mutable)."""
+    return _session_evidence
+
+
+def append_evidence(text: str) -> None:
+    """Append one tool result's full text to the session evidence store."""
+    _session_evidence.append(text)
 
 
 def _require_lemonade() -> None:
@@ -122,12 +147,12 @@ def compress_browser_history(history: list) -> None:
 
 
 def compress_cross_turn_history(history: list) -> None:
-    """Omit tool results from earlier user turns; keep latest browser obs.
+    """Omit older earlier-turn tool results; keep latest per tool name.
 
-    Every tool-role message before the most recent user message is replaced
-    with CROSS_TURN_OMITTED, except the single most recent browser tool
-    result (open/observe/click/type), which stays full. tool_call_ids and
-    message count are unchanged; the transcript keeps originals.
+    For tool-role messages before the most recent user message, keep the
+    most recent result of each tool name in full; replace older ones with
+    CROSS_TURN_OMITTED. tool_call_ids and message count are unchanged;
+    the transcript and evidence store keep originals.
     """
     user_indices = [
         index for index, message in enumerate(history) if message.role == "user"
@@ -136,21 +161,81 @@ def compress_cross_turn_history(history: list) -> None:
         return
     current_turn_start = user_indices[-1]
     id_to_name = _tool_id_to_name(history)
-    browser_indices = [
-        index
-        for index, message in enumerate(history)
-        if message.role == "tool"
-        and id_to_name.get(message.tool_call_id) in BROWSER_TOOL_NAMES
-    ]
-    keep_browser = browser_indices[-1] if browser_indices else None
+    earlier: list[tuple[int, str]] = []
     for index, message in enumerate(history):
         if message.role != "tool":
             continue
         if index >= current_turn_start:
             continue
-        if index == keep_browser:
-            continue
-        message.content = CROSS_TURN_OMITTED
+        name = id_to_name.get(message.tool_call_id)
+        if name:
+            earlier.append((index, name))
+    latest_by_name: dict[str, int] = {}
+    for index, name in earlier:
+        latest_by_name[name] = index
+    keep = set(latest_by_name.values())
+    for index, _name in earlier:
+        if index not in keep:
+            history[index].content = CROSS_TURN_OMITTED
+
+
+_CODE_FENCE_RE = re.compile(r"```[\s\S]*?```")
+_INLINE_CODE_RE = re.compile(r"`[^`]+`")
+_STRAIGHT_QUOTE_RE = re.compile(r'"([^"]{25,})"')
+_CURLY_QUOTE_RE = re.compile(r"\u201c([^\u201d]{25,})\u201d")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _strip_code_spans(text: str) -> str:
+    text = _CODE_FENCE_RE.sub(" ", text)
+    text = _INLINE_CODE_RE.sub(" ", text)
+    return text
+
+
+def normalize_for_quote_check(text: str) -> str:
+    """Lowercase, collapse whitespace, strip markdown * and _."""
+    text = text.lower()
+    text = text.replace("*", "").replace("_", "")
+    text = _WHITESPACE_RE.sub(" ", text).strip()
+    return text
+
+
+def extract_quoted_passages(answer: str) -> list[str]:
+    """Quoted passages of 25+ chars (straight or curly); ignore code spans."""
+    text = _strip_code_spans(answer)
+    passages: list[str] = []
+    passages.extend(_STRAIGHT_QUOTE_RE.findall(text))
+    passages.extend(_CURLY_QUOTE_RE.findall(text))
+    return passages
+
+
+def check_quotes_against_evidence(
+    answer: str,
+    evidence: list[str] | None = None,
+    transcript: Transcript | None = None,
+) -> str:
+    """Flag quoted passages not found word-for-word in evidence.
+
+    Appends QUOTE_CHECK_NOTE once if any 25+ char quoted passage is missing.
+    Logs a quote_check transcript event with each passage and found yes/no.
+    """
+    if evidence is None:
+        evidence = _session_evidence
+    passages = extract_quoted_passages(answer)
+    normalized_evidence = [normalize_for_quote_check(e) for e in evidence]
+    results: list[dict] = []
+    any_missing = False
+    for passage in passages:
+        needle = normalize_for_quote_check(passage)
+        found = any(needle in hay for hay in normalized_evidence) if needle else True
+        results.append({"passage": passage, "found": found})
+        if not found:
+            any_missing = True
+    if transcript is not None:
+        transcript.write("quote_check", passages=results)
+    if any_missing:
+        return answer + QUOTE_CHECK_NOTE
+    return answer
 
 
 def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, discarded=False):
@@ -257,11 +342,12 @@ def run_tool_rounds(provider, history, guard, transcript=None):
                 tool_calls=response.tool_calls,
             )
         )
-        history.extend(
-            execute_tool_calls(
-                response.tool_calls, guard=guard, transcript=transcript
-            )
+        tool_messages = execute_tool_calls(
+            response.tool_calls, guard=guard, transcript=transcript
         )
+        for message in tool_messages:
+            append_evidence(message.content or "")
+        history.extend(tool_messages)
         response = _call_model(provider, history, transcript)
         rounds += 1
     cap = bool(response.tool_calls)
@@ -277,6 +363,7 @@ def run_tool_rounds(provider, history, guard, transcript=None):
     else:
         raw = response.content or ""
         shown = clean_final_answer(raw)
+        shown = check_quotes_against_evidence(shown, transcript=transcript)
         response.content = shown
         if transcript is not None:
             transcript.final(raw=raw, shown=shown)
@@ -328,6 +415,7 @@ def main() -> None:
     transcript = Transcript()
     started = time.perf_counter()
     system = system_prompt()
+    reset_evidence()
     history = [
         ChatMessage(role="system", content=system),
         ChatMessage(role="user", content=sys.argv[1]),
