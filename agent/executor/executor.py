@@ -58,14 +58,13 @@ def execute_tool_calls(
                 )
                 continue
         func = TOOL_FUNCTIONS.get(name)
-        succeeded = False
+        outcome = "error"
         if func is None:
             content = f"Error: unknown tool '{name}'"
             outcome = "error"
         else:
             try:
                 result = func(**args)
-                succeeded = True
                 outcome = "ok"
                 if result is None:
                     content = f"OK: {name} completed successfully."
@@ -90,8 +89,8 @@ def execute_tool_calls(
                 content = f"Error: {exc}"
                 outcome = "error"
         if guard is not None:
-            guard.record(name, args, succeeded)
-        if succeeded and name in UNTRUSTED_SOURCE_TOOLS:
+            guard.record(name, args, outcome)
+        if outcome == "ok" and name in UNTRUSTED_SOURCE_TOOLS:
             mark_untrusted(name)
         print(f"[TOOL RESULT] {content[:200]}")
         _log_tool(transcript, name, args, content, outcome, started)

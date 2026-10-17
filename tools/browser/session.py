@@ -154,11 +154,44 @@ _OBSERVE_JS = """
         formMethod: method || 'GET',
       };
     }
-    // Text fields: form action/method when inside a form; else null.
+    // Text fields: Enter submits via the form's default submit button
+    // (first in tree order); use that button's formaction/formmethod when
+    // set, otherwise the form's action/method.
     if (role === 'textbox' && el.form) {
+      const form = el.form;
+      let defaultBtn = null;
+      for (const cand of form.querySelectorAll('button, input')) {
+        const cTag = cand.tagName;
+        const cType = (cand.type || '').toLowerCase();
+        const cSubmit = (
+          (cTag === 'BUTTON' && (!cType || cType === 'submit'))
+          || (cTag === 'INPUT' && (cType === 'submit' || cType === 'image'))
+        );
+        if (cSubmit) { defaultBtn = cand; break; }
+      }
+      if (defaultBtn) {
+        let action;
+        let method;
+        if (defaultBtn.hasAttribute('formaction')) {
+          action = defaultBtn.formAction
+            || defaultBtn.getAttribute('formaction') || '';
+        } else {
+          action = form.action || '';
+        }
+        if (defaultBtn.hasAttribute('formmethod')) {
+          method = (defaultBtn.formMethod
+            || defaultBtn.getAttribute('formmethod') || 'get').toUpperCase();
+        } else {
+          method = (form.method || 'get').toUpperCase();
+        }
+        return {
+          formAction: action || null,
+          formMethod: method || 'GET',
+        };
+      }
       return {
-        formAction: el.form.action || null,
-        formMethod: (el.form.method || 'get').toUpperCase() || 'GET',
+        formAction: form.action || null,
+        formMethod: (form.method || 'get').toUpperCase() || 'GET',
       };
     }
     return { formAction: null, formMethod: null };
@@ -322,8 +355,34 @@ _ELEMENT_SNAPSHOT_JS = """
       formMethod = (el.form.method || 'get').toUpperCase();
     }
   } else if (role === 'textbox' && el.form) {
-    formAction = el.form.action || null;
-    formMethod = (el.form.method || 'get').toUpperCase() || 'GET';
+    const form = el.form;
+    let defaultBtn = null;
+    for (const cand of form.querySelectorAll('button, input')) {
+      const cTag = cand.tagName;
+      const cType = (cand.type || '').toLowerCase();
+      const cSubmit = (
+        (cTag === 'BUTTON' && (!cType || cType === 'submit'))
+        || (cTag === 'INPUT' && (cType === 'submit' || cType === 'image'))
+      );
+      if (cSubmit) { defaultBtn = cand; break; }
+    }
+    if (defaultBtn) {
+      if (defaultBtn.hasAttribute('formaction')) {
+        formAction = defaultBtn.formAction
+          || defaultBtn.getAttribute('formaction') || null;
+      } else {
+        formAction = form.action || null;
+      }
+      if (defaultBtn.hasAttribute('formmethod')) {
+        formMethod = (defaultBtn.formMethod
+          || defaultBtn.getAttribute('formmethod') || 'get').toUpperCase();
+      } else {
+        formMethod = (form.method || 'get').toUpperCase();
+      }
+    } else {
+      formAction = form.action || null;
+      formMethod = (form.method || 'get').toUpperCase() || 'GET';
+    }
   }
   return {
     detached: false,
@@ -493,6 +552,17 @@ class BrowserSession:
         except PlaywrightError as exc:
             self.close()
             raise ValueError(f"Could not start the browser: {_short(exc)}") from exc
+
+    def is_alive(self) -> bool:
+        """True if the Playwright page/context are still open."""
+        try:
+            if self._page is None or self._context is None:
+                return False
+            if self._page.is_closed():
+                return False
+            return True
+        except Exception:
+            return False
 
     @property
     def page(self):

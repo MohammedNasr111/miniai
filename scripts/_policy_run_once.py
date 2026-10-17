@@ -162,12 +162,8 @@ def main() -> None:
         print("=== PROMPT LOG ===")
         for action, p, answer in prompt_log:
             print(f"Action={action!r} answer={answer!r} prompt={p!r}")
-        if response.tool_calls:
-            final = ""
-            print("Stopped after round cap without a final answer.")
-        else:
-            final = response.content or ""
-            print(f"Final answer: {final}")
+        final = response.content or ""
+        print(f"Final answer: {final}")
         wall = round(time.perf_counter() - started, 3)
         transcript.run_end(
             wall_clock_seconds=wall,

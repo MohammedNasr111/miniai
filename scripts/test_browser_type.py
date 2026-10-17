@@ -465,6 +465,89 @@ def test_10_action_changed() -> None:
         reset_session()
 
 
+def test_11_enter_uses_default_button_formaction() -> None:
+    """Textbox Enter destination prefers default submit button's formaction."""
+    session = _temp_session()
+    reset_session()
+    mark_untrusted("browser_open")
+    captured: list[str] = []
+
+    def _recording_gate(action, tier, description):
+        captured.append(description)
+        return check_permission(action, tier, description)
+
+    try:
+        session.page.set_content(
+            """
+            <html><body>
+            <form action="https://form.example/default" method="post">
+              <input type="text" name="q" placeholder="Query">
+              <button type="submit"
+                formaction="https://other.example/x"
+                formmethod="get">Go</button>
+            </form>
+            </body></html>
+            """
+        )
+        browser_observe()
+        meta = session.last_elements[1]
+        with patch(
+            "tools.browser.browser_tools.check_permission",
+            side_effect=_recording_gate,
+        ), patch(
+            "builtins.input", side_effect=lambda prompt="": "browser_type"
+        ), redirect_stdout(io.StringIO()):
+            # Avoid real navigation: fill only (submit=False) after checking prompt
+            # by calling with submit=True but stubbing type_text after gate.
+            def _type_no_nav(ref, text, submit=False):
+                # Verify element (formaction check) then fill without Enter.
+                handle, _ = session._verify_element(ref)
+                handle.fill(text)
+
+            with patch.object(session, "type_text", side_effect=_type_no_nav):
+                with patch.object(
+                    session, "observe", lambda looking_for=None: "ok"
+                ):
+                    browser_type(1, "q", submit=True)
+        prompt = captured[-1] if captured else ""
+        ok = (
+            "other.example/x" in str(meta.get("formAction"))
+            and "other.example" in prompt
+            and "(method GET)" in prompt
+            and "form.example/default" not in prompt
+        )
+        report(
+            "11",
+            ok,
+            f"meta_action={meta.get('formAction')!r} "
+            f"meta_method={meta.get('formMethod')!r} prompt={prompt!r}",
+        )
+    finally:
+        close_session()
+        reset_session()
+
+
+def test_12_dead_session_observe_message() -> None:
+    """observe/click/type on a closed browser ask for browser_open."""
+    session = _temp_session()
+    try:
+        session.page.set_content("<html><body><input></body></html>")
+        browser_observe()
+        session.page.close()
+        raised = None
+        try:
+            browser_observe()
+        except ValueError as exc:
+            raised = str(exc)
+        ok = raised == (
+            "The browser closed unexpectedly. Call browser_open to start again."
+        )
+        report("12", ok, f"error={raised!r}")
+    finally:
+        close_session()
+        reset_session()
+
+
 def test_6_atomic_16_17_and_timing() -> None:
     import scripts.test_browser_session as tbs
 
@@ -512,6 +595,8 @@ def main() -> None:
         test_8_submit_true_no_form,
         test_9_submit_false,
         test_10_action_changed,
+        test_11_enter_uses_default_button_formaction,
+        test_12_dead_session_observe_message,
     ):
         try:
             test()

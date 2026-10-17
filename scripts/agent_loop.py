@@ -226,7 +226,13 @@ def run_tool_rounds(provider, history, guard, transcript=None):
     if transcript is not None:
         transcript.rounds = rounds
         transcript.round_cap_hit = cap
-    if not cap:
+    if cap:
+        # Surface a concrete final answer when the round limit stops the loop.
+        shown = "Stopped after 5 tool rounds without a final answer."
+        response.content = shown
+        if transcript is not None:
+            transcript.final(raw=shown, shown=shown)
+    else:
         raw = response.content or ""
         shown = clean_final_answer(raw)
         response.content = shown
@@ -294,13 +300,7 @@ def main() -> None:
         # more than one tool to answer (e.g. list, then read).
         guard = CallGuard()
         response = run_tool_rounds(provider, history, guard, transcript)
-        if response.tool_calls:
-            print(
-                "\nStopped after 5 tool rounds without a final answer "
-                "(round cap reached)."
-            )
-        else:
-            print(f"\nFinal answer: {response.content}")
+        print(f"\nFinal answer: {response.content}")
         transcript.run_end(
             wall_clock_seconds=round(time.perf_counter() - started, 3),
             rounds=transcript.rounds,

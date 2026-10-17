@@ -374,6 +374,11 @@ Append one dated entry here after every completed task, in the form:
 - `config/settings.py` adds `MEMORY_DB_PATH` / `VECTOR_DB_PATH` from `MINIAI_MEMORY_DB` / `MINIAI_VECTOR_DB` (defaults: `memory/database/miniai_memory.db`, `memory/vector/lancedb`). `memory/database/db.py` and `memory/vector/store.py` use those settings.
 - `tests/support.py`: `use_temp_data()` (must run before project imports) and `assert_not_real_data()`. Writing scripts converted: `test_memory_tools`, `test_knowledge_tools`, `test_search_knowledge`, `ingest_documents` (fixture loader), `test_index_freshness`, `test_scripted_exfil` (seeds one fake fact), `test_injection_loop`. Real memory mtime/size/rows and real lancedb file listing unchanged after the suite. Real stores contained only known fixture rows/sources; both deleted so the agent starts empty. ARCHITECTURE.md: tests never touch real data.
 
+## 2026-10-17 — Browser crash recovery; guard error retry; Enter-key destination
+- STEP 1 (run 3 / `agent_20261017-230514_22920.log`): `browser_open` OK at 23:05:24; next LLM call 31.768 s; `browser_observe` at 23:05:56 failed with Playwright "Target page, context or browser has been closed" (~32 s idle while model thought). Crashpad `reports`/`pending` empty; popup handler only closes non-main pages; no historical chrome process list from that moment — root cause not determined.
+- Recovery: dead session discarded; observe/click/type raise "closed unexpectedly… browser_open"; profile-in-use launch message. Guard: one mutating retry after `error`; read-only `error` not recorded. Textbox Enter destination uses default submit button's formaction/formmethod. Round-cap final answer text set in `run_tool_rounds`.
+- Offline tests (guard j/k/l, browser_type 11–12, regressions) PASS. Commit: Browser crash recovery; guard allows one retry after an error; Enter-key destination uses default button.
+
 ## 2026-10-17 — observe(): article text via trafilatura, start + match excerpt
 - `observe()` uses `extract_text` (trafilatura) on `page.content()`; falls back to scope `innerText`. Layout: always "Page text - start"; optional "around '<word>'" when a non-stop `looking_for` match begins after char 1500 (sentence-start lookback 200). Stop words ignored for element ranking and text match.
 - Timing on ATP synthase: before mean 63.8 ms, after mean 293.6 ms.

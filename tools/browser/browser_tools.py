@@ -24,12 +24,61 @@ _REFUSAL_SENSITIVE = (
     "MiniAI does not type passwords or payment details; "
     "the user must type these themselves in the browser window."
 )
+_CLOSED_UNEXPECTEDLY = (
+    "The browser closed unexpectedly. Call browser_open to start again."
+)
+_PROFILE_IN_USE = (
+    "The agent's browser profile is already in use by another browser "
+    "window. Close it and try again."
+)
+
+
+def _discard_dead_session() -> None:
+    global _session, _last_elements
+    if _session is None:
+        return
+    if _session.is_alive():
+        return
+    try:
+        _session.close()
+    except Exception:
+        pass
+    _session = None
+    _last_elements = {}
+
+
+def _launch_session() -> BrowserSession:
+    try:
+        return BrowserSession(headless=False)
+    except ValueError as exc:
+        message = str(exc)
+        lower = message.lower()
+        if (
+            "in use" in lower
+            or "singleton" in lower
+            or "lock" in lower
+            or "already running" in lower
+            or "user data directory" in lower
+        ):
+            raise ValueError(_PROFILE_IN_USE) from exc
+        raise
 
 
 def get_session() -> BrowserSession:
+    """Return a live session, discarding a dead one and launching if needed."""
     global _session
+    _discard_dead_session()
     if _session is None:
-        _session = BrowserSession(headless=False)
+        _session = _launch_session()
+    return _session
+
+
+def require_live_session() -> BrowserSession:
+    """Live session for observe/click/type; do not auto-launch a blank one."""
+    global _session
+    _discard_dead_session()
+    if _session is None:
+        raise ValueError(_CLOSED_UNEXPECTEDLY)
     return _session
 
 
@@ -79,7 +128,7 @@ def browser_observe(looking_for: Optional[str] = None) -> str:
             + (f" (looking for: {looking_for})" if looking_for else "")
         ),
     )
-    session = get_session()
+    session = require_live_session()
     result = session.observe(looking_for=looking_for)
     _remember(session)
     return result
@@ -88,6 +137,7 @@ def browser_observe(looking_for: Optional[str] = None) -> str:
 def browser_click(ref: int) -> str:
     if isinstance(ref, bool) or not isinstance(ref, int):
         raise ValueError(f"ref must be an integer, got {ref!r}")
+    session = require_live_session()
     if ref not in _last_elements:
         raise ValueError(
             f"No element with ref {ref} in the most recent observation. "
@@ -107,7 +157,6 @@ def browser_click(ref: int) -> str:
         href_shown = describe_url(str(href_raw))
     else:
         href_shown = "none (not a link)"
-    session = get_session()
     current_url = session.page.url
     role = one_line(sanitize(str(role_raw)))
     description = (
@@ -161,6 +210,7 @@ def _validate_type_text(text: str) -> None:
 def browser_type(ref: int, text: str, submit: bool = False) -> str:
     if isinstance(ref, bool) or not isinstance(ref, int):
         raise ValueError(f"ref must be an integer, got {ref!r}")
+    session = require_live_session()
     if ref not in _last_elements:
         raise ValueError(
             f"No element with ref {ref} in the most recent observation. "
@@ -179,7 +229,6 @@ def browser_type(ref: int, text: str, submit: bool = False) -> str:
         raise ValueError(f"submit must be a boolean, got {type(submit).__name__}")
 
     name = one_line(sanitize(element.get("name") or ""))
-    session = get_session()
     current_url = session.page.url
     origin = _origin_of(current_url)
     shown_text = text.replace("\n", "\\n")

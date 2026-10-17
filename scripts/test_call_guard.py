@@ -251,6 +251,111 @@ def test_i() -> None:
         _restore()
 
 
+def test_j_error_then_retry() -> None:
+    """Mutating call that errors may be retried once; second retry blocked."""
+    _install()
+    tries = {"n": 0}
+
+    def write_file(**kwargs):
+        from security.gate import check_permission
+
+        check_permission("write_file", Tier.CONFIRM, "stub write")
+        tries["n"] += 1
+        if tries["n"] <= 2:
+            raise RuntimeError(f"boom{tries['n']}")
+        return "wrote"
+
+    try:
+        TOOL_FUNCTIONS["write_file"] = write_file
+        guard = CallGuard()
+        r1 = execute_tool_calls(
+            [_call("j1", "write_file", {"path": "x", "content": "y"})], guard
+        )
+        r2 = execute_tool_calls(
+            [_call("j2", "write_file", {"path": "x", "content": "y"})], guard
+        )
+        r3 = execute_tool_calls(
+            [_call("j3", "write_file", {"path": "x", "content": "y"})], guard
+        )
+        ok = (
+            "Error: boom1" in r1[0].content
+            and "Error: boom2" in r2[0].content
+            and "Blocked duplicate call" in r3[0].content
+            and tries["n"] == 2
+            and GATE_HITS["n"] == 2
+        )
+        _check(
+            "j",
+            ok,
+            f"tries={tries['n']} gate={GATE_HITS['n']}; "
+            f"r1={r1[0].content[:40]!r} r2={r2[0].content[:40]!r} "
+            f"r3_blocked={'Blocked' in r3[0].content}",
+        )
+    finally:
+        _restore()
+
+
+def test_k_denied_then_retry_blocked() -> None:
+    """Denied mutating call still blocks an identical retry (unchanged)."""
+    _install(deny_write=True)
+    try:
+        guard = CallGuard()
+        r1 = execute_tool_calls(
+            [_call("k1", "write_file", {"path": "x", "content": "y"})], guard
+        )
+        r2 = execute_tool_calls(
+            [_call("k2", "write_file", {"path": "x", "content": "y"})], guard
+        )
+        ok = (
+            r1[0].content.startswith("Denied by user:")
+            and "Blocked duplicate call" in r2[0].content
+            and GATE_HITS["n"] == 1
+        )
+        _check("k", ok, f"gate={GATE_HITS['n']}; denied then blocked")
+    finally:
+        _restore()
+
+
+def test_l_readonly_error_retry() -> None:
+    """browser_observe errors are not recorded; identical retry is allowed."""
+    _install()
+    tries = {"n": 0}
+    saved_observe = TOOL_FUNCTIONS.get("browser_observe")
+
+    def browser_observe(**kwargs):
+        tries["n"] += 1
+        if tries["n"] == 1:
+            raise RuntimeError("observe failed")
+        return "observed"
+
+    try:
+        TOOL_FUNCTIONS["browser_observe"] = browser_observe
+        guard = CallGuard()
+        args = {"looking_for": "search"}
+        r1 = execute_tool_calls(
+            [_call("l1", "browser_observe", args)], guard
+        )
+        r2 = execute_tool_calls(
+            [_call("l2", "browser_observe", args)], guard
+        )
+        ok = (
+            "Error: observe failed" in r1[0].content
+            and "Blocked duplicate call" not in r2[0].content
+            and tries["n"] == 2
+            and r2[0].content == "observed"
+        )
+        _check(
+            "l",
+            ok,
+            f"tries={tries['n']} r1={r1[0].content[:50]!r} "
+            f"r2={r2[0].content[:50]!r}",
+        )
+    finally:
+        if saved_observe is not None:
+            TOOL_FUNCTIONS["browser_observe"] = saved_observe
+        _restore()
+
+
 def main() -> None:
     test_a()
     test_b()
@@ -260,6 +365,9 @@ def main() -> None:
     test_f()
     test_h()
     test_i()
+    test_j_error_then_retry()
+    test_k_denied_then_retry_blocked()
+    test_l_readonly_error_retry()
     if FAILURES:
         print(f"\n{FAILURES} check(s) failed.")
         sys.exit(1)
