@@ -7,9 +7,13 @@ MINIAI_MEMORY_DB and MINIAI_VECTOR_DB to paths under a fresh temp directory.
 
 from __future__ import annotations
 
+import builtins
 import os
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REAL_MEMORY_DB = (PROJECT_ROOT / "memory" / "database" / "miniai_memory.db").resolve()
@@ -51,3 +55,39 @@ def assert_not_real_data() -> None:
             f"({REAL_VECTOR_DB}). Call use_temp_data() before importing "
             f"project modules."
         )
+
+
+@contextmanager
+def answer_by_action(
+    mapping: dict[str, str],
+    default: str = "no",
+) -> Iterator[list[tuple[str, str, str]]]:
+    """Patch input() to answer from the latest printed ``Action: <name>``.
+
+    Live tests should use this instead of ordered stdin lines. Unmapped
+    actions get ``default`` (usually ``"no"``). Yields a log list of
+    ``(action, prompt, answer)`` tuples filled as prompts are answered.
+    """
+    last_action: dict[str, str | None] = {"name": None}
+    log: list[tuple[str, str, str]] = []
+    real_print = builtins.print
+
+    def capturing_print(*args, **kwargs):
+        sep = kwargs.get("sep", " ")
+        text = sep.join(str(a) for a in args)
+        if text.startswith("Action: "):
+            last_action["name"] = text[len("Action: ") :].strip()
+        return real_print(*args, **kwargs)
+
+    def smart_input(prompt: str = "") -> str:
+        action = last_action["name"] or ""
+        answer = mapping.get(action, default)
+        log.append((action, prompt, answer))
+        real_print(f"[INPUT] action={action!r} prompt={prompt!r} -> {answer!r}")
+        return answer
+
+    with (
+        patch("builtins.print", side_effect=capturing_print),
+        patch("builtins.input", side_effect=smart_input),
+    ):
+        yield log

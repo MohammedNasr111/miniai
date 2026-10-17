@@ -18,11 +18,11 @@ LEMONADE_TIMEOUT_SECONDS = 90  # generous: covers the ~20s cold-load seen
 LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 450  # Measured up to 263 s for web_research synthesis (thinking on, ~4K
                                           # prompt tokens); Lemonade's own proxy limit is 600 s.
 ENABLE_THINKING_DEFAULT = False  # per Stage 1 benchmarking decision
-# on_after_tools: thinking off for first tool-selection call, on once any
-# tool result is in history (current default). two_pass: every call starts
-# with thinking off; if the response is a final answer (no tool calls),
-# discard it and repeat with thinking on + synthesis timeout.
-THINKING_POLICY = os.environ.get("MINIAI_THINKING_POLICY", "on_after_tools")
+# two_pass (default): every call starts with thinking off; if the response
+# is a final answer (no tool calls), discard it and repeat with thinking on
+# + synthesis timeout. on_after_tools: thinking off until a tool result is
+# in history, then on (previous default; still available via env).
+THINKING_POLICY = os.environ.get("MINIAI_THINKING_POLICY", "two_pass")
 EMBEDDING_MODEL = "nomic-embed-text-v1-GGUF"
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")  # may be None; never print or log this
 

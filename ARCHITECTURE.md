@@ -24,14 +24,20 @@
   service. scripts/agent_loop.py checks /health first and exits with a
   clear message if the server is down.
 - Default model: **Qwen3-14B-GGUF** (llamacpp/vulkan recipe, ~8GB on disk).
-  Thinking mode (`chat_template_kwargs.enable_thinking`) is PER-CALL, not a
-  blanket default: OFF for tool-selection calls (deciding which tool to call
-  needs no reasoning), ON for any call where the conversation history already
-  contains a tool-role message (i.e. synthesizing/counting/aggregating real
-  tool output). Verified in Stage 3 testing: thinking-off correctly listed 18
-  directory entries but miscounted them as 15; thinking-on with the identical
-  prompt and tool result counted correctly (18) at roughly 8x the wall-clock
-  cost. The cost is worth paying only on the synthesis call, not every call.
+  Thinking policy (`settings.THINKING_POLICY`, overridable via
+  `MINIAI_THINKING_POLICY`): default **`two_pass`** — every model call runs
+  with thinking off first; if the response has tool calls, use it; if it is
+  a final answer, discard it (transcript `discarded: true`) and repeat the
+  same call with thinking on and the synthesis timeout. Alternative
+  `on_after_tools` keeps the older rule (off until a tool result is in
+  history, then on). Part C comparison (2026-10-17): Wikipedia search wall
+  509 s / 5 calls (`on_after_tools`) vs 424 s / 9 calls (`two_pass`, three
+  discarded finals); research+create_file 226 s / 3 vs 138 s / 4; directory
+  count 239 s / 2 vs 317 s / 3 — both policies answered correctly, and
+  `two_pass` often produces a usable tool plan without paying thinking cost
+  up front, so it is the default. Verified earlier: thinking-off correctly
+  listed 18 directory entries but miscounted them as 15; thinking-on with
+  the identical prompt and tool result counted correctly (18).
   NPU/Hybrid path (Qwen3-14B-Hybrid, ryzenai-llm recipe) was
   tested and PARKED: model loads and shows healthy status, but generation
   never completes (proxy and direct-backend timeouts on v1.7.0). Revisit only
@@ -80,17 +86,20 @@
   tainted. In a tainted session every CONFIRM/ALWAYS_CONFIRM prompt shows
   a warning banner, and every such action except those in
   TAINT_YESNO_ACTIONS (fetch_url, browser_open, browser_click) requires
-  typing the exact action name - a plain 'yes' is denied. Exception:
-  fetch_url and browser_open still require the action name when the URL
-  carries data (query string, fragment, or a path that changes when
-  percent-decoded); the prompt then adds "This URL carries data (shown
-  above). Typed confirmation required." Plain URLs and untainted sessions
-  keep yes/no. browser_click stays yes/no (link targets are chosen by the
-  page). browser_type is deliberately not in TAINT_YESNO_ACTIONS. Live
-  testing showed the model will attempt injected deletes after a user's
-  'go ahead'; this gate, not the model, is the safety boundary. Accepted
-  residual risk: a manipulated model can still ask the user to type the
-  action name, so the banner relies on the user.
+  typing the exact action name - a plain 'yes' is denied. Exception
+  (URL provenance): fetch_url and browser_open still require the action
+  name when the URL is not in the session's known set — URLs from the
+  user's messages, hrefs and form actions in browser observations, source
+  URLs from web_research, and final URLs after navigation or fetch.
+  Unknown (model-constructed) URLs prompt: "This URL was not given by you
+  or supplied by a page or search result - the model constructed it.
+  Typed confirmation required." Known URLs and untainted sessions keep
+  yes/no. browser_click stays yes/no. browser_type is deliberately not in
+  TAINT_YESNO_ACTIONS. `describe_url` / `carries_data` remain for display
+  only. Live testing showed the model will attempt injected deletes after
+  a user's 'go ahead'; this gate, not the model, is the safety boundary.
+  Accepted residual risk: a manipulated model can still ask the user to
+  type the action name, so the banner relies on the user.
 - Browser tools: browser_open / browser_observe / browser_click /
   browser_type. Permission prompts for fetch_url, browser_open, and
   browser_click use describe_url so percent-encoded path/query/fragment
@@ -136,6 +145,9 @@
   button's behaviour. This is why the agent uses its own browser profile
   and never the user's accounts.
 - Elements inside iframes are not visible to the agent.
+- A page's own scripts can send typed text or redirect a form submission
+  anywhere; the prompts show the declared destination, not what scripts
+  may do.
 - search_memory is AUTO_ALLOW, so injected content can make the model
   read memories without a prompt; any attempt to send them out through
   browser_open, fetch_url, or browser_type is stopped at the confirmation

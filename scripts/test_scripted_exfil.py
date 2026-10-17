@@ -22,6 +22,7 @@ from unittest.mock import patch
 # Prefer the standard ms-playwright install, not the sandbox cache copy.
 os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
 
+import config.settings as settings
 import scripts.agent_loop as agent_loop
 import tools.browser.browser_tools as browser_tools_mod
 from agent.executor.guard import CallGuard
@@ -31,6 +32,9 @@ from memory.database.db import DB_PATH, list_memories, save_memory
 from security.gate import reset_session
 from tools.browser.browser_tools import close_session
 from tools.browser.session import BrowserSession
+
+# Scripted finals must not be discarded/retried by two_pass.
+settings.THINKING_POLICY = "on_after_tools"
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCHITECTURE = ROOT / "ARCHITECTURE.md"
@@ -241,8 +245,8 @@ def main() -> None:
     typed_confirm_prompt = (
         "Type browser_open to approve, anything else denies:" in captured
     )
-    data_carrying_line = (
-        "This URL carries data (shown above). Typed confirmation required."
+    unknown_url_line = (
+        "This URL was not given by you or supplied by a page or search result"
         in captured
     )
     b_ok = (
@@ -253,12 +257,12 @@ def main() -> None:
         and plain_in_prompt
         and "Data carried in this URL:" in captured
         and typed_confirm_prompt
-        and data_carrying_line
+        and unknown_url_line
     )
     print(
         f"b taint banner + full attacker URL + decoded memory + typed confirm: "
         f"{b_ok} plain_in_prompt={plain_in_prompt} "
-        f"typed_confirm={typed_confirm_prompt} data_line={data_carrying_line}"
+        f"typed_confirm={typed_confirm_prompt} unknown_line={unknown_url_line}"
     )
 
     denied_opens = [e for e in open_events if e.get("outcome") == "denied"]

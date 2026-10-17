@@ -19,6 +19,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
+from security.provenance import remember_url
 from tools.web.fetch_tools import validate_url
 from tools.web.untrusted import (
     BEGIN_MARKER,
@@ -30,7 +31,9 @@ from tools.web.untrusted import (
 
 # Cursor/sandbox sometimes points Playwright at an empty cache. Prefer the
 # normal user install so agent_loop and tests find Chromium.
-os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
+_playwright_browsers = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
+if "cursor-sandbox-cache" in _playwright_browsers:
+    os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
 
 PROFILE_DIR = Path(__file__).resolve().parent.parent.parent / "browser_profile"
 NAVIGATION_TIMEOUT_MS = 30_000
@@ -108,8 +111,19 @@ _OBSERVE_JS = """
     if (!isSubmit || !el.form) {
       return { formAction: null, formMethod: null };
     }
-    const action = el.form.action || '';
-    const method = (el.form.method || 'get').toUpperCase();
+    // Prefer formaction/formmethod on the control when present; else the form.
+    let action;
+    let method;
+    if (el.hasAttribute('formaction')) {
+      action = el.formAction || el.getAttribute('formaction') || '';
+    } else {
+      action = el.form.action || '';
+    }
+    if (el.hasAttribute('formmethod')) {
+      method = (el.formMethod || el.getAttribute('formmethod') || 'get').toUpperCase();
+    } else {
+      method = (el.form.method || 'get').toUpperCase();
+    }
     return {
       formAction: action || null,
       formMethod: method || 'GET',
@@ -276,8 +290,16 @@ _ELEMENT_SNAPSHOT_JS = """
   let formAction = null;
   let formMethod = null;
   if (isSubmit && el.form) {
-    formAction = el.form.action || null;
-    formMethod = (el.form.method || 'get').toUpperCase();
+    if (el.hasAttribute('formaction')) {
+      formAction = el.formAction || el.getAttribute('formaction') || null;
+    } else {
+      formAction = el.form.action || null;
+    }
+    if (el.hasAttribute('formmethod')) {
+      formMethod = (el.formMethod || el.getAttribute('formmethod') || 'get').toUpperCase();
+    } else {
+      formMethod = (el.form.method || 'get').toUpperCase();
+    }
   }
   return {
     detached: false,
@@ -332,6 +354,7 @@ class BrowserSession:
         self.last_elements: dict[int, dict] = {}
         self._element_handles: dict[int, object] = {}
         self._observe_root_handle = None
+        self._observe_elements_handle = None
         self._host_decisions: dict[str, Optional[str]] = {}
         self._playwright = None
         self._context = None
@@ -475,6 +498,12 @@ class BrowserSession:
             except Exception:
                 pass
         self._element_handles = {}
+        if self._observe_elements_handle is not None:
+            try:
+                self._observe_elements_handle.dispose()
+            except Exception:
+                pass
+            self._observe_elements_handle = None
         if self._observe_root_handle is not None:
             try:
                 self._observe_root_handle.dispose()
@@ -494,6 +523,7 @@ class BrowserSession:
         except PlaywrightError as exc:
             raise ValueError(f"Navigation to {url!r} failed: {_short(exc)}") from exc
         self._settle()
+        remember_url(self._page.url)
 
     def observe(self, looking_for: Optional[str] = None) -> str:
         self._require_open()
@@ -540,6 +570,10 @@ class BrowserSession:
                 "idAttr": item.get("idAttr") or "",
             }
             self.last_elements[ref] = meta
+            if meta.get("href"):
+                remember_url(str(meta["href"]))
+            if meta.get("formAction"):
+                remember_url(str(meta["formAction"]))
             prop = element_props.get(str(ref - 1))
             if prop is None:
                 raise ValueError(f"Could not hold element ref {ref}: missing handle")
@@ -553,8 +587,10 @@ class BrowserSession:
             self._element_handles[ref] = element
         # Keep result_handle / elements_handle alive: disposing them can
         # invalidate the ElementHandles we just extracted. They are released
-        # on the next observe() / close() via page navigation or GC.
+        # on the next observe() / close() via _release_element_handles.
         self._observe_root_handle = result_handle
+        self._observe_elements_handle = elements_handle
+        remember_url(current_url)
 
         scope_label = data["scopeLabel"]
         text_start = int(data.get("textStart") or 0)
@@ -636,6 +672,7 @@ class BrowserSession:
         except PlaywrightError as exc:
             raise ValueError(f"Click on ref {ref} failed: {_short(exc)}") from exc
         self._settle()
+        remember_url(self._page.url)
 
     def type_text(self, ref: int, text: str) -> None:
         self._require_open()
@@ -646,6 +683,7 @@ class BrowserSession:
             handle.fill(text)
         except PlaywrightError as exc:
             raise ValueError(f"Type into ref {ref} failed: {_short(exc)}") from exc
+        remember_url(self._page.url)
 
     def close(self) -> None:
         self._release_element_handles()

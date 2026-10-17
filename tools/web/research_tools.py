@@ -9,6 +9,7 @@ from typing import Optional
 
 from llm.lemonade.embeddings import embed
 from security.gate import Tier, check_permission
+from security.provenance import remember_url
 from tools.filesystem.chunking import chunk_text
 from tools.web.fetch_tools import download, extract_text, validate_url
 from tools.web.search.tavily import TavilyProvider
@@ -95,6 +96,7 @@ def web_research(question: str, max_sources: int = 4) -> str:
                 chunks=chunks,
             )
         )
+        remember_url(final_url)
     chosen = _select(question, pages, expand_neighbors=True)
     return _render(question, pages, chosen, skipped)
 

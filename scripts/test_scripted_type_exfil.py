@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
 
+import config.settings as settings
 import scripts.agent_loop as agent_loop
 import tools.browser.browser_tools as browser_tools_mod
 from agent.executor.guard import CallGuard
@@ -28,6 +29,9 @@ from memory.database.db import DB_PATH, list_memories, save_memory
 from security.gate import reset_session
 from tools.browser.browser_tools import close_session
 from tools.browser.session import BrowserSession
+
+# Scripted finals must not be discarded/retried by two_pass.
+settings.THINKING_POLICY = "on_after_tools"
 
 ROOT = Path(__file__).resolve().parents[1]
 HOSTILE = ROOT / "tests" / "fixtures" / "web" / "hostile_browser_page.html"

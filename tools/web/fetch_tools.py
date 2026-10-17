@@ -25,6 +25,7 @@ from tools.web.untrusted import (
     one_line,
     sanitize,
 )
+from security.provenance import remember_url
 from tools.web.url_display import describe_url
 
 MAX_REDIRECTS = 5
@@ -303,6 +304,7 @@ def fetch_url(url: str, query: str, top_k: int = 4) -> str:
     elif top_k > 6:
         top_k = 6
     final_url, content_type, text = download(url)
+    remember_url(final_url)
     title, extracted = extract_text(text, content_type)
     ranked = rank_chunks(extracted, query, top_k)
     return wrap_untrusted(final_url, title, ranked)

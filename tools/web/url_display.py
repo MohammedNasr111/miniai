@@ -16,6 +16,7 @@ def _url_data_parts(url: str) -> tuple[str, str, list[tuple[str, str]], str, str
     parsed = urlparse(url or "")
     path_raw = parsed.path or ""
     path_decoded = unquote(path_raw)
+    # parse_qsl already percent-decodes values; do not unquote again.
     pairs = parse_qsl(parsed.query, keep_blank_values=True)
     fragment_raw = parsed.fragment or ""
     fragment_decoded = unquote(fragment_raw) if fragment_raw else ""
@@ -47,7 +48,7 @@ def describe_url(url: str) -> str:
     if path_raw and path_decoded != path_raw:
         lines.append(f"  path: {one_line(sanitize(path_decoded))}")
     for name, value in pairs:
-        shown = unquote(value)[:_MAX_PARAM_CHARS]
+        shown = value[:_MAX_PARAM_CHARS]
         lines.append(
             f"  {one_line(sanitize(name))} = {one_line(sanitize(shown))}"
         )

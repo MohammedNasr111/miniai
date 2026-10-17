@@ -9,21 +9,21 @@ After untrusted web content has been read, CONFIRM and ALWAYS_CONFIRM
 actions other than those in TAINT_YESNO_ACTIONS require the user to type
 the action name. Untainted sessions still accept "yes". For fetch_url and
 browser_open, a tainted session also requires the action name when the
-URL carries data (query, fragment, or a path that changes when decoded).
+URL is not in the session's known-URL set (model-constructed).
 """
 
 from enum import Enum
 from typing import Optional
 
-from tools.web.url_display import carries_data
+from security.provenance import clear_known_urls, is_known_url
 
 _tainted = False
 _sources: list[str] = []
 
 # When the session is tainted, these CONFIRM actions still accept a plain
-# "yes" — unless fetch_url / browser_open is given a data-carrying URL
-# (see check_permission). browser_click stays yes/no: link targets are
-# chosen by the page, not the model. They cannot type into fields.
+# "yes" — unless fetch_url / browser_open targets an unknown URL (see
+# check_permission). browser_click stays yes/no: link targets are chosen
+# by the page, not the model.
 TAINT_YESNO_ACTIONS = {"fetch_url", "browser_open", "browser_click"}
 
 
@@ -38,10 +38,11 @@ class PermissionDenied(Exception):
 
 
 def reset_session() -> None:
-    """Clear taint at the start of an agent run."""
+    """Clear taint and known URLs at the start of an agent run."""
     global _tainted, _sources
     _tainted = False
     _sources = []
+    clear_known_urls()
 
 
 def mark_untrusted(source: str) -> None:
@@ -71,7 +72,7 @@ def check_permission(
     Once the session is tainted, the same prompt is shown under a warning,
     and every action except those in TAINT_YESNO_ACTIONS requires the
     action name instead of "yes". Exception: fetch_url and browser_open
-    with a data-carrying URL also require the action name when tainted.
+    of a URL not in the known set also require the action name when tainted.
     """
     if tier == Tier.AUTO_ALLOW:
         return
@@ -86,21 +87,23 @@ def check_permission(
     print(f"Action: {action}")
     print(description)
 
-    data_carrying = (
+    unknown_url = (
         is_tainted()
         and action in ("fetch_url", "browser_open")
         and url is not None
-        and carries_data(url)
+        and not is_known_url(url)
     )
     require_typed_name = (
         is_tainted()
         and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM)
-        and (action not in TAINT_YESNO_ACTIONS or data_carrying)
+        and (action not in TAINT_YESNO_ACTIONS or unknown_url)
     )
     if require_typed_name:
-        if data_carrying:
+        if unknown_url:
             print(
-                "This URL carries data (shown above). Typed confirmation required."
+                "This URL was not given by you or supplied by a page or "
+                "search result - the model constructed it. Typed "
+                "confirmation required."
             )
         answer = input(f"Type {action} to approve, anything else denies: ").strip()
         if answer != action:

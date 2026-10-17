@@ -22,6 +22,7 @@ from config import settings
 from llm.base import ChatMessage
 from llm.lemonade.provider import LemonadeProvider
 from security.gate import reset_session
+from security.provenance import remember_urls_from_text
 from tools.browser.browser_tools import close_session
 from tools.registry import TOOL_SCHEMAS
 from tools.web.untrusted import BEGIN_MARKER, END_MARKER
@@ -188,6 +189,13 @@ def _call_model(provider, history, transcript=None):
     return response
 
 
+def _register_user_urls(history: list) -> None:
+    """Register http(s) URLs from every user message in history."""
+    for message in history:
+        if getattr(message, "role", None) == "user":
+            remember_urls_from_text(getattr(message, "content", None) or "")
+
+
 def run_tool_rounds(provider, history, guard, transcript=None):
     """Run tool rounds until the model answers or the round cap is hit.
 
@@ -196,6 +204,7 @@ def run_tool_rounds(provider, history, guard, transcript=None):
     the cleaned text, which is what a caller appends if the conversation
     continues. The raw text is written only to the transcript.
     """
+    _register_user_urls(history)
     response = _call_model(provider, history, transcript)
     rounds = 0
     while response.tool_calls and rounds < 5:
