@@ -123,6 +123,17 @@
   (up to 1500 or 3000 chars) and, when a non-stop `looking_for` word matches
   after character 1500, an around-match excerpt from the nearest sentence
   start.
+- Interactive chat (`python -m scripts.chat`): one session keeps one history,
+  one CallGuard, one Transcript, and one browser window across turns. Taint
+  and denials never reset between turns (only at start and on `/new`). Chat
+  replies such as "yes, go ahead" are never approvals — only the permission
+  gate's own prompts approve actions. Before each model call, tool results
+  from earlier user turns are replaced with a short omitted note except the
+  single most recent browser observation (kept full); the transcript retains
+  originals. `/new` closes the browser, clears taint/guard, and starts a
+  fresh history; `/exit` ends the session; `/status` shows taint sources,
+  turn count, and last prompt token count. Ctrl+C mid-turn cancels that
+  turn and truncates history to its pre-turn length.
 
 ## Known model limitations (design around, do not rely on the model)
 - Qwen3-14B is unreliable at counting/enumeration even with thinking on.
@@ -173,6 +184,7 @@ Stage 4: memory (SQLite) (done)
 Stage 5: RAG (LanceDB) (done)
 Stage 6: web research (done)
 Stage 7: browser automation (Playwright) (done)
+Stage 7.5: interactive chat (done)
 Stage 8: computer control (UI Automation)
 Stage 9: coding agent
 Stage 10: evaluation / self-improvement loop

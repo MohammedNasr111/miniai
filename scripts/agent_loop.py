@@ -37,6 +37,10 @@ BROWSER_OMITTED = (
     "[Earlier browser observation omitted to save context. "
     "Use the latest observation or call browser_observe.]"
 )
+CROSS_TURN_OMITTED = (
+    "[Tool result from an earlier message omitted to save context.]"
+)
+CONTEXT_WARN_TOKENS = 10_000
 
 
 def _require_lemonade() -> None:
@@ -86,12 +90,7 @@ def clean_final_answer(text: str) -> str:
     return "\n".join(collapsed).strip()
 
 
-def compress_browser_history(history: list) -> None:
-    """Replace older browser tool results in place; keep the latest full.
-
-    The transcript already logged the full tool results. tool_call_id and
-    message count are unchanged.
-    """
+def _tool_id_to_name(history: list) -> dict[str, str]:
     id_to_name: dict[str, str] = {}
     for message in history:
         if message.role == "assistant" and message.tool_calls:
@@ -100,6 +99,16 @@ def compress_browser_history(history: list) -> None:
                 name = (call.get("function") or {}).get("name")
                 if call_id and name:
                     id_to_name[call_id] = name
+    return id_to_name
+
+
+def compress_browser_history(history: list) -> None:
+    """Replace older browser tool results in place; keep the latest full.
+
+    The transcript already logged the full tool results. tool_call_id and
+    message count are unchanged.
+    """
+    id_to_name = _tool_id_to_name(history)
     browser_indices = [
         index
         for index, message in enumerate(history)
@@ -110,6 +119,38 @@ def compress_browser_history(history: list) -> None:
         return
     for index in browser_indices[:-1]:
         history[index].content = BROWSER_OMITTED
+
+
+def compress_cross_turn_history(history: list) -> None:
+    """Omit tool results from earlier user turns; keep latest browser obs.
+
+    Every tool-role message before the most recent user message is replaced
+    with CROSS_TURN_OMITTED, except the single most recent browser tool
+    result (open/observe/click/type), which stays full. tool_call_ids and
+    message count are unchanged; the transcript keeps originals.
+    """
+    user_indices = [
+        index for index, message in enumerate(history) if message.role == "user"
+    ]
+    if not user_indices:
+        return
+    current_turn_start = user_indices[-1]
+    id_to_name = _tool_id_to_name(history)
+    browser_indices = [
+        index
+        for index, message in enumerate(history)
+        if message.role == "tool"
+        and id_to_name.get(message.tool_call_id) in BROWSER_TOOL_NAMES
+    ]
+    keep_browser = browser_indices[-1] if browser_indices else None
+    for index, message in enumerate(history):
+        if message.role != "tool":
+            continue
+        if index >= current_turn_start:
+            continue
+        if index == keep_browser:
+            continue
+        message.content = CROSS_TURN_OMITTED
 
 
 def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, discarded=False):
@@ -130,6 +171,7 @@ def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, disca
 
 
 def _call_model(provider, history, transcript=None):
+    compress_cross_turn_history(history)
     compress_browser_history(history)
     policy = getattr(settings, "THINKING_POLICY", "on_after_tools")
 

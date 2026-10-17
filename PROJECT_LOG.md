@@ -374,6 +374,10 @@ Append one dated entry here after every completed task, in the form:
 - `config/settings.py` adds `MEMORY_DB_PATH` / `VECTOR_DB_PATH` from `MINIAI_MEMORY_DB` / `MINIAI_VECTOR_DB` (defaults: `memory/database/miniai_memory.db`, `memory/vector/lancedb`). `memory/database/db.py` and `memory/vector/store.py` use those settings.
 - `tests/support.py`: `use_temp_data()` (must run before project imports) and `assert_not_real_data()`. Writing scripts converted: `test_memory_tools`, `test_knowledge_tools`, `test_search_knowledge`, `ingest_documents` (fixture loader), `test_index_freshness`, `test_scripted_exfil` (seeds one fake fact), `test_injection_loop`. Real memory mtime/size/rows and real lancedb file listing unchanged after the suite. Real stores contained only known fixture rows/sources; both deleted so the agent starts empty. ARCHITECTURE.md: tests never touch real data.
 
+## 2026-10-18 — Stage 7.5: interactive chat mode
+- `scripts/chat.py`: REPL with persistent history/CallGuard/Transcript/browser; `/exit` `/new` `/status`; Ctrl+C cancels a turn. Cross-turn compression in `agent_loop.compress_cross_turn_history` (shared with one-shot). Offline `test_chat` 1–7 PASS; regressions PASS.
+- Live two-turn ATP chat (`answer_by_action`): `browser_open_calls_in_session=1`, turn 2 answered from open session. Transcript: `logs/agent_20261018-004417_22344.log`. Stage 7.5 marked done in ARCHITECTURE.md. Commit: Stage 7.5: interactive chat mode with persistent session, cross-turn context control, safe cancellation.
+
 ## 2026-10-18 — Denied actions stay blocked after a browser crash
 - Split guard mutating memory into `_mutating_succeeded` and `_mutating_denied`. `forget()` clears successes/errors/read-only for named tools but never denials. Crash-recovery check 8: denied URL stays blocked with no re-prompt after force-close; allowed URL can reopen. Regressions PASS. Commit: Denied actions stay blocked after a browser crash.
 

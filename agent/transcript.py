@@ -26,6 +26,7 @@ class Transcript:
         self._file = self.path.open("w", encoding="utf-8")
         self.rounds = 0
         self.round_cap_hit = False
+        self.last_prompt_tokens: Optional[int] = None
 
     def write(self, event_type: str, **fields: Any) -> None:
         record = {
@@ -71,6 +72,8 @@ class Transcript:
         if discarded:
             fields["discarded"] = True
         self.write("llm_call", **fields)
+        if not discarded and prompt_tokens is not None:
+            self.last_prompt_tokens = prompt_tokens
 
     def tool_call(
         self,

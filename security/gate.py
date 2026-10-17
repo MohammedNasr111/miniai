@@ -57,6 +57,11 @@ def is_tainted() -> bool:
     return _tainted
 
 
+def untrusted_sources() -> list[str]:
+    """Tool names that marked this session untrusted (copy)."""
+    return list(_sources)
+
+
 def check_permission(
     action: str,
     tier: Tier,
