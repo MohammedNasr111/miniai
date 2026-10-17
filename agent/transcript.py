@@ -54,20 +54,23 @@ class Transcript:
         finish_reason: Optional[str],
         content: Optional[str],
         tool_calls: Optional[list[dict[str, Any]]],
+        discarded: bool = False,
     ) -> None:
-        self.write(
-            "llm_call",
-            enable_thinking=enable_thinking,
-            timeout=timeout,
-            wall_clock_seconds=wall_clock_seconds,
-            usage={
+        fields: dict[str, Any] = {
+            "enable_thinking": enable_thinking,
+            "timeout": timeout,
+            "wall_clock_seconds": wall_clock_seconds,
+            "usage": {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
             },
-            finish_reason=finish_reason,
-            content=content,
-            tool_calls=tool_calls,
-        )
+            "finish_reason": finish_reason,
+            "content": content,
+            "tool_calls": tool_calls,
+        }
+        if discarded:
+            fields["discarded"] = True
+        self.write("llm_call", **fields)
 
     def tool_call(
         self,

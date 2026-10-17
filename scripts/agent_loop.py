@@ -111,8 +111,62 @@ def compress_browser_history(history: list) -> None:
         history[index].content = BROWSER_OMITTED
 
 
+def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, discarded=False):
+    if transcript is None:
+        return
+    usage = (response.raw or {}).get("usage") or {}
+    transcript.llm_call(
+        enable_thinking=enable_thinking,
+        timeout=timeout,
+        wall_clock_seconds=elapsed,
+        prompt_tokens=usage.get("prompt_tokens"),
+        completion_tokens=usage.get("completion_tokens"),
+        finish_reason=response.finish_reason,
+        content=response.content,
+        tool_calls=response.tool_calls,
+        discarded=discarded,
+    )
+
+
 def _call_model(provider, history, transcript=None):
     compress_browser_history(history)
+    policy = getattr(settings, "THINKING_POLICY", "on_after_tools")
+
+    if policy == "two_pass":
+        # Always try thinking off first.
+        timeout_off = provider.timeout
+        started = time.perf_counter()
+        response = provider.chat(
+            history,
+            tools=TOOL_SCHEMAS,
+            enable_thinking=False,
+            timeout=timeout_off,
+        )
+        elapsed = round(time.perf_counter() - started, 3)
+        if response.tool_calls:
+            _log_llm_call(
+                transcript, response, False, timeout_off, elapsed, discarded=False
+            )
+            return response
+        # Final answer with thinking off: discard and retry with thinking on.
+        _log_llm_call(
+            transcript, response, False, timeout_off, elapsed, discarded=True
+        )
+        timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
+        started = time.perf_counter()
+        response = provider.chat(
+            history,
+            tools=TOOL_SCHEMAS,
+            enable_thinking=True,
+            timeout=timeout_on,
+        )
+        elapsed = round(time.perf_counter() - started, 3)
+        _log_llm_call(
+            transcript, response, True, timeout_on, elapsed, discarded=False
+        )
+        return response
+
+    # on_after_tools (default): thinking on once any tool result is present.
     has_tool_results = any(m.role == "tool" for m in history)
     if has_tool_results:
         enable_thinking = True
@@ -130,18 +184,7 @@ def _call_model(provider, history, transcript=None):
         started = time.perf_counter()
         response = provider.chat(history, tools=TOOL_SCHEMAS)
     elapsed = round(time.perf_counter() - started, 3)
-    if transcript is not None:
-        usage = (response.raw or {}).get("usage") or {}
-        transcript.llm_call(
-            enable_thinking=enable_thinking,
-            timeout=timeout,
-            wall_clock_seconds=elapsed,
-            prompt_tokens=usage.get("prompt_tokens"),
-            completion_tokens=usage.get("completion_tokens"),
-            finish_reason=response.finish_reason,
-            content=response.content,
-            tool_calls=response.tool_calls,
-        )
+    _log_llm_call(transcript, response, enable_thinking, timeout, elapsed)
     return response
 
 
