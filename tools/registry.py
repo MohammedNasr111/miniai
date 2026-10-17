@@ -353,7 +353,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "browser_type",
-            "description": "Type text into a numbered text field from the most recent observation. Requires the user to confirm the exact text. Never use it for passwords or payment details. Submit by clicking the form's button afterwards.",
+            "description": "Type text into a numbered text field from the most recent observation. Requires the user to confirm the exact text. Never use it for passwords or payment details. To submit, set submit to true or click the form's button afterwards.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -364,6 +364,10 @@ TOOL_SCHEMAS = [
                     "text": {
                         "type": "string",
                         "description": "Exact text to type into the field.",
+                    },
+                    "submit": {
+                        "type": "boolean",
+                        "description": "Press Enter after typing, e.g. to run a search.",
                     },
                 },
                 "required": ["ref", "text"],

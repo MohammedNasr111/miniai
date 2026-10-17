@@ -108,26 +108,34 @@ _OBSERVE_JS = """
       (tag === 'BUTTON' && (!type || type === 'submit'))
       || (tag === 'INPUT' && (type === 'submit' || type === 'image'))
     );
-    if (!isSubmit || !el.form) {
-      return { formAction: null, formMethod: null };
+    const role = roleOf(el);
+    if (isSubmit && el.form) {
+      // Prefer formaction/formmethod on the control when present; else the form.
+      let action;
+      let method;
+      if (el.hasAttribute('formaction')) {
+        action = el.formAction || el.getAttribute('formaction') || '';
+      } else {
+        action = el.form.action || '';
+      }
+      if (el.hasAttribute('formmethod')) {
+        method = (el.formMethod || el.getAttribute('formmethod') || 'get').toUpperCase();
+      } else {
+        method = (el.form.method || 'get').toUpperCase();
+      }
+      return {
+        formAction: action || null,
+        formMethod: method || 'GET',
+      };
     }
-    // Prefer formaction/formmethod on the control when present; else the form.
-    let action;
-    let method;
-    if (el.hasAttribute('formaction')) {
-      action = el.formAction || el.getAttribute('formaction') || '';
-    } else {
-      action = el.form.action || '';
+    // Text fields: form action/method when inside a form; else null.
+    if (role === 'textbox' && el.form) {
+      return {
+        formAction: el.form.action || null,
+        formMethod: (el.form.method || 'get').toUpperCase() || 'GET',
+      };
     }
-    if (el.hasAttribute('formmethod')) {
-      method = (el.formMethod || el.getAttribute('formmethod') || 'get').toUpperCase();
-    } else {
-      method = (el.form.method || 'get').toUpperCase();
-    }
-    return {
-      formAction: action || null,
-      formMethod: method || 'GET',
-    };
+    return { formAction: null, formMethod: null };
   };
   const fieldMeta = (el) => {
     const tag = el.tagName;
@@ -287,6 +295,7 @@ _ELEMENT_SNAPSHOT_JS = """
     (tag === 'BUTTON' && (!type || type === 'submit'))
     || (tag === 'INPUT' && (type === 'submit' || type === 'image'))
   );
+  const role = roleOf(el);
   let formAction = null;
   let formMethod = null;
   if (isSubmit && el.form) {
@@ -300,10 +309,13 @@ _ELEMENT_SNAPSHOT_JS = """
     } else {
       formMethod = (el.form.method || 'get').toUpperCase();
     }
+  } else if (role === 'textbox' && el.form) {
+    formAction = el.form.action || null;
+    formMethod = (el.form.method || 'get').toUpperCase() || 'GET';
   }
   return {
     detached: false,
-    role: roleOf(el),
+    role: role,
     name: nameOf(el),
     href: (el.tagName === 'A' && el.href) ? el.href : null,
     formAction: formAction,
@@ -677,15 +689,19 @@ class BrowserSession:
         self._settle()
         remember_url(self._page.url)
 
-    def type_text(self, ref: int, text: str) -> None:
+    def type_text(self, ref: int, text: str, submit: bool = False) -> None:
         self._require_open()
         if isinstance(ref, bool) or not isinstance(ref, int):
             raise ValueError(f"ref must be an integer, got {ref!r}")
         handle, _expected = self._verify_element(ref)
         try:
             handle.fill(text)
+            if submit:
+                handle.press("Enter")
         except PlaywrightError as exc:
             raise ValueError(f"Type into ref {ref} failed: {_short(exc)}") from exc
+        if submit:
+            self._settle()
         remember_url(self._page.url)
 
     def close(self) -> None:

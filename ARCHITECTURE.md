@@ -35,9 +35,12 @@
   discarded finals); research+create_file 226 s / 3 vs 138 s / 4; directory
   count 239 s / 2 vs 317 s / 3 — both policies answered correctly, and
   `two_pass` often produces a usable tool plan without paying thinking cost
-  up front, so it is the default. Verified earlier: thinking-off correctly
-  listed 18 directory entries but miscounted them as 15; thinking-on with
-  the identical prompt and tool result counted correctly (18).
+  up front, so it is the default. Browser live comparison (2026-10-17,
+  Wikipedia W×3 + python.org Downloads P×2 under each policy): both scored
+  **3/5** completed real steps; keep **`two_pass`** for speed. Verified
+  earlier: thinking-off correctly listed 18 directory entries but
+  miscounted them as 15; thinking-on with the identical prompt and tool
+  result counted correctly (18).
   NPU/Hybrid path (Qwen3-14B-Hybrid, ryzenai-llm recipe) was
   tested and PARKED: model loads and shows healthy status, but generation
   never completes (proxy and direct-backend timeouts on v1.7.0). Revisit only
@@ -109,9 +112,12 @@
   browser_type fills a textbox from the latest observation after the same
   node/role/name re-check as click; it refuses without prompting for
   password fields, autocomplete containing "password" or starting with
-  "cc-", and name/id matching /(pass|pwd|card|cvv|cvc|iban)/i. Element
-  handles are captured in the same page evaluation that assigns refs
-  (atomic capture).
+  "cc-", and name/id matching /(pass|pwd|card|cvv|cvc|iban)/i. Optional
+  `submit=true` presses Enter after fill (prompt shows the form's
+  action/method from observe, or that the field is not in a form); textbox
+  observe capture includes the enclosing form's submission destination the
+  same way submit buttons do. Element handles are captured in the same page
+  evaluation that assigns refs (atomic capture).
 
 ## Known model limitations (design around, do not rely on the model)
 - Qwen3-14B is unreliable at counting/enumeration even with thinking on.

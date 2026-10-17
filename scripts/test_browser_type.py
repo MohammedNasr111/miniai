@@ -263,6 +263,208 @@ def test_5_submit_form_prompt() -> None:
         reset_session()
 
 
+def test_7_submit_true_form() -> None:
+    """Form field + submit=True: prompt shows dest; Enter fires; route logged."""
+    session = _temp_session()
+    reset_session()
+    mark_untrusted("browser_open")
+    captured: list[str] = []
+
+    def _recording_gate(action, tier, description):
+        captured.append(description)
+        return check_permission(action, tier, description)
+
+    try:
+        page_submit_log: list[str] = []
+
+        def _on_console(msg) -> None:
+            if msg.text == "FORM_SUBMITTED":
+                page_submit_log.append(msg.text)
+
+        session.page.on("console", _on_console)
+        session.page.set_content(
+            """
+            <html><body>
+            <form id="f" action="https://other.example/search" method="get"
+                  onsubmit="console.log('FORM_SUBMITTED'); return true;">
+              <input type="text" name="q" placeholder="Query">
+            </form>
+            </body></html>
+            """
+        )
+        browser_observe()
+        meta = session.last_elements[1]
+        assert meta.get("formAction") and "other.example/search" in str(
+            meta["formAction"]
+        )
+        session.request_log.clear()
+        page_submit_log.clear()
+        with patch(
+            "tools.browser.browser_tools.check_permission",
+            side_effect=_recording_gate,
+        ), patch(
+            "builtins.input", side_effect=lambda prompt="": "browser_type"
+        ), redirect_stdout(io.StringIO()):
+            browser_type(1, "ATP synthase", submit=True)
+        prompt = captured[-1] if captured else ""
+        route_hits = [
+            (u, d)
+            for (u, d) in session.request_log
+            if "other.example" in u
+        ]
+        ok = (
+            "After typing, Enter will be pressed. This submits the form to:"
+            in prompt
+            and "other.example" in prompt
+            and "(method GET)" in prompt
+            and "FORM_SUBMITTED" in page_submit_log
+            and len(route_hits) >= 1
+        )
+        report(
+            "7",
+            ok,
+            f"prompt={prompt!r} page_submit_log={page_submit_log!r} "
+            f"route_hits={route_hits!r}",
+        )
+    finally:
+        close_session()
+        reset_session()
+
+
+def test_8_submit_true_no_form() -> None:
+    """Field outside a form + submit=True: not-in-form line; Enter reaches page."""
+    session = _temp_session()
+    reset_session()
+    mark_untrusted("browser_open")
+    captured: list[str] = []
+
+    def _recording_gate(action, tier, description):
+        captured.append(description)
+        return check_permission(action, tier, description)
+
+    try:
+        session.page.set_content(
+            """
+            <html><body>
+            <input id="t" type="text" placeholder="Loose">
+            <script>
+              window.__enterSeen = false;
+              document.getElementById('t').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') window.__enterSeen = true;
+              });
+            </script>
+            </body></html>
+            """
+        )
+        browser_observe()
+        with patch(
+            "tools.browser.browser_tools.check_permission",
+            side_effect=_recording_gate,
+        ), patch(
+            "builtins.input", side_effect=lambda prompt="": "browser_type"
+        ), redirect_stdout(io.StringIO()):
+            browser_type(1, "hello", submit=True)
+        prompt = captured[-1] if captured else ""
+        enter_seen = session.page.evaluate("() => window.__enterSeen")
+        ok = (
+            "After typing, Enter will be pressed. This field is not in a form;"
+            in prompt
+            and "the page's own scripts decide what happens." in prompt
+            and enter_seen is True
+        )
+        report("8", ok, f"prompt={prompt!r} enter_seen={enter_seen!r}")
+    finally:
+        close_session()
+        reset_session()
+
+
+def test_9_submit_false() -> None:
+    """submit=False: no Enter line in prompt; form submit does not fire."""
+    session = _temp_session()
+    reset_session()
+    captured: list[str] = []
+
+    def _gate(action, tier, description):
+        captured.append(description)
+        return None
+
+    try:
+        session.page.set_content(
+            """
+            <html><body>
+            <form action="https://other.example/search" method="get"
+                  onsubmit="window.__formSubmitted = true; return false;">
+              <input type="text" name="q" placeholder="Query">
+            </form>
+            <script>window.__formSubmitted = false;</script>
+            </body></html>
+            """
+        )
+        browser_observe()
+        with patch(
+            "tools.browser.browser_tools.check_permission",
+            side_effect=_gate,
+        ):
+            browser_type(1, "no-enter", submit=False)
+        prompt = captured[-1] if captured else ""
+        submitted = session.page.evaluate("() => window.__formSubmitted")
+        value = session.page.evaluate(
+            "() => document.querySelector('input').value"
+        )
+        ok = (
+            "After typing, Enter will be pressed" not in prompt
+            and submitted is False
+            and value == "no-enter"
+        )
+        report(
+            "9",
+            ok,
+            f"prompt={prompt!r} submitted={submitted!r} value={value!r}",
+        )
+    finally:
+        close_session()
+        reset_session()
+
+
+def test_10_action_changed() -> None:
+    """Form action changed after observe -> refused, nothing typed."""
+    session = _temp_session()
+    try:
+        session.page.set_content(
+            """
+            <html><body>
+            <form id="f" action="https://other.example/search" method="get">
+              <input id="t" type="text" placeholder="Query">
+            </form>
+            </body></html>
+            """
+        )
+        browser_observe()
+        session.page.evaluate(
+            "document.getElementById('f').action = "
+            "'https://attacker.example/steal'"
+        )
+        raised = None
+        try:
+            with patch(
+                "tools.browser.browser_tools.check_permission",
+                return_value=None,
+            ):
+                browser_type(1, "should-not-appear", submit=True)
+        except ValueError as exc:
+            raised = str(exc)
+        value = session.page.evaluate("() => document.getElementById('t').value")
+        ok = (
+            raised is not None
+            and "page changed element [1]" in raised
+            and value == ""
+        )
+        report("10", ok, f"error={raised!r} value={value!r}")
+    finally:
+        close_session()
+        reset_session()
+
+
 def test_6_atomic_16_17_and_timing() -> None:
     import scripts.test_browser_session as tbs
 
@@ -306,6 +508,10 @@ def main() -> None:
         test_4_describe_url,
         test_5_submit_form_prompt,
         test_6_atomic_16_17_and_timing,
+        test_7_submit_true_form,
+        test_8_submit_true_no_form,
+        test_9_submit_false,
+        test_10_action_changed,
     ):
         try:
             test()

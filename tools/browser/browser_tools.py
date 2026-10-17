@@ -98,7 +98,8 @@ def browser_click(ref: int) -> str:
     if role_raw == "textbox":
         raise ValueError(
             f"ref {ref} is a text field. To enter text, use "
-            f"browser_type(ref, text); to submit, click the form's button."
+            f"browser_type(ref, text); to submit, set submit to true or "
+            f"click the form's button."
         )
     name = one_line(sanitize(element.get("name") or ""))
     href_raw = element.get("href")
@@ -157,7 +158,7 @@ def _validate_type_text(text: str) -> None:
         )
 
 
-def browser_type(ref: int, text: str) -> str:
+def browser_type(ref: int, text: str, submit: bool = False) -> str:
     if isinstance(ref, bool) or not isinstance(ref, int):
         raise ValueError(f"ref must be an integer, got {ref!r}")
     if ref not in _last_elements:
@@ -174,6 +175,8 @@ def browser_type(ref: int, text: str) -> str:
         )
     _refuse_sensitive_field(element)
     _validate_type_text(text)
+    if not isinstance(submit, bool):
+        raise ValueError(f"submit must be a boolean, got {type(submit).__name__}")
 
     name = one_line(sanitize(element.get("name") or ""))
     session = get_session()
@@ -188,12 +191,26 @@ def browser_type(ref: int, text: str) -> str:
         "WARNING: this site can read the text as soon as it is typed, even if\n"
         "nothing is submitted."
     )
+    if submit:
+        form_action = element.get("formAction")
+        form_method = element.get("formMethod")
+        if form_action:
+            method = one_line(sanitize(str(form_method or "GET")))
+            description += (
+                "\nAfter typing, Enter will be pressed. This submits the form to:\n"
+                f"{describe_url(str(form_action))} (method {method})"
+            )
+        else:
+            description += (
+                "\nAfter typing, Enter will be pressed. This field is not in a form;\n"
+                "the page's own scripts decide what happens."
+            )
     check_permission(
         action="browser_type",
         tier=Tier.CONFIRM,
         description=description,
     )
-    session.type_text(ref, text)
+    session.type_text(ref, text, submit=submit)
     result = session.observe()
     _remember(session)
     return result
