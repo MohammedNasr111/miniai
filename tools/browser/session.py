@@ -408,6 +408,9 @@ class BrowserSession:
         scheme = (parsed.scheme or "").lower()
         if scheme not in ("http", "https"):
             return f"scheme {scheme!r} is not allowed"
+        # Credentials are per-URL; do not skip via the per-host cache.
+        if parsed.username is not None or parsed.password is not None:
+            return "URLs with embedded credentials are not allowed."
         host = (parsed.hostname or "").lower()
         if not host:
             return f"URL has no host: {url!r}"

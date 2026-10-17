@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from typing import Iterable, Optional
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlsplit, urlunsplit
 
 # http(s) URLs in free text; trim common trailing punctuation after the match.
 _URL_RE = re.compile(r"https?://[^\s<>\"')\]]+", re.IGNORECASE)
@@ -23,23 +23,27 @@ def clear_known_urls() -> None:
 
 
 def normalize_url(url: str) -> Optional[str]:
-    """Lowercase scheme and host; empty path -> '/'; keep query and fragment."""
+    """Lowercase scheme and host; empty path -> '/'; keep path/query/fragment.
+
+    Uses urlsplit so path segments that include ';' stay in the path
+    (urlparse would peel them into a separate params field).
+    """
     raw = (url or "").strip()
     if not raw:
         return None
-    parsed = urlparse(raw)
-    scheme = (parsed.scheme or "").lower()
+    parts = urlsplit(raw)
+    scheme = (parts.scheme or "").lower()
     if scheme not in ("http", "https"):
         return None
-    host = (parsed.hostname or "").lower()
+    host = (parts.hostname or "").lower()
     if not host:
         return None
-    if parsed.port is not None:
-        netloc = f"{host}:{parsed.port}"
+    if parts.port is not None:
+        netloc = f"{host}:{parts.port}"
     else:
         netloc = host
-    path = parsed.path if parsed.path else "/"
-    return urlunparse((scheme, netloc, path, "", parsed.query, parsed.fragment))
+    path = parts.path if parts.path else "/"
+    return urlunsplit((scheme, netloc, path, parts.query, parts.fragment))
 
 
 def remember_url(url: str) -> None:

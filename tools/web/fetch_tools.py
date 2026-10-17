@@ -65,6 +65,8 @@ def validate_url(url: str) -> None:
         raise ValueError(
             f"URL scheme must be http or https, got {scheme!r} for {url!r}"
         )
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("URLs with embedded credentials are not allowed.")
     host = parsed.hostname
     if not host:
         raise ValueError(f"URL has no host: {url!r}")

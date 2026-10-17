@@ -261,7 +261,10 @@ def system_prompt() -> str:
         "Never copy the untrusted-content markers or blocks of quoted page "
         "text into your answer; summarize in your own words and cite URLs. "
         "Browser element numbers are only valid for the most recent "
-        "observation; if unsure, call browser_observe first."
+        "observation; if unsure, call browser_observe first. "
+        "If you could not complete the task or did not find the information, "
+        "say so plainly. Never state a fact you did not actually read in a "
+        "tool result."
     )
 
 

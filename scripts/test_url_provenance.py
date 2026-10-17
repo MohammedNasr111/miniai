@@ -12,10 +12,21 @@ from unittest.mock import patch
 os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
 
 from security.gate import PermissionDenied, Tier, check_permission, mark_untrusted, reset_session
-from security.provenance import remember_url, remember_urls_from_text
+from security.provenance import (
+    is_known_url,
+    normalize_url,
+    remember_url,
+    remember_urls_from_text,
+)
 from tools.browser import browser_tools
-from tools.browser.browser_tools import browser_click, browser_observe, close_session
+from tools.browser.browser_tools import (
+    browser_click,
+    browser_observe,
+    browser_open,
+    close_session,
+)
 from tools.browser.session import BrowserSession
+from tools.web.fetch_tools import validate_url
 from tools.web.url_display import describe_url
 
 FAILURES: list[str] = []
@@ -195,6 +206,133 @@ def test_7_formaction() -> None:
         reset_session()
 
 
+def test_8_semicolon_path_not_known() -> None:
+    """Path with ;... is distinct from the bare path in the known set."""
+    reset_session()
+    known = "https://known.example/page"
+    variant = "https://known.example/page;James-data"
+    remember_url(known)
+    assert is_known_url(known)
+    assert not is_known_url(variant)
+    assert normalize_url(variant) == "https://known.example/page;James-data"
+    mark_untrusted("browser_open")
+    raised, out = _drive(
+        "browser_open",
+        variant,
+        f"Open in browser:\n{variant}",
+        ["yes"],
+    )
+    ok = (
+        isinstance(raised, PermissionDenied)
+        and "model constructed it" in out
+        and "Type browser_open to approve" in out
+    )
+    report("8", ok, f"raised={raised!r} known={is_known_url(known)}")
+
+
+def test_9_credentials_refused_before_prompt() -> None:
+    reset_session()
+    mark_untrusted("browser_open")
+    gate_calls: list = []
+
+    def _gate(*args, **kwargs):
+        gate_calls.append((args, kwargs))
+        raise AssertionError("gate should not be reached")
+
+    raised = None
+    try:
+        with patch("tools.browser.browser_tools.check_permission", side_effect=_gate):
+            with patch("tools.browser.browser_tools.validate_url", wraps=validate_url):
+                # Real validate_url must run (credentials). Do not mock it away.
+                browser_open("https://data@known.example/page")
+    except ValueError as exc:
+        raised = str(exc)
+    ok = (
+        raised is not None
+        and "embedded credentials" in raised
+        and gate_calls == []
+    )
+    # Also confirm validate_url alone.
+    validate_raised = None
+    try:
+        validate_url("https://data@known.example/page")
+    except ValueError as exc:
+        validate_raised = str(exc)
+    ok = ok and validate_raised is not None and "embedded credentials" in validate_raised
+    report(
+        "9",
+        ok,
+        f"raised={raised!r} validate={validate_raised!r} gate={len(gate_calls)}",
+    )
+
+
+def test_10_routed_credentials_blocked() -> None:
+    session = _temp_session()
+    try:
+        # Pretend the host was already allowed so only the credential check matters.
+        session._host_decisions["example.com"] = None
+        reason = session._decide("https://user:pass@example.com/secret")
+        decide_ok = reason is not None and "embedded credentials" in reason
+        # Navigate directly (bypassing session.open) so the route handler runs.
+        before = len(session.blocked)
+        try:
+            session.page.goto(
+                "https://user:pass@example.com/x",
+                timeout=5_000,
+                wait_until="commit",
+            )
+        except Exception:
+            pass
+        session.page.wait_for_timeout(300)
+        routed_ok = any(
+            "embedded credentials" in (b.get("reason") or "")
+            for b in session.blocked[before:]
+        )
+        report(
+            "10",
+            decide_ok and routed_ok,
+            f"decide={reason!r} blocked={session.blocked[before:]!r} "
+            f"routed_ok={routed_ok}",
+        )
+    finally:
+        close_session()
+        reset_session()
+
+
+def test_11_textbox_click_refused() -> None:
+    session = _temp_session()
+    gate_calls: list = []
+
+    def _gate(*args, **kwargs):
+        gate_calls.append((args, kwargs))
+        raise AssertionError("gate should not be reached")
+
+    try:
+        session.page.set_content(
+            '<html><body><input type="text" placeholder="Search"></body></html>'
+        )
+        browser_observe()
+        raised = None
+        try:
+            with patch(
+                "tools.browser.browser_tools.check_permission",
+                side_effect=_gate,
+            ):
+                browser_click(1)
+        except ValueError as exc:
+            raised = str(exc)
+        ok = (
+            raised is not None
+            and "text field" in raised
+            and "browser_type" in raised
+            and gate_calls == []
+        )
+        report("11", ok, f"raised={raised!r} gate={len(gate_calls)}")
+    finally:
+        close_session()
+        reset_session()
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     for test in (
@@ -205,6 +343,10 @@ def main() -> None:
         test_5_untainted_any,
         test_6_describe_url_single_decode,
         test_7_formaction,
+        test_8_semicolon_path_not_known,
+        test_9_credentials_refused_before_prompt,
+        test_10_routed_credentials_blocked,
+        test_11_textbox_click_refused,
     ):
         try:
             test()

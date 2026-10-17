@@ -94,6 +94,12 @@ def browser_click(ref: int) -> str:
             "Call browser_observe first and use a ref from that result."
         )
     element = _last_elements[ref]
+    role_raw = element.get("role") or ""
+    if role_raw == "textbox":
+        raise ValueError(
+            f"ref {ref} is a text field. To enter text, use "
+            f"browser_type(ref, text); to submit, click the form's button."
+        )
     name = one_line(sanitize(element.get("name") or ""))
     href_raw = element.get("href")
     if href_raw:
@@ -102,7 +108,7 @@ def browser_click(ref: int) -> str:
         href_shown = "none (not a link)"
     session = get_session()
     current_url = session.page.url
-    role = one_line(sanitize(str(element.get("role") or "")))
+    role = one_line(sanitize(str(role_raw)))
     description = (
         f"Click on page: {one_line(sanitize(current_url))}\n"
         f"Element [{ref}] {role}, label supplied by the page: \"{name}\"\n"
