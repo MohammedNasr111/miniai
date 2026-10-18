@@ -279,6 +279,38 @@
 Further computer control beyond 8a/8b as needed (broader app support,
 richer patterns).
 
+## Stage 9a — isolated code runner (done)
+- **Workspace:** `%USERPROFILE%\AppData\LocalLow\MiniAI\workspace` (writable at
+  low integrity). MiniAI versions it with git (`author MiniAI`) after every
+  `run_code` and after create/write/delete under the workspace.
+- **Runner venv:** `%LOCALAPPDATA%\MiniAI\runner-venv` (medium integrity). On
+  Windows, `Scripts\python.exe` is a launcher that re-execs the base
+  interpreter; Job Object `ACTIVE_PROCESS=1` forbids that child, so MiniAI
+  copies a real `python.exe` + DLLs to `runner-venv\runner-bin\` and launches
+  that path (firewall rule targets the same file). Stdlib via `PYTHONHOME`
+  from `pyvenv.cfg` `home`; venv `site-packages` on `PYTHONPATH`.
+- **`run_code(code)`** CONFIRM (typed name when tainted): shows numbered
+  code, limits, and firewall status (`INSTALLED` / `NOT INSTALLED`). Runs via
+  `tools/code/runner.py`: write `run_<stamp>.py`, CreateProcessAsUser at Low
+  Mandatory Level (`S-1-16-4096`), Job Object with `KILL_ON_JOB_CLOSE`,
+  active-process limit 1, process memory 2 GB, wall timeout (default 60s).
+  Minimal env (no `.env` / `TAVILY_API_KEY`). stdout/stderr each capped at
+  20,000 characters with a truncation note. Low-IL launch failure **refuses**
+  (never falls back to a normal launch). Output wrapped in untrusted code
+  markers; `run_code` is in `UNTRUSTED_SOURCE_TOOLS`.
+- **`workspace_history()`** AUTO_ALLOW (last 20 commits);
+  **`workspace_restore(commit)`** CONFIRM (lists files that will change;
+  `git checkout <commit> -- .` then a new MiniAI commit — history kept).
+- **Firewall:** user runs `scripts/setup_runner_firewall.ps1` once as admin
+  (Cursor does not elevate it): one outbound block rule named
+  `MiniAI code runner - block internet` for `runner-bin\python.exe` only;
+  `--remove` supported. Runner reports rule status with `Get-NetFirewallRule`
+  (read does not need admin).
+- **Residual risks:** low-IL code can still **read** the user's files (MIC is
+  no-write-up, not no-read-up); program output returns to the local model
+  (hence untrusted markers + taint); network blocking depends on the optional
+  firewall rule.
+
 ## Roadmap
 Stage 0: environment setup (done)
 Stage 1: Lemonade installed + one model running, verified (done)
@@ -290,7 +322,7 @@ Stage 6: web research (done)
 Stage 7: browser automation (Playwright) (done)
 Stage 7.5: interactive chat (done)
 Stage 8: computer control (in progress - 8a read-only done, 8b actions done)
-Stage 9: coding agent
+Stage 9: coding agent (in progress - 9a isolated runner done)
 Stage 10: evaluation / self-improvement loop
 
 ## Not building yet

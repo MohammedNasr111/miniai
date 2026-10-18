@@ -538,3 +538,11 @@ Investigation only (no features enabled, no firewall rules created).
 5. Docker / WSL:
    - wsl --status: Windows Subsystem for Linux is not installed.
    - docker --version: not recognized (Docker not installed).
+
+## 2026-10-18 — Stage 9a: isolated code runner (low integrity, job limits, no child processes) with workspace versioning
+- Workspace: `%USERPROFILE%\AppData\LocalLow\MiniAI\workspace`; runner venv at `%LOCALAPPDATA%\MiniAI\runner-venv` (empty packages). Windows venv launcher re-execs, so runs use a copied `runner-bin\python.exe` (Job ACTIVE_PROCESS=1); firewall script targets that path.
+- `tools/code/runner.py`: CreateProcessAsUser low IL (S-1-16-4096), Job Object KILL_ON_JOB_CLOSE + active process 1 + 2 GB process memory + wall timeout; minimal env (no secrets); stdout/stderr capped 20k with truncation; refuse if low-IL launch fails (no medium-IL fallback).
+- Tools: `run_code` CONFIRM + untrusted markers + UNTRUSTED_SOURCE_TOOLS; `workspace_history` AUTO_ALLOW; `workspace_restore` CONFIRM. Git versioning after run_code and create/write/delete under workspace (author MiniAI).
+- `scripts/setup_runner_firewall.ps1` (user runs elevated once; Cursor does not): one outbound block rule; `--remove`; runner reports INSTALLED/NOT INSTALLED via Get-NetFirewallRule.
+- Tests `scripts/test_code_runner.py` 1–12 + 12b PASS on real low-IL runner. Regressions: every test script PASS (`logs/review_20261018-2115_s9a_regressions.log`).
+- ARCHITECTURE.md Stage 9a (isolation model, limits, residual risks).

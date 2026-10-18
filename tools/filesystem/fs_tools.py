@@ -148,6 +148,7 @@ def create_file(path: str, content: str) -> str:
             "Use write_file if you intend to replace its contents."
         )
     target.write_text(content, encoding="utf-8")
+    _commit_if_workspace(path, f"create_file {path}")
     return f"Created {path} ({len(content.encode('utf-8'))} bytes written)."
 
 
@@ -176,11 +177,13 @@ def write_file(path: str, content: str) -> str:
                 f"({exc})"
             ) from exc
         target.write_text(content, encoding="utf-8")
+        _commit_if_workspace(path, f"write_file {path}")
         return (
             f"Overwrote {path} ({len(content.encode('utf-8'))} bytes written). "
             f"Backup saved at {backup_path}."
         )
     target.write_text(content, encoding="utf-8")
+    _commit_if_workspace(path, f"write_file {path}")
     return f"Overwrote {path} ({len(content.encode('utf-8'))} bytes written)."
 
 
@@ -204,6 +207,18 @@ def delete_file(path: str) -> str:
             f"Could not move {path} to the Recycle Bin ({exc}). "
             "The file was left in place."
         ) from exc
+    _commit_if_workspace(path, f"delete_file {path}")
     return (
         f"Moved {path} to the Recycle Bin. It can be restored from there."
     )
+
+
+def _commit_if_workspace(path: str, message: str) -> None:
+    """Version the isolated code workspace after MiniAI mutates a path in it."""
+    try:
+        from tools.code.workspace_git import maybe_commit_workspace_path
+
+        maybe_commit_workspace_path(path, message)
+    except Exception:
+        # Versioning must not undo a successful file operation.
+        pass

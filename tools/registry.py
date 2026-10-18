@@ -27,6 +27,7 @@ from tools.desktop.desktop_tools import (
     desktop_read_window,
     desktop_set_text,
 )
+from tools.code.code_tools import run_code, workspace_history, workspace_restore
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
 
@@ -54,6 +55,9 @@ TOOL_FUNCTIONS = {
     "desktop_press": desktop_press,
     "desktop_set_text": desktop_set_text,
     "desktop_insert_text": desktop_insert_text,
+    "run_code": run_code,
+    "workspace_history": workspace_history,
+    "workspace_restore": workspace_restore,
 }
 
 # Used only by the duplicate-call guard. Each tool still enforces its own
@@ -82,6 +86,9 @@ TOOL_TIERS = {
     "desktop_press": Tier.CONFIRM,
     "desktop_set_text": Tier.CONFIRM,
     "desktop_insert_text": Tier.CONFIRM,
+    "run_code": Tier.CONFIRM,
+    "workspace_history": Tier.AUTO_ALLOW,
+    "workspace_restore": Tier.CONFIRM,
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
@@ -100,6 +107,7 @@ UNTRUSTED_SOURCE_TOOLS = {
     "desktop_press",
     "desktop_set_text",
     "desktop_insert_text",
+    "run_code",
 }
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
@@ -514,6 +522,52 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["element", "text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_code",
+            "description": "Run Python code in MiniAI's isolated workspace (low integrity, no child processes, memory/time limits). Prefer this for calculations and small scripts. Cannot change files outside the workspace. Network is blocked only if the MiniAI firewall rule is installed. Requires confirmation. Output is untrusted.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "Python source to run.",
+                    },
+                },
+                "required": ["code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "workspace_history",
+            "description": "Show the last 20 git commits in the isolated code workspace (MiniAI versions the workspace after each run_code and after create/write/delete under it).",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "workspace_restore",
+            "description": "Restore files in the isolated code workspace from a prior commit (working tree update; history is kept). Requires confirmation; the prompt lists files that will change.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "commit": {
+                        "type": "string",
+                        "description": "Commit hash or ref from workspace_history.",
+                    },
+                },
+                "required": ["commit"],
             },
         },
     },
