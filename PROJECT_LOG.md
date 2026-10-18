@@ -546,3 +546,8 @@ Investigation only (no features enabled, no firewall rules created).
 - `scripts/setup_runner_firewall.ps1` (user runs elevated once; Cursor does not): one outbound block rule; `--remove`; runner reports INSTALLED/NOT INSTALLED via Get-NetFirewallRule.
 - Tests `scripts/test_code_runner.py` 1–12 + 12b PASS on real low-IL runner. Regressions: every test script PASS (`logs/review_20261018-2115_s9a_regressions.log`).
 - ARCHITECTURE.md Stage 9a (isolation model, limits, residual risks).
+
+## 2026-10-18 — Runner firewall rule installed and verified
+- Get-NetFirewallRule `MiniAI code runner - block internet`: Enabled=True, Direction=Outbound, Action=Block. Application filter Program/AppPath: `C:\Users\mohdc\AppData\Local\MiniAI\runner-venv\runner-bin\python.exe`.
+- `python -m scripts.test_code_runner`: firewall=INSTALLED; check 10 PASS (NET_FAIL WinError 10013 / access forbidden); checks 1–9, 11, 12, 12b all PASS; FAILURES=0.
+- MiniAI `.venv` unaffected: `test_web_research` offline 1–5 PASS; direct HTTPS example.com status 200; live `web_research` mitochondria/ATP PASS (ATP_in_chunks=True). Logs: `logs/review_20261018-2110_fw_verify_runner.log`, `logs/review_20261018-2112_fw_verify_miniai_net.log`.
