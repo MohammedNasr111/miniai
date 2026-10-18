@@ -290,7 +290,14 @@ def first_pass_timeout_seconds(history: list, provider_timeout: float | int) -> 
 def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, discarded=False):
     if transcript is None:
         return
-    usage = (response.raw or {}).get("usage") or {}
+    raw = response.raw or {}
+    usage = raw.get("usage") or {}
+    # Preserve prompt_tokens_details / cached_tokens etc. for measurement logs.
+    usage_extra = {
+        key: value
+        for key, value in usage.items()
+        if key not in ("prompt_tokens", "completion_tokens")
+    }
     transcript.llm_call(
         enable_thinking=enable_thinking,
         timeout=timeout,
@@ -301,6 +308,8 @@ def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, disca
         content=response.content,
         tool_calls=response.tool_calls,
         discarded=discarded,
+        usage_extra=usage_extra or None,
+        timings=raw.get("timings"),
     )
 
 

@@ -11,15 +11,22 @@ from llm.base import ChatMessage, ChatResponse, LLMProvider
 class LemonadeProvider(LLMProvider):
     def __init__(
         self,
-        base_url: str = settings.LEMONADE_BASE_URL,
-        model: str = settings.LEMONADE_MODEL,
-        enable_thinking: bool = settings.ENABLE_THINKING_DEFAULT,
-        timeout: int = settings.LEMONADE_TIMEOUT_SECONDS,
+        base_url: str | None = None,
+        model: str | None = None,
+        enable_thinking: bool | None = None,
+        timeout: int | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self.enable_thinking = enable_thinking
-        self.timeout = timeout
+        # Read settings at init time so MINIAI_MODEL / env overrides apply.
+        self.base_url = (base_url or settings.LEMONADE_BASE_URL).rstrip("/")
+        self.model = model if model is not None else settings.LEMONADE_MODEL
+        self.enable_thinking = (
+            enable_thinking
+            if enable_thinking is not None
+            else settings.ENABLE_THINKING_DEFAULT
+        )
+        self.timeout = (
+            timeout if timeout is not None else settings.LEMONADE_TIMEOUT_SECONDS
+        )
 
     def chat(
         self,

@@ -457,3 +457,28 @@ Append one dated entry here after every completed task, in the form:
 - `write_file` on a missing path prompts `Create file (did not exist): <path>` instead of overwrite wording.
 - `MINIAI_MODEL` env override added in `settings.py` (default still `Qwen3-14B-GGUF`).
 - Tests `test_recoverable_files` 6–8 PASS (removable/network drive patches; sparse 501 MB; create prompt). Regressions PASS.
+
+## 2026-10-18 — Local speed / cache / alternative-model measurements
+Results file: `logs/local_speed_20261018-125533.json` (also `logs/measure_local_speed_stdout.txt`). Defaults unchanged. `MINIAI_MODEL` env already supported; LemonadeProvider reads settings at init; transcripts now keep `usage.prompt_tokens_details` / `timings` when present.
+
+### Tool-schema cost
+- `Reply with the word OK.`: with all tool schemas `prompt_tokens=2196`; with none `18`; schema cost **2178** tokens. (Stage 6 audit was 1958 with tools — schema set has grown.)
+
+### Prompt-cache effect
+- **Test B** (mitochondria / web): correct=True, wall 194.1 s. Per llm_call: (0) prompt 2540 cached 2536 reproc 4 prompt_n 4; (1 discarded) 4083/2536/1547; (2 thinking) 4079/4078/1. No cached_tokens drop between calls.
+- **ATP two-turn chat**: correct=False, wall 228.9 s. call[2] `cached_tokens` dropped **2538 -> 2517** right after a mid-turn history change (stale-ref skip / tool results), consistent with cross-turn or in-step message rewrites breaking prefix cache. Reprocessed tokens tracked via `prompt_tokens - cached_tokens` and `timings.prompt_n`.
+
+### Alternative models (`lemonade list`)
+- **Qwen3-8B-GGUF** offered, 5.25 GB; **Qwen3-30B-A3B-GGUF** offered, 17.40 GB (both <= 18 GB). Pulled; loaded with `--ctx-size 16384` without `--save-options`.
+- RAM used / 23.62 GB: 8B **9.659 GB (0.409)** fits; 30B-A3B **19.836 GB (0.840)** fits (< 21 GB threshold).
+
+### Eval table (correct / wall_s)
+| Run | Qwen3-14B | Qwen3-8B | Qwen3-30B-A3B |
+|---|---|---|---|
+| Test A x1 | T / 209.3 | T / 223.4 | T / 68.3 |
+| Test A x2 | T / 220.9 | T / 154.8 | T / 58.9 |
+| Test B | T / 226.0 | T / 108.9 | T / 80.0 |
+| root-count | T / 160.2 | T / 58.7 | T / 34.8 |
+| ATP chat | F / 554.4 | F / 533.4 | F / 252.0 |
+
+Per-call seconds are in the JSON under each run's `llm_calls` / `per_call_s`. Afterwards: reloaded **Qwen3-14B-GGUF** normally; `lemonade status` shows it ready at **ctx 16384** (saved options untouched).

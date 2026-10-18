@@ -56,19 +56,28 @@ class Transcript:
         content: Optional[str],
         tool_calls: Optional[list[dict[str, Any]]],
         discarded: bool = False,
+        usage_extra: Optional[dict[str, Any]] = None,
+        timings: Optional[dict[str, Any]] = None,
     ) -> None:
+        usage: dict[str, Any] = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+        }
+        if usage_extra:
+            for key, value in usage_extra.items():
+                if key not in usage:
+                    usage[key] = value
         fields: dict[str, Any] = {
             "enable_thinking": enable_thinking,
             "timeout": timeout,
             "wall_clock_seconds": wall_clock_seconds,
-            "usage": {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-            },
+            "usage": usage,
             "finish_reason": finish_reason,
             "content": content,
             "tool_calls": tool_calls,
         }
+        if timings is not None:
+            fields["timings"] = timings
         if discarded:
             fields["discarded"] = True
         self.write("llm_call", **fields)
