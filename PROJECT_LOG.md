@@ -512,3 +512,29 @@ Per-call seconds are in the JSON under each run's `llm_calls` / `per_call_s`. Af
 - Act tools refuse when window title changed since last read (tab/document safety).
 - Tests: `test_desktop_act` / `test_desktop_read` use dedicated WinForms windows (no Notepad tabs left behind); cases a/b/c PASS; cleanup asserts no test windows. Regressions: every test script PASS.
 - ARCHITECTURE.md: insert vs replace, replace prompt, title check; known limitation on tabbed apps.
+
+## 2026-10-18 — Stage 9 pre-flight: code isolation options on this machine
+Investigation only (no features enabled, no firewall rules created).
+
+1. Windows edition/build:
+   - Caption: Microsoft Windows 11 Pro
+   - BuildNumber: 26200
+
+2. Windows Sandbox / virtualization:
+   - Get-WindowsOptionalFeature Containers-DisposableClientVM: requires elevation (Access denied / requires elevation) — could not determine present/enabled without admin. Nothing enabled.
+   - VirtualizationFirmwareEnabled (Win32_Processor): True
+   - systeminfo: Virtualization-based security Status Running; Hyper-V Requirements: a hypervisor has been detected (features not displayed).
+
+3. Low-integrity launch (temp folder outside repo; cleaned up after):
+   - Working method: Python ctypes CreateProcessAsUser with duplicated token SetTokenInformation to Low Mandatory Level S-1-16-4096 (no admin). icacls /setintegritylevel Low on a python.exe copy also worked earlier as fallback.
+   - (a) Read test file in Documents (OneDrive Documents known folder): SUCCESS (content read).
+   - (b) Create file in Documents: FAILED with Permission denied; post-check confirmed miniai_s9_preflight_SHOULD_NOT_EXIST.txt was NOT created in Documents.
+   - (c) Create file in %USERPROFILE%\AppData\LocalLow\MiniAI-test: SUCCESS (probe.txt written).
+   - (d) HTTPS to example.com: SUCCESS (HTTP 200, 200 bytes read).
+   - Cleanup: deleted temp probe dir, LocalLow MiniAI-test folder, and Documents markers; verified no leftover miniai_s9* files.
+
+4. Firewall: New-NetFirewallRule outbound per-program block without admin -> Access is denied. (Expected; nothing created.)
+
+5. Docker / WSL:
+   - wsl --status: Windows Subsystem for Linux is not installed.
+   - docker --version: not recognized (Docker not installed).
