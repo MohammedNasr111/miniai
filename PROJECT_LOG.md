@@ -505,3 +505,10 @@ Per-call seconds are in the JSON under each run's `llm_calls` / `per_call_s`. Af
 - PART C: `scripts/test_desktop_act.py` 1–10 PASS. Regressions: every test script PASS (incl. desktop_read 1–8).
 - PART D live: Notepad empty file; begin_task typed under taint; `desktop_set_text` wrote `Meeting at 3pm`; independent re-read VERIFY_HAS_TARGET=True (`logs/review_20261018-1635_live_desktop_type.log`). File not saved.
 - ARCHITECTURE.md Stage 8b section; roadmap notes 8a+8b done.
+
+## 2026-10-18 — Desktop: insert without data loss, confirm replacements, refuse after tab change
+- `desktop_insert_text(element, text, position=start|end)`: full field read (ValuePattern + Win32 WM_GETTEXT when UIA truncates ~4K), concatenate, write, verify; restore original on mismatch.
+- `desktop_set_text`: if field non-empty, always prompts with N/M character counts (typed when tainted); prefer insert for adding text.
+- Act tools refuse when window title changed since last read (tab/document safety).
+- Tests: `test_desktop_act` / `test_desktop_read` use dedicated WinForms windows (no Notepad tabs left behind); cases a/b/c PASS; cleanup asserts no test windows. Regressions: every test script PASS.
+- ARCHITECTURE.md: insert vs replace, replace prompt, title check; known limitation on tabbed apps.

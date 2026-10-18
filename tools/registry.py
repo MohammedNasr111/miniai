@@ -21,6 +21,7 @@ from tools.browser.browser_tools import (
 )
 from tools.desktop.desktop_tools import (
     desktop_begin_task,
+    desktop_insert_text,
     desktop_list_windows,
     desktop_press,
     desktop_read_window,
@@ -52,6 +53,7 @@ TOOL_FUNCTIONS = {
     "desktop_begin_task": desktop_begin_task,
     "desktop_press": desktop_press,
     "desktop_set_text": desktop_set_text,
+    "desktop_insert_text": desktop_insert_text,
 }
 
 # Used only by the duplicate-call guard. Each tool still enforces its own
@@ -79,6 +81,7 @@ TOOL_TIERS = {
     "desktop_begin_task": Tier.CONFIRM,
     "desktop_press": Tier.CONFIRM,
     "desktop_set_text": Tier.CONFIRM,
+    "desktop_insert_text": Tier.CONFIRM,
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
@@ -96,6 +99,7 @@ UNTRUSTED_SOURCE_TOOLS = {
     "desktop_begin_task",
     "desktop_press",
     "desktop_set_text",
+    "desktop_insert_text",
 }
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
@@ -471,7 +475,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "desktop_set_text",
-            "description": "Set the text of an edit control from the most recent desktop_read_window via UI Automation (not keystrokes). Requires an active desktop_begin_task grant. Refuses password and read-only fields. Max 500 characters.",
+            "description": "Replace the entire text of an edit control from the most recent desktop_read_window via UI Automation (not keystrokes). Prefer desktop_insert_text when adding text so existing content is kept. Requires an active desktop_begin_task grant. If the field is non-empty, asks before replacing. Refuses password and read-only fields. Max 500 characters.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -482,6 +486,31 @@ TOOL_SCHEMAS = [
                     "text": {
                         "type": "string",
                         "description": "Exact text to set (at most 500 characters).",
+                    },
+                },
+                "required": ["element", "text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "desktop_insert_text",
+            "description": "Insert text at the start or end of an edit control without deleting existing content. Reads the full current value, concatenates, SetValue, and verifies. Prefer this over desktop_set_text when adding text. Requires an active desktop_begin_task grant. Max 500 characters for the inserted piece.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element": {
+                        "type": "string",
+                        "description": "Element ref of an edit control, e.g. e2.",
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Text to insert (at most 500 characters).",
+                    },
+                    "position": {
+                        "type": "string",
+                        "description": "Where to insert: \"start\" or \"end\" (default end).",
                     },
                 },
                 "required": ["element", "text"],

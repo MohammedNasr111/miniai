@@ -204,6 +204,9 @@
   read memories without a prompt; any attempt to send them out through
   browser_open, fetch_url, or browser_type is stopped at the confirmation
   prompt (decoded URL or the exact text to type).
+- Tabbed apps (Notepad, browsers) show one document at a time; MiniAI acts
+  only on the active tab and refuses if it changed (window title check
+  after the last `desktop_read_window`).
 
 ## Stage 8a — read-only desktop observation (done)
 - Library: **uiautomation==2.0.29** (pinned). Chosen over pywinauto for a
@@ -242,13 +245,22 @@
   when tainted). Cleared after each `run_tool_rounds` (end of user turn)
   and on `reset_session`. Without a grant, press/set_text return
   "Call desktop_begin_task first."
-- `desktop_press(element)` / `desktop_set_text(element, text)`: CONFIRM
-  tier for the duplicate-call guard; both in `UNTRUSTED_SOURCE_TOOLS`.
-  Re-verify snapshot before acting. Press uses Invoke → Toggle →
-  SelectionItem (never mouse). set_text uses ValuePattern.SetValue on
-  edit/document controls only (max 500 chars, same control-char rules as
-  browser_type); refuses password and read-only. Results include a fresh
-  window read.
+- `desktop_press(element)` / `desktop_set_text(element, text)` /
+  `desktop_insert_text(element, text, position)`: CONFIRM tier for the
+  duplicate-call guard; all in `UNTRUSTED_SOURCE_TOOLS`. Re-verify snapshot
+  before acting. Press uses Invoke → Toggle → SelectionItem (never mouse).
+  **Insert vs replace:** prefer `desktop_insert_text` (`start`/`end`) when
+  adding text — it reads the full current field value (ValuePattern, with
+  Win32 WM_GETTEXT when UIA truncates), concatenates, writes, and verifies;
+  on mismatch it restores the original. `desktop_set_text` replaces the
+  whole field; if the field is already non-empty it always prompts even
+  with a grant: "Replace the existing text in <exe> field \"<name>\"? It
+  currently has <N> characters; they will be replaced by <M> characters."
+  (typed name when tainted). Same password/read-only refusals and 500-char
+  piece limit as each other. Results include a fresh window read.
+- **Tab/title check:** `desktop_read_window` stores the window title; every
+  act tool re-reads it first and refuses if it changed: "The window now
+  shows a different document or tab (title changed). Read the window again."
 - Always-ask (extra CONFIRM even with grant): element name whole-word match
   on send/delete/remove/submit/pay/buy/purchase/discard/don't save/close/
   exit/uninstall/erase/reset/sign out/publish/post/share/format, or any

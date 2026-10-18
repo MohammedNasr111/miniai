@@ -113,6 +113,7 @@ _last_elements: dict[str, dict[str, Any]] = {}
 _last_read_window_ref: Optional[str] = None
 _last_read_hwnd: Optional[int] = None
 _last_read_exe: Optional[str] = None
+_last_read_title: Optional[str] = None
 
 
 def looking_for_words(looking_for: Optional[str]) -> list[str]:
@@ -398,7 +399,8 @@ def _format_read_result(
     window_ref: str,
     hwnd: int,
 ) -> str:
-    global _last_elements, _last_read_window_ref, _last_read_hwnd, _last_read_exe
+    global _last_elements, _last_read_window_ref, _last_read_hwnd
+    global _last_read_exe, _last_read_title
 
     matched = [snap for flag, snap in elements if flag]
     rest = [snap for flag, snap in elements if not flag]
@@ -414,6 +416,7 @@ def _format_read_result(
     _last_read_window_ref = window_ref
     _last_read_hwnd = hwnd
     _last_read_exe = exe
+    _last_read_title = title
 
     text_blob = "\n".join(text_parts)
     if len(text_blob) > MAX_TEXT_CHARS:
@@ -601,6 +604,21 @@ def _check_interrupt_or_end() -> Optional[str]:
     )
 
 
+def _check_title_unchanged() -> Optional[str]:
+    """Refuse acts if the window title changed since the last read (tab safety)."""
+    if _last_read_hwnd is None:
+        return "The window changed; read it again."
+    if not user32.IsWindow(_last_read_hwnd):
+        return "The window changed; read it again."
+    live = _window_title(_last_read_hwnd)
+    if live != (_last_read_title or ""):
+        return (
+            "The window now shows a different document or tab "
+            "(title changed). Read the window again."
+        )
+    return None
+
+
 def _validate_set_text(text: str) -> None:
     if not isinstance(text, str):
         raise ValueError(f"text must be a string, got {type(text).__name__}")
@@ -610,6 +628,109 @@ def _validate_set_text(text: str) -> None:
         raise ValueError(
             "text must not contain control characters other than newline"
         )
+
+
+def _get_value_pattern(control: auto.Control) -> Any:
+    try:
+        pattern = control.GetValuePattern()
+    except Exception:
+        pattern = None
+    if pattern is None:
+        try:
+            pattern = control.GetPattern(auto.PatternId.ValuePattern)
+        except Exception:
+            pattern = None
+    return pattern
+
+
+WM_GETTEXTLENGTH = 0x000E
+WM_GETTEXT = 0x000D
+WM_SETTEXT = 0x000C
+
+
+def _control_hwnd(control: auto.Control) -> int:
+    try:
+        return int(control.NativeWindowHandle or 0)
+    except Exception:
+        return 0
+
+
+def _win32_get_text(hwnd: int) -> Optional[str]:
+    """Full edit text via WM_GETTEXT (ValuePattern often truncates ~4K)."""
+    if not hwnd or not user32.IsWindow(hwnd):
+        return None
+    try:
+        n = int(user32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0))
+        buf = ctypes.create_unicode_buffer(n + 1)
+        user32.SendMessageW(hwnd, WM_GETTEXT, n + 1, ctypes.byref(buf))
+        return buf.value
+    except Exception:
+        return None
+
+
+def _win32_set_text(hwnd: int, text: str) -> bool:
+    if not hwnd or not user32.IsWindow(hwnd):
+        return False
+    try:
+        return bool(user32.SendMessageW(hwnd, WM_SETTEXT, 0, text))
+    except Exception:
+        return False
+
+
+def _full_edit_value(control: auto.Control, pattern: Any) -> str:
+    """Prefer Win32 full text when ValuePattern truncates."""
+    vp = ""
+    try:
+        vp = str(pattern.Value or "")
+    except Exception:
+        vp = ""
+    hwnd = _control_hwnd(control)
+    win32 = _win32_get_text(hwnd) if hwnd else None
+    if win32 is not None and len(win32) >= len(vp):
+        return win32
+    return vp
+
+
+def _set_edit_value(control: auto.Control, pattern: Any, text: str) -> None:
+    """Write full text; Win32 WM_SETTEXT when available (avoids UIA 4K cap)."""
+    hwnd = _control_hwnd(control)
+    if hwnd and _win32_set_text(hwnd, text):
+        return
+    pattern.SetValue(text)
+
+
+def _prepare_edit_control(element: str) -> tuple[dict[str, Any], Any] | str:
+    """Resolve element for set/insert text. Returns (snap, pattern) or an error string."""
+    title_err = _check_title_unchanged()
+    if title_err:
+        return title_err
+    try:
+        snap = _resolve_element(element)
+    except ValueError as exc:
+        return str(exc)
+    exe = _last_read_exe or ""
+    if is_act_blocked(exe):
+        return act_blocked_message(exe)
+    missing = require_grant(exe)
+    if missing:
+        return missing
+    control = snap["control"]
+    if snap.get("is_password") or bool(getattr(control, "IsPassword", False)):
+        return "Refused: cannot set text on a password field."
+    ctype = snap.get("control_type") or ""
+    if "Edit" not in ctype and "Document" not in ctype:
+        return (
+            f"Refused: edit/document control required, got {ctype}."
+        )
+    pattern = _get_value_pattern(control)
+    if pattern is None:
+        return "Refused: this control has no ValuePattern."
+    try:
+        if bool(getattr(pattern, "IsReadOnly", False)):
+            return "Refused: this control is read-only."
+    except Exception:
+        pass
+    return snap, pattern
 
 
 def _fresh_read_after_action() -> str:
@@ -738,6 +859,9 @@ def desktop_press(element: str) -> str:
     ended = _check_interrupt_or_end()
     if ended:
         return ended
+    title_err = _check_title_unchanged()
+    if title_err:
+        return title_err
 
     try:
         snap = _resolve_element(element)
@@ -776,7 +900,11 @@ def desktop_press(element: str) -> str:
 
 
 def desktop_set_text(element: str, text: str) -> str:
-    """Set text on an edit control via ValuePattern (grant-covered)."""
+    """Replace text on an edit control via ValuePattern.
+
+    Prefer desktop_insert_text when adding text so existing content is kept.
+    Non-empty fields always prompt before replace, even with a task grant.
+    """
     check_permission(
         action="desktop_set_text",
         tier=Tier.AUTO_ALLOW,
@@ -790,53 +918,34 @@ def desktop_set_text(element: str, text: str) -> str:
         _validate_set_text(text)
     except ValueError as exc:
         return str(exc)
-    try:
-        snap = _resolve_element(element)
-    except ValueError as exc:
-        return str(exc)
-    exe = _last_read_exe or ""
-    if is_act_blocked(exe):
-        return act_blocked_message(exe)
-    missing = require_grant(exe)
-    if missing:
-        return missing
-
+    prepared = _prepare_edit_control(element)
+    if isinstance(prepared, str):
+        return prepared
+    snap, pattern = prepared
     control = snap["control"]
-    if snap.get("is_password") or bool(getattr(control, "IsPassword", False)):
-        return "Refused: cannot set text on a password field."
+    exe = _last_read_exe or ""
+    name = snap.get("name") or ""
 
-    ctype = snap.get("control_type") or ""
-    if "Edit" not in ctype and "Document" not in ctype:
-        return (
-            f"Refused: desktop_set_text requires an edit control, "
-            f"got {ctype}."
+    current = _full_edit_value(control, pattern)
+
+    if current:
+        check_permission(
+            action="desktop_set_text",
+            tier=Tier.CONFIRM,
+            description=(
+                f"Replace the existing text in {exe} field \"{name}\"?\n"
+                f"It currently has {len(current)} characters; they will be "
+                f"replaced by {len(text)} characters."
+            ),
         )
-
-    try:
-        pattern = control.GetValuePattern()
-    except Exception:
-        pattern = None
-    if pattern is None:
-        try:
-            pattern = control.GetPattern(auto.PatternId.ValuePattern)
-        except Exception:
-            pattern = None
-    if pattern is None:
-        return "Refused: this control has no ValuePattern."
-    try:
-        if bool(getattr(pattern, "IsReadOnly", False)):
-            return "Refused: this control is read-only."
-    except Exception:
-        pass
-
-    if _in_dialog(control):
+    elif _in_dialog(control):
         shown = text.replace("\n", "\\n")
         check_permission(
             action="desktop_set_text",
             tier=Tier.CONFIRM,
             description=(
                 f"Set text in dialog element [{_normalize_element_ref(element)}] "
-                f"\"{snap.get('name')}\" ({len(text)} characters):\n{shown}"
+                f"\"{name}\" ({len(text)} characters):\n{shown}"
             ),
         )
 
@@ -844,11 +953,104 @@ def desktop_set_text(element: str, text: str) -> str:
     if ended:
         return ended
 
-    pattern.SetValue(text)
+    _set_edit_value(control, pattern, text)
     read_back = _fresh_read_after_action()
     return (
         f"Set text on [{_normalize_element_ref(element)}] "
         f"({len(text)} characters).\n{read_back}"
+    )
+
+
+def desktop_insert_text(
+    element: str,
+    text: str,
+    position: str = "end",
+) -> str:
+    """Insert text at the start or end of an edit control without wiping it.
+
+    Reads the full current ValuePattern value (not the truncated observation),
+    builds the new string, SetValue, then verifies. On mismatch, restores the
+    original value when possible.
+    """
+    check_permission(
+        action="desktop_insert_text",
+        tier=Tier.AUTO_ALLOW,
+        description=f"desktop_insert_text {element}",
+    )
+    ended = _check_interrupt_or_end()
+    if ended:
+        return ended
+
+    pos = (position or "end").strip().lower()
+    if pos not in ("start", "end"):
+        return 'position must be "start" or "end".'
+    try:
+        _validate_set_text(text)
+    except ValueError as exc:
+        return str(exc)
+    prepared = _prepare_edit_control(element)
+    if isinstance(prepared, str):
+        return prepared
+    snap, pattern = prepared
+    control = snap["control"]
+    name = snap.get("name") or ""
+
+    if _in_dialog(control):
+        shown = text.replace("\n", "\\n")
+        check_permission(
+            action="desktop_insert_text",
+            tier=Tier.CONFIRM,
+            description=(
+                f"Insert text ({pos}) in dialog element "
+                f"[{_normalize_element_ref(element)}] \"{name}\" "
+                f"({len(text)} characters):\n{shown}"
+            ),
+        )
+
+    ended = _check_interrupt_or_end()
+    if ended:
+        return ended
+
+    try:
+        current = _full_edit_value(control, pattern)
+    except Exception as exc:
+        return f"Could not read current field value: {exc}"
+
+    if pos == "start":
+        intended = text + current
+    else:
+        intended = current + text
+
+    try:
+        _set_edit_value(control, pattern, intended)
+    except Exception as exc:
+        return f"SetValue failed: {exc}"
+
+    try:
+        after = _full_edit_value(control, pattern)
+    except Exception:
+        after = ""
+
+    if after != intended:
+        restored = False
+        try:
+            _set_edit_value(control, pattern, current)
+            restored = _full_edit_value(control, pattern) == current
+        except Exception:
+            restored = False
+        read_back = _fresh_read_after_action()
+        return (
+            f"Insert failed: the field did not accept the new value "
+            f"(intended {len(intended)} characters, got {len(after)}). "
+            f"{'Original text was restored.' if restored else 'Could not restore the original text.'}\n"
+            f"{read_back}"
+        )
+
+    read_back = _fresh_read_after_action()
+    return (
+        f"Inserted {len(text)} characters at {pos} of "
+        f"[{_normalize_element_ref(element)}] \"{name}\" "
+        f"(now {len(after)} characters).\n{read_back}"
     )
 
 
@@ -860,9 +1062,10 @@ def last_walk_stats() -> dict[str, Any]:
 def clear_window_map() -> None:
     """Clear the session window-number map (tests / session reset)."""
     global _window_handles, _last_elements
-    global _last_read_window_ref, _last_read_hwnd, _last_read_exe
+    global _last_read_window_ref, _last_read_hwnd, _last_read_exe, _last_read_title
     _window_handles = {}
     _last_elements = {}
     _last_read_window_ref = None
     _last_read_hwnd = None
     _last_read_exe = None
+    _last_read_title = None
