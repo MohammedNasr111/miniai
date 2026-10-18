@@ -45,8 +45,10 @@ def reset_session() -> None:
     clear_known_urls()
     # Late import avoids a circular import with app_trust -> prompt_app_read.
     from security.app_trust import clear_session as clear_app_trust_session
+    from tools.desktop.task_grant import clear_task_grant
 
     clear_app_trust_session()
+    clear_task_grant()
 
 
 def mark_untrusted(source: str) -> None:
@@ -131,6 +133,10 @@ def prompt_app_read(exe: str, title: str) -> str:
     Returns ``\"session\"``, ``\"always\"``, or ``\"\"`` (refuse). Uses the
     same taint warning banner style as ``check_permission``.
     """
+    from security.app_trust import BROWSER_EXECUTABLES, normalize_exe
+    from tools.web.untrusted import one_line, sanitize
+
+    safe_title = one_line(sanitize(title or ""))[:120]
     if is_tainted():
         sources = ", ".join(_sources) if _sources else "untrusted content"
         print(
@@ -140,7 +146,12 @@ def prompt_app_read(exe: str, title: str) -> str:
         )
     print("\n[PERMISSION REQUIRED - CONFIRM]")
     print("Action: desktop_read_window")
-    print(f"Allow MiniAI to READ the window of {exe} ({title})?")
+    print(f"Allow MiniAI to READ the window of {exe} ({safe_title})?")
+    if normalize_exe(exe) in BROWSER_EXECUTABLES:
+        print(
+            "This browser window shows whatever website is open, which may "
+            "include logged-in sites."
+        )
     answer = input(
         "Type 'session' (until you exit), 'always' (saved to your trusted "
         "apps), or anything else to refuse: "

@@ -498,3 +498,10 @@ Per-call seconds are in the JSON under each run's `llm_calls` / `per_call_s`. Af
 - Tools: `desktop_list_windows`, `desktop_read_window` (AUTO_ALLOW, both in UNTRUSTED_SOURCE_TOOLS). Password fields never read. Limits: depth 12 / 2000 nodes / 5 s.
 - Tests `scripts/test_desktop_read.py` 1–7 PASS. Regressions: every test script PASS. Live chat: list+read Notepad, prompt `session`, answer contained `The kettle is on the second shelf.` (`logs/review_20261018-1525_live_desktop.log`).
 - ARCHITECTURE.md Stage 8a section; roadmap `Stage 8: computer control (in progress - 8a read-only done)`.
+
+## 2026-10-18 — Stage 8b: desktop actions via UI Automation with task grants, always-ask actions and emergency stop
+- PART A (8a fixes): list wrapped in untrusted markers; `prompt_app_read` sanitizes title (120); browser exe warning; UIA walk in worker thread with 6 s join + timeout message; test 8 PASS.
+- PART B: `desktop_begin_task` / `desktop_press` / `desktop_set_text`; ACT_BLOCKED; per-turn grant cleared after `run_tool_rounds`; always-ask names + dialogs; `user_input_watch` LL hooks; element snapshots.
+- PART C: `scripts/test_desktop_act.py` 1–10 PASS. Regressions: every test script PASS (incl. desktop_read 1–8).
+- PART D live: Notepad empty file; begin_task typed under taint; `desktop_set_text` wrote `Meeting at 3pm`; independent re-read VERIFY_HAS_TARGET=True (`logs/review_20261018-1635_live_desktop_type.log`). File not saved.
+- ARCHITECTURE.md Stage 8b section; roadmap notes 8a+8b done.

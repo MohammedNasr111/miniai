@@ -27,6 +27,33 @@ BLOCKED_EXECUTABLES = frozenset(
     }
 )
 
+BROWSER_EXECUTABLES = frozenset(
+    {
+        "chrome.exe",
+        "msedge.exe",
+        "firefox.exe",
+        "brave.exe",
+        "opera.exe",
+    }
+)
+
+# Read may be allowed; acting is refused without a prompt.
+ACT_BLOCKED_EXECUTABLES = frozenset(
+    set(BROWSER_EXECUTABLES)
+    | set(BLOCKED_EXECUTABLES)
+    | {
+        "cmd.exe",
+        "powershell.exe",
+        "pwsh.exe",
+        "windowsterminal.exe",
+        "wt.exe",
+        "conhost.exe",
+        "cursor.exe",
+        "code.exe",
+        "explorer.exe",
+    }
+)
+
 _PASSWORD_MANAGER_TITLE = "password manager"
 
 _session_allowed: set[str] = set()
@@ -94,6 +121,31 @@ def is_trusted(exe: str) -> bool:
     if key in _session_allowed:
         return True
     return bool(_load_trusted().get(key))
+
+
+def is_act_blocked(exe: str) -> bool:
+    return normalize_exe(exe) in ACT_BLOCKED_EXECUTABLES
+
+
+def act_blocked_message(exe: str) -> str:
+    """Refusal text naming the right alternative tool set."""
+    key = normalize_exe(exe)
+    if key in BROWSER_EXECUTABLES:
+        return (
+            f"MiniAI does not control {key} with desktop actions. "
+            "Use the browser tools instead."
+        )
+    if key == "explorer.exe":
+        return (
+            f"MiniAI does not control {key} with desktop actions. "
+            "Use the file tools instead."
+        )
+    if key in BLOCKED_EXECUTABLES:
+        return f"MiniAI does not control {key}."
+    return (
+        f"MiniAI does not control {key} with desktop actions "
+        "(not yet supported)."
+    )
 
 
 def ensure_app_allowed(exe: str, title: str) -> None:

@@ -19,7 +19,13 @@ from tools.browser.browser_tools import (
     browser_open,
     browser_type,
 )
-from tools.desktop.desktop_tools import desktop_list_windows, desktop_read_window
+from tools.desktop.desktop_tools import (
+    desktop_begin_task,
+    desktop_list_windows,
+    desktop_press,
+    desktop_read_window,
+    desktop_set_text,
+)
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
 
@@ -43,6 +49,9 @@ TOOL_FUNCTIONS = {
     "browser_type": browser_type,
     "desktop_list_windows": desktop_list_windows,
     "desktop_read_window": desktop_read_window,
+    "desktop_begin_task": desktop_begin_task,
+    "desktop_press": desktop_press,
+    "desktop_set_text": desktop_set_text,
 }
 
 # Used only by the duplicate-call guard. Each tool still enforces its own
@@ -67,6 +76,9 @@ TOOL_TIERS = {
     "browser_type": Tier.CONFIRM,
     "desktop_list_windows": Tier.AUTO_ALLOW,
     "desktop_read_window": Tier.AUTO_ALLOW,
+    "desktop_begin_task": Tier.CONFIRM,
+    "desktop_press": Tier.CONFIRM,
+    "desktop_set_text": Tier.CONFIRM,
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
@@ -81,6 +93,9 @@ UNTRUSTED_SOURCE_TOOLS = {
     "browser_type",
     "desktop_list_windows",
     "desktop_read_window",
+    "desktop_begin_task",
+    "desktop_press",
+    "desktop_set_text",
 }
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
@@ -411,6 +426,65 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["window"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "desktop_begin_task",
+            "description": "Ask the user for a one-turn grant to control one desktop app (press / set_text). Required before desktop_press or desktop_set_text. Grant expires at the end of the current user turn. Some apps (browsers, Explorer, terminals, editors) cannot be controlled — use other tools instead.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "window": {
+                        "type": "string",
+                        "description": "Window ref from desktop_list_windows, e.g. w1.",
+                    },
+                    "goal": {
+                        "type": "string",
+                        "description": "Short description of what you intend to do in that app.",
+                    },
+                },
+                "required": ["window", "goal"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "desktop_press",
+            "description": "Press a numbered element from the most recent desktop_read_window (Invoke/Toggle/SelectionItem; never mouse). Requires an active desktop_begin_task grant. Destructive-looking names and dialog actions ask again.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element": {
+                        "type": "string",
+                        "description": "Element ref from desktop_read_window, e.g. e3.",
+                    },
+                },
+                "required": ["element"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "desktop_set_text",
+            "description": "Set the text of an edit control from the most recent desktop_read_window via UI Automation (not keystrokes). Requires an active desktop_begin_task grant. Refuses password and read-only fields. Max 500 characters.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element": {
+                        "type": "string",
+                        "description": "Element ref of an edit control, e.g. e2.",
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Exact text to set (at most 500 characters).",
+                    },
+                },
+                "required": ["element", "text"],
             },
         },
     },

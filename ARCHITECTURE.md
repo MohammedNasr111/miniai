@@ -212,18 +212,21 @@
 - Tools (both AUTO_ALLOW; both in `UNTRUSTED_SOURCE_TOOLS` — reading an app
   taints the session):
   - `desktop_list_windows` — visible top-level windows as `[wN] <exe> -
-    <title>` (title sanitized/one_line, max 120). Blocked apps omitted.
-    Refs renumber on each list.
-  - `desktop_read_window(window, looking_for?)` — UIA tree walk (max depth
-    12, max 2000 nodes, 5 s). Output wrapped with the same untrusted
-    PREAMBLE/BEGIN/END as web. Up to 60 elements and 3000 chars of text.
-    `looking_for` uses the same stop words as browser observe.
+    <title>` (title sanitized/one_line, max 120), wrapped in untrusted
+    markers (titles are untrusted). Blocked apps omitted. Refs renumber
+    on each list.
+  - `desktop_read_window(window, looking_for?)` — UIA tree walk in a worker
+    thread joined at 6 s (partial results + "(truncated: the app did not
+    respond in time)" on timeout). Max depth 12 / 2000 nodes. Output
+    wrapped with the same untrusted PREAMBLE/BEGIN/END as web. Up to 60
+    elements and 3000 chars of text. Keeps per-element control + snapshot
+    (type, name, AutomationId, RuntimeId) for 8b actions.
 - Per-app trust (`security/app_trust.py`): file
   `%LOCALAPPDATA%\MiniAI\trusted_apps.json` keyed by lowercase exe name
   (protected path — create/write/delete refuse it). Prompt via
-  `gate.prompt_app_read`: type `session` / `always` / refuse. Session
-  grants and refusals clear on `reset_session()`; a refusal is remembered
-  for that exe for the rest of the session (no re-prompt).
+  `gate.prompt_app_read` (title sanitized/one_line/120; browser exes add a
+  logged-in-sites warning): type `session` / `always` / refuse. Session
+  grants and refusals clear on `reset_session()`.
 - Blocked executables (never listed, never read, no prompt): keepass.exe,
   keepassxc.exe, 1password.exe, bitwarden.exe, lastpass.exe,
   securityhealthui.exe, systemsettings.exe, consent.exe,
@@ -233,13 +236,36 @@
   value never read.
 - Startup low-memory warning uses `settings.MODEL_NEEDED_RAM_GB` (18).
 
+## Stage 8b — desktop actions (done)
+- `desktop_begin_task(window, goal)` CONFIRM: one-turn grant for that exe
+  only (prompt shows exe, goal, allowed vs always-ask lists; typed name
+  when tainted). Cleared after each `run_tool_rounds` (end of user turn)
+  and on `reset_session`. Without a grant, press/set_text return
+  "Call desktop_begin_task first."
+- `desktop_press(element)` / `desktop_set_text(element, text)`: CONFIRM
+  tier for the duplicate-call guard; both in `UNTRUSTED_SOURCE_TOOLS`.
+  Re-verify snapshot before acting. Press uses Invoke → Toggle →
+  SelectionItem (never mouse). set_text uses ValuePattern.SetValue on
+  edit/document controls only (max 500 chars, same control-char rules as
+  browser_type); refuses password and read-only. Results include a fresh
+  window read.
+- Always-ask (extra CONFIRM even with grant): element name whole-word match
+  on send/delete/remove/submit/pay/buy/purchase/discard/don't save/close/
+  exit/uninstall/erase/reset/sign out/publish/post/share/format, or any
+  element inside a dialog/modal window.
+- ACT_BLOCKED (read may be allowed; acting refused without prompt): the
+  five browsers, cmd/powershell/pwsh/WindowsTerminal/wt/conhost, cursor,
+  code, explorer, plus all BLOCKED_EXECUTABLES. Message names browser
+  tools / file tools / "not yet supported" as appropriate.
+- Emergency stop (`security/user_input_watch.py`): WH_MOUSE_LL /
+  WH_KEYBOARD_LL while a grant is active. Physical events (no
+  LLMHF_INJECTED / LLKHF_INJECTED) set a flag; the next act asks
+  "You used the mouse or keyboard. Continue the task? (yes/no)" — no ends
+  the grant. Hooks uninstalled when the grant ends (and via atexit).
+
 ## Stage 8 plan (remaining)
-Computer control beyond read-only:
-- Task approval before a computer-control session starts.
-- Always-ask actions that never become silent, even after trust.
-- Click/type and other mutating desktop actions.
-- Mouse-movement emergency stop: moving the mouse cancels the agent's
-  control of the desktop.
+Further computer control beyond 8a/8b as needed (broader app support,
+richer patterns).
 
 ## Roadmap
 Stage 0: environment setup (done)
@@ -251,7 +277,7 @@ Stage 5: RAG (LanceDB) (done)
 Stage 6: web research (done)
 Stage 7: browser automation (Playwright) (done)
 Stage 7.5: interactive chat (done)
-Stage 8: computer control (in progress - 8a read-only done)
+Stage 8: computer control (in progress - 8a read-only done, 8b actions done)
 Stage 9: coding agent
 Stage 10: evaluation / self-improvement loop
 

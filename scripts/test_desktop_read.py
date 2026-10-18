@@ -118,7 +118,14 @@ def test_1_notepad_session() -> None:
     proc = subprocess.Popen(["notepad.exe", str(path)])
     _PROCS.append(proc)
     listing = _wait_list_contains(NOTEPAD_MARKER)
-    ok_list = NOTEPAD_MARKER in listing and "notepad" in listing.lower()
+    ok_list = (
+        NOTEPAD_MARKER in listing
+        and "notepad" in listing.lower()
+        and BEGIN_MARKER in listing
+        and END_MARKER in listing
+        and listing.count(BEGIN_MARKER) == 1
+        and listing.count(END_MARKER) == 1
+    )
     prompts: list = []
     text = ""
     ref = ""
@@ -400,6 +407,49 @@ def test_6_protected_trusted_file() -> None:
     report("6", ok, f"create_err={create_err!r} write_err={write_err!r}")
 
 
+def test_8_walk_timeout() -> None:
+    """Patched GetChildren that sleeps 30s must truncate within ~6s join."""
+    reset_session()
+    clear_session()
+    path = trusted_apps_path()
+    if path.exists():
+        path.write_text('{"notepad.exe": true}\n', encoding="utf-8")
+    tmp = Path(tempfile.mkdtemp(prefix="miniai_8a_slow_"))
+    note = tmp / f"{NOTEPAD_MARKER}slow.txt"
+    note.write_text("slow walk\n", encoding="utf-8")
+    proc = subprocess.Popen(["notepad.exe", str(note)])
+    _PROCS.append(proc)
+    listing = _wait_list_contains(NOTEPAD_MARKER)
+    ref = _ref_for_substr(listing, NOTEPAD_MARKER)
+    real_get_children = None
+
+    def _slow_children(self):
+        time.sleep(30)
+        return []
+
+    import uiautomation as auto
+
+    real_get_children = auto.Control.GetChildren
+    started = time.perf_counter()
+    try:
+        auto.Control.GetChildren = _slow_children  # type: ignore[method-assign]
+        with answer_by_action({"desktop_read_window": "session"}):
+            out = desktop_read_window(ref)
+        wall = time.perf_counter() - started
+    finally:
+        auto.Control.GetChildren = real_get_children  # type: ignore[method-assign]
+    ok = (
+        wall < 10.0
+        and "(truncated: the app did not respond in time)" in out
+        and BEGIN_MARKER in out
+    )
+    report("8", ok, f"wall_s={wall:.3f} has_msg={('(truncated: the app did not respond in time)' in out)}")
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+
 def test_7_explorer_limits() -> None:
     reset_session()
     clear_session()
@@ -469,6 +519,7 @@ def main() -> None:
         test_5_blocked_exe()
         test_6_protected_trusted_file()
         test_7_explorer_limits()
+        test_8_walk_timeout()
     finally:
         _cleanup_procs()
     print(f"FAILURES {len(FAILURES)} {FAILURES}")
