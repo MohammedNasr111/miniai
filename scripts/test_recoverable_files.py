@@ -253,6 +253,115 @@ def test_5_protected() -> None:
     report("5", ok, f"results={results!r} gate_hits={len(gate_hits)} rel={rel!r}")
 
 
+def test_6_drive_type_refused() -> None:
+    """Patched GetDriveTypeW 2 (removable) and 4 (network) -> refuse, no gate."""
+    reset_session()
+    gate_hits: list[str] = []
+
+    def _tracking_input(prompt: str = "") -> str:
+        gate_hits.append(prompt)
+        return "yes"
+
+    with _outside_repo_temp() as tmp:
+        path = Path(tmp) / "on_weird_drive.txt"
+        path.write_text("stay", encoding="utf-8")
+        results: dict[str, bool] = {}
+        for label, drive_type in (("removable", 2), ("network", 4)):
+            gate_hits.clear()
+            with patch.object(fs_tools, "get_drive_type", return_value=drive_type):
+                with patch("builtins.input", side_effect=_tracking_input):
+                    with patch("sys.stdout", new=io.StringIO()):
+                        raised = None
+                        try:
+                            delete_file(str(path))
+                        except Exception as exc:
+                            raised = exc
+            intact = path.exists() and path.read_text(encoding="utf-8") == "stay"
+            results[label] = (
+                intact
+                and raised is not None
+                and "cannot be safely sent to the Recycle Bin" in str(raised)
+                and len(gate_hits) == 0
+            )
+        ok = all(results.values())
+        report("6", ok, f"results={results!r}")
+
+
+def test_7_large_file_refused() -> None:
+    """Sparse ~501 MB file -> refused, gate not reached, file intact."""
+    reset_session()
+    gate_hits: list[str] = []
+
+    def _tracking_input(prompt: str = "") -> str:
+        gate_hits.append(prompt)
+        return "yes"
+
+    with _outside_repo_temp() as tmp:
+        path = Path(tmp) / "big_sparse.bin"
+        # Sparse-ish file: seek past 501 MiB without writing 501 MiB of zeros.
+        size = 501 * 1024 * 1024
+        with open(path, "wb") as handle:
+            handle.seek(size - 1)
+            handle.write(b"\0")
+        assert path.stat().st_size >= size
+        with patch("builtins.input", side_effect=_tracking_input):
+            with patch("sys.stdout", new=io.StringIO()):
+                raised = None
+                try:
+                    delete_file(str(path))
+                except Exception as exc:
+                    raised = exc
+        intact = path.exists() and path.stat().st_size >= size
+        ok = (
+            intact
+            and raised is not None
+            and "larger than 500 MB" in str(raised)
+            and len(gate_hits) == 0
+        )
+        report(
+            "7",
+            ok,
+            f"intact={intact} size={path.stat().st_size if path.exists() else None} "
+            f"gate_hits={len(gate_hits)} raised={raised!r}",
+        )
+
+
+def test_8_write_create_prompt() -> None:
+    """write_file on a missing path prompts 'Create file (did not exist)'."""
+    reset_session()
+    prompts: list[str] = []
+
+    def _capture(prompt: str = "") -> str:
+        # gate prints description before input; capture via patching print is hard —
+        # re-check by reading description passed to check_permission.
+        return "yes"
+
+    with _outside_repo_temp() as tmp:
+        path = Path(tmp) / "brand_new.txt"
+        assert not path.exists()
+        captured: list[str] = []
+
+        real_check = fs_tools.check_permission
+
+        def _wrap(action, tier, description, url=None):
+            captured.append(description)
+            return real_check(action, tier, description, url=url)
+
+        with patch.object(fs_tools, "check_permission", side_effect=_wrap):
+            with patch("builtins.input", side_effect=_capture):
+                with patch("sys.stdout", new=io.StringIO()):
+                    msg = write_file(str(path), "hello")
+        ok = (
+            path.exists()
+            and path.read_text(encoding="utf-8") == "hello"
+            and any(
+                d.startswith("Create file (did not exist):") for d in captured
+            )
+            and not any(d.startswith("Overwrite existing file:") for d in captured)
+        )
+        report("8", ok, f"captured={captured!r} msg={msg!r}")
+
+
 def main() -> None:
     assert_not_real_data()
     test_1_recycle_bin()
@@ -260,6 +369,9 @@ def main() -> None:
     test_3_write_backup()
     test_4_backup_failure()
     test_5_protected()
+    test_6_drive_type_refused()
+    test_7_large_file_refused()
+    test_8_write_create_prompt()
     print(f"FAILURES {len(FAILURES)} {FAILURES}")
     raise SystemExit(1 if FAILURES else 0)
 

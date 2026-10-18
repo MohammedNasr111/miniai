@@ -451,3 +451,9 @@ Append one dated entry here after every completed task, in the form:
 - `security/protected_paths.py`: create/write/delete refuse (no prompt) targets inside the project root, `browser_profile`, or `%LOCALAPPDATA%\MiniAI` after full resolve + case-insensitive compare. Message: `MiniAI does not modify its own files or settings.`
 - Tests: `scripts/test_recoverable_files.py` 1–5 PASS (Recycle Bin verified by `.Bin` content search for a unique marker; send2trash failure; backup success/failure; protected paths including `..\miniai\...`, case fold, browser_profile). `test_fs_tools` / `test_chat` mutating paths moved outside the repo. Regressions: every test script PASS.
 - ARCHITECTURE.md: core decision on recoverable file changes; Stage 8 plan (task approval, always-ask, trusted-apps this-task/always/no, blocked categories, mouse-movement emergency stop).
+
+## 2026-10-18 — Refuse deletes that Windows would not send to the Recycle Bin
+- `delete_file` refuses before the permission prompt when `GetDriveTypeW` is not `DRIVE_FIXED` (3) or the file is larger than 500 MB. Message: `This file cannot be safely sent to the Recycle Bin (<reason>). MiniAI will not delete it; delete it yourself if you mean to.`
+- `write_file` on a missing path prompts `Create file (did not exist): <path>` instead of overwrite wording.
+- `MINIAI_MODEL` env override added in `settings.py` (default still `Qwen3-14B-GGUF`).
+- Tests `test_recoverable_files` 6–8 PASS (removable/network drive patches; sparse 501 MB; create prompt). Regressions PASS.

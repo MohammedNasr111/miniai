@@ -14,6 +14,7 @@ retry the same destructive call until the round cap.
 
 from __future__ import annotations
 
+import ctypes
 import os
 import shutil
 from datetime import datetime
@@ -23,6 +24,54 @@ from send2trash import send2trash
 
 from security.gate import Tier, check_permission
 from security.protected_paths import assert_not_protected
+
+# Win32 GetDriveTypeW: only fixed local volumes are safe for Recycle Bin.
+DRIVE_FIXED = 3
+MAX_RECYCLE_BYTES = 500 * 1024 * 1024
+
+
+class UnsafeDeleteError(ValueError):
+    """Raised when delete_file refuses before the permission prompt."""
+
+
+def _drive_root(path: Path) -> str:
+    """Return a root like ``C:\\`` for GetDriveTypeW."""
+    resolved = path.resolve()
+    drive = resolved.drive
+    if not drive:
+        raise UnsafeDeleteError(
+            "This file cannot be safely sent to the Recycle Bin "
+            "(path has no drive letter). MiniAI will not delete it; "
+            "delete it yourself if you mean to."
+        )
+    return drive + "\\"
+
+
+def get_drive_type(path: Path) -> int:
+    """ctypes.windll.kernel32.GetDriveTypeW for the path's drive."""
+    return int(ctypes.windll.kernel32.GetDriveTypeW(_drive_root(path)))
+
+
+def assert_safe_for_recycle_bin(path: Path) -> None:
+    """Refuse deletes Windows would not send to the Recycle Bin.
+
+    Only DRIVE_FIXED (3) volumes and files of at most 500 MB are allowed.
+    Raises UnsafeDeleteError before any permission prompt.
+    """
+    drive_type = get_drive_type(path)
+    if drive_type != DRIVE_FIXED:
+        raise UnsafeDeleteError(
+            "This file cannot be safely sent to the Recycle Bin "
+            f"(not a fixed local drive; GetDriveTypeW={drive_type}). "
+            "MiniAI will not delete it; delete it yourself if you mean to."
+        )
+    size = path.stat().st_size
+    if size > MAX_RECYCLE_BYTES:
+        raise UnsafeDeleteError(
+            "This file cannot be safely sent to the Recycle Bin "
+            f"(file larger than 500 MB; size={size} bytes). "
+            "MiniAI will not delete it; delete it yourself if you mean to."
+        )
 
 
 def list_directory(path: str) -> list[str]:
@@ -112,7 +161,7 @@ def write_file(path: str, content: str) -> str:
             f"---\n{content}\n---"
         )
     else:
-        description = f"Overwrite existing file: {path}\n---\n{content}\n---"
+        description = f"Create file (did not exist): {path}\n---\n{content}\n---"
     check_permission(
         action="write_file",
         tier=Tier.CONFIRM,
@@ -137,14 +186,16 @@ def write_file(path: str, content: str) -> str:
 
 def delete_file(path: str) -> str:
     assert_not_protected(path)
+    target = Path(path)
+    if not target.exists():
+        raise FileNotFoundError(f"No such file: {path}")
+    # Drive type and size checks before any permission prompt.
+    assert_safe_for_recycle_bin(target)
     check_permission(
         action="delete_file",
         tier=Tier.ALWAYS_CONFIRM,
         description=f"Move to Recycle Bin: {path}",
     )
-    target = Path(path)
-    if not target.exists():
-        raise FileNotFoundError(f"No such file: {path}")
     try:
         send2trash(str(target.resolve()))
     except Exception as exc:
