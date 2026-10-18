@@ -28,6 +28,17 @@ from tools.desktop.desktop_tools import (
     desktop_set_text,
 )
 from tools.code.code_tools import run_code, workspace_history, workspace_restore
+from tools.code.workspace_tools import (
+    install_package,
+    run_file,
+    run_tests,
+    workspace_export,
+    workspace_import,
+    ws_edit,
+    ws_list,
+    ws_read,
+    ws_write,
+)
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
 
@@ -58,6 +69,15 @@ TOOL_FUNCTIONS = {
     "run_code": run_code,
     "workspace_history": workspace_history,
     "workspace_restore": workspace_restore,
+    "ws_read": ws_read,
+    "ws_list": ws_list,
+    "ws_write": ws_write,
+    "ws_edit": ws_edit,
+    "run_file": run_file,
+    "run_tests": run_tests,
+    "install_package": install_package,
+    "workspace_import": workspace_import,
+    "workspace_export": workspace_export,
 }
 
 # Used only by the duplicate-call guard. Each tool still enforces its own
@@ -89,6 +109,17 @@ TOOL_TIERS = {
     "run_code": Tier.CONFIRM,
     "workspace_history": Tier.AUTO_ALLOW,
     "workspace_restore": Tier.CONFIRM,
+    "ws_read": Tier.AUTO_ALLOW,
+    "ws_list": Tier.AUTO_ALLOW,
+    # Gate is AUTO_ALLOW (no prompt); CONFIRM here so the duplicate-call guard
+    # treats them as mutating.
+    "ws_write": Tier.CONFIRM,
+    "ws_edit": Tier.CONFIRM,
+    "run_file": Tier.CONFIRM,
+    "run_tests": Tier.CONFIRM,
+    "install_package": Tier.CONFIRM,
+    "workspace_import": Tier.CONFIRM,
+    "workspace_export": Tier.CONFIRM,
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
@@ -108,6 +139,8 @@ UNTRUSTED_SOURCE_TOOLS = {
     "desktop_set_text",
     "desktop_insert_text",
     "run_code",
+    "run_file",
+    "run_tests",
 }
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
@@ -568,6 +601,158 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["commit"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ws_read",
+            "description": "Read a text file inside the MiniAI code workspace (paths relative to the workspace root).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path inside the workspace."},
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ws_list",
+            "description": "List files and folders directly inside a workspace directory (default '.').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Directory inside the workspace."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ws_write",
+            "description": "Create or overwrite a text file in the MiniAI code workspace. Auto-committed. Prefer small edits via ws_edit when changing existing files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path inside the workspace."},
+                    "content": {"type": "string", "description": "Full file contents."},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ws_edit",
+            "description": "Replace exactly one occurrence of old with new in a workspace file. Fails if old matches 0 or 2+ times. Auto-committed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path inside the workspace."},
+                    "old": {"type": "string", "description": "Exact text that must occur once."},
+                    "new": {"type": "string", "description": "Replacement text."},
+                },
+                "required": ["path", "old", "new"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_file",
+            "description": "Run a .py file from the workspace in the isolated low-integrity runner. Requires confirmation. Output is untrusted.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Workspace .py path."},
+                    "args": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional argv after the script path.",
+                    },
+                    "timeout_s": {
+                        "type": "number",
+                        "description": "Wall timeout in seconds (default 60).",
+                    },
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_tests",
+            "description": "Run pytest in the isolated runner on a workspace path (default 'tests'). Requires pytest in the runner venv. Requires confirmation. Output is untrusted.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Workspace tests path."},
+                    "timeout_s": {
+                        "type": "number",
+                        "description": "Wall timeout in seconds (default 60).",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "install_package",
+            "description": "Install a PyPI package into the isolated runner venv (wheels only). Always requires typing install_package to approve. Check the name carefully.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Package name on PyPI."},
+                    "version": {
+                        "type": "string",
+                        "description": "Optional exact version.",
+                    },
+                },
+                "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "workspace_import",
+            "description": "Copy a user folder into workspace/projects/<name> (read-only on the original). Refuses protected paths, folders over 50 MB or 2000 files; skips node_modules, .venv, __pycache__. Requires confirmation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "folder": {
+                        "type": "string",
+                        "description": "Absolute path of the folder to copy from.",
+                    },
+                },
+                "required": ["folder"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "workspace_export",
+            "description": "Copy workspace/projects/<name> to a NEW sibling of the original named <name>-miniai-<date>. Never writes into the original. Requires confirmation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "project": {
+                        "type": "string",
+                        "description": "Project name under workspace/projects.",
+                    },
+                },
+                "required": ["project"],
             },
         },
     },

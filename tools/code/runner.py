@@ -562,19 +562,22 @@ def launch_low_integrity(
     return pi, out_r, err_r
 
 
-def run_python(code: str, timeout_s: float = DEFAULT_TIMEOUT_S) -> RunResult:
-    """Write code to the workspace and run it at low integrity under a job."""
-    if not isinstance(code, str):
-        raise TypeError("code must be a string")
+def run_argv(
+    argv: list[str],
+    *,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    script_path: str = "",
+    cwd: Optional[Path] = None,
+) -> RunResult:
+    """Launch runner-bin python with argv at low integrity under a job."""
     if timeout_s <= 0:
         raise ValueError("timeout_s must be positive")
+    if not argv:
+        raise ValueError("argv must not be empty")
 
     ws = ensure_workspace()
     py = ensure_runner_python()
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    script = ws / f"run_{stamp}.py"
-    script.write_text(code, encoding="utf-8")
-
+    work = Path(cwd) if cwd is not None else ws
     env_block = _minimal_env_block(ws, py)
     job = _create_job()
     started = time.perf_counter()
@@ -587,7 +590,7 @@ def run_python(code: str, timeout_s: float = DEFAULT_TIMEOUT_S) -> RunResult:
 
     try:
         pi, out_r, err_r = launch_low_integrity(
-            py, ["-u", str(script)], ws, env_block, job
+            py, ["-u", *argv], work, env_block, job
         )
         pid = int(pi.dwProcessId)
         # Drain pipes on background threads so a large print cannot fill the
@@ -616,7 +619,6 @@ def run_python(code: str, timeout_s: float = DEFAULT_TIMEOUT_S) -> RunResult:
         if exit_code == 259:
             exit_code = 1
 
-        # Closing our read handles unblocks the reader threads on EOF/error.
         t_out.join(timeout=5)
         t_err.join(timeout=5)
         _close(out_r)
@@ -629,8 +631,6 @@ def run_python(code: str, timeout_s: float = DEFAULT_TIMEOUT_S) -> RunResult:
         combined_lower = (stdout_s + stderr_s).lower()
         if "memoryerror" in combined_lower:
             memory_limited = True
-        # Job memory kill often yields STATUS_QUOTA_EXCEEDED-ish or abrupt death
-        # with empty output while allocating; treat non-zero + OOM keywords.
         if exit_code not in (0, None) and not timed_out:
             if any(
                 k in combined_lower
@@ -644,9 +644,7 @@ def run_python(code: str, timeout_s: float = DEFAULT_TIMEOUT_S) -> RunResult:
     stdout_s, out_trunc = _cap(stdout_s)
     stderr_s, err_trunc = _cap(stderr_s)
 
-    # Confirm process is gone after timeout.
     if timed_out and pid is not None:
-        # Brief retry for process exit.
         for _ in range(20):
             if not _process_alive(pid):
                 break
@@ -660,10 +658,21 @@ def run_python(code: str, timeout_s: float = DEFAULT_TIMEOUT_S) -> RunResult:
         stderr=stderr_s,
         stdout_truncated=out_trunc,
         stderr_truncated=err_trunc,
-        script_path=str(script),
+        script_path=script_path or (argv[0] if argv else ""),
         pid=pid,
         memory_limited=memory_limited,
     )
+
+
+def run_python(code: str, timeout_s: float = DEFAULT_TIMEOUT_S) -> RunResult:
+    """Write code to the workspace and run it at low integrity under a job."""
+    if not isinstance(code, str):
+        raise TypeError("code must be a string")
+    ws = ensure_workspace()
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    script = ws / f"run_{stamp}.py"
+    script.write_text(code, encoding="utf-8")
+    return run_argv([str(script)], timeout_s=timeout_s, script_path=str(script))
 
 
 def format_run_result(result: RunResult) -> str:

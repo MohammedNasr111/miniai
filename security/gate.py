@@ -26,6 +26,9 @@ _sources: list[str] = []
 # by the page, not the model.
 TAINT_YESNO_ACTIONS = {"fetch_url", "browser_open", "browser_click"}
 
+# Always require typing the action name (even when the session is not tainted).
+TYPED_ALWAYS_ACTIONS = {"install_package"}
+
 
 class Tier(Enum):
     AUTO_ALLOW = "auto_allow"
@@ -104,13 +107,18 @@ def check_permission(
         and url is not None
         and not is_known_url(url)
     )
-    require_typed_name = (
+    require_typed_name = action in TYPED_ALWAYS_ACTIONS or (
         is_tainted()
         and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM)
         and (action not in TAINT_YESNO_ACTIONS or unknown_url)
     )
     if require_typed_name:
-        if unknown_url:
+        if action in TYPED_ALWAYS_ACTIONS:
+            print(
+                "Typed confirmation is always required for this action "
+                "(not just when the session is tainted)."
+            )
+        elif unknown_url:
             print(
                 "This URL was not given by you or supplied by a page or "
                 "search result - the model constructed it. Typed "

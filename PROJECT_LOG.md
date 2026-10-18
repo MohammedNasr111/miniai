@@ -551,3 +551,10 @@ Investigation only (no features enabled, no firewall rules created).
 - Get-NetFirewallRule `MiniAI code runner - block internet`: Enabled=True, Direction=Outbound, Action=Block. Application filter Program/AppPath: `C:\Users\mohdc\AppData\Local\MiniAI\runner-venv\runner-bin\python.exe`.
 - `python -m scripts.test_code_runner`: firewall=INSTALLED; check 10 PASS (NET_FAIL WinError 10013 / access forbidden); checks 1–9, 11, 12, 12b all PASS; FAILURES=0.
 - MiniAI `.venv` unaffected: `test_web_research` offline 1–5 PASS; direct HTTPS example.com status 200; live `web_research` mitochondria/ATP PASS (ATP_in_chunks=True). Logs: `logs/review_20261018-2110_fw_verify_runner.log`, `logs/review_20261018-2112_fw_verify_miniai_net.log`.
+
+## 2026-10-18 — Stage 9b: coding loop - workspace edits, isolated runs and tests, typed package installs, copy-in/copy-out projects
+- Tools: `ws_read`/`ws_list` (AUTO_ALLOW), `ws_write`/`ws_edit` (gate AUTO_ALLOW, guard CONFIRM, auto-commit, no taint); `run_file`/`run_tests` CONFIRM + untrusted; `install_package` always typed (`TYPED_ALWAYS_ACTIONS`); `workspace_import`/`workspace_export`.
+- Round cap 10 when coding tools used; system prompt coding guidance; first-pass timeout includes TOOL_SCHEMAS size. pytest installed into runner via `install_package`.
+- Tests `scripts/test_coding_tools.py` 1–7 + tiers PASS. Regressions: every test script PASS.
+- Live: word-count + pytest via chat; tools `ws_write` x2, `run_tests` (path miss then ok); rounds=3; wall ~85s; independent runner pytest on `workspace/tests`: **5 passed**. Log: `logs/review_20261018-2205_live_coding.log`.
+- ARCHITECTURE.md Stage 9b.

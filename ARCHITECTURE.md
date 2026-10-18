@@ -311,6 +311,34 @@ richer patterns).
   (hence untrusted markers + taint); network blocking depends on the optional
   firewall rule.
 
+## Stage 9b — coding loop (done)
+- **Workspace file tools** (`ws_read`, `ws_list`, `ws_write`, `ws_edit`): paths
+  must resolve inside the workspace (absolute / `..` / other drives refused).
+  Read/list are AUTO_ALLOW. Write/edit use AUTO_ALLOW at the gate (no prompt)
+  but are registered as CONFIRM for the duplicate-call guard; each change is
+  auto-committed. `ws_edit` requires `old` to occur exactly once. These tools
+  do **not** taint (agent-written workspace content).
+- **`run_file(path, args=[], timeout_s=60)`** / **`run_tests(path="tests")`**:
+  CONFIRM; run through the isolated low-IL runner. Prompts show numbered file
+  contents or the test-file list. Output is untrusted (`run_file` /
+  `run_tests` in `UNTRUSTED_SOURCE_TOOLS`). `run_tests` needs pytest in the
+  runner venv.
+- **`install_package(name, version?)`**: CONFIRM with **always-typed** approval
+  (`TYPED_ALWAYS_ACTIONS` in the gate, even when untainted). Name must match
+  `^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`. Main-env pip:
+  `python -m pip --python <runner-venv>\Scripts\python.exe install
+  --only-binary=:all: …` (pip 25+ `--python` supported here).
+- **Projects:** `workspace_import(folder)` copies into
+  `workspace\projects\<name>` (refuse protected paths, >50 MB, >2000 files;
+  skip `node_modules` / `.venv` / `__pycache__`). `workspace_export(project)`
+  copies to a **new** sibling `<name>-miniai-<YYYY-MM-DD>` (never into the
+  original); prompt lists diffs vs the origin recorded at import.
+- **Round cap:** default 5; if any coding tool (`ws_*`, `run_*`,
+  `install_package`, `workspace_*`) is used this turn, cap is 10. System
+  prompt tells the model to iterate with `ws_write` / `ws_edit` /
+  `run_file` / `run_tests` and never claim success without a run in this
+  conversation. First-pass LLM timeout grows with `TOOL_SCHEMAS` size.
+
 ## Roadmap
 Stage 0: environment setup (done)
 Stage 1: Lemonade installed + one model running, verified (done)
@@ -322,7 +350,7 @@ Stage 6: web research (done)
 Stage 7: browser automation (Playwright) (done)
 Stage 7.5: interactive chat (done)
 Stage 8: computer control (in progress - 8a read-only done, 8b actions done)
-Stage 9: coding agent (in progress - 9a isolated runner done)
+Stage 9: coding agent (in progress - 9a runner + 9b coding loop done)
 Stage 10: evaluation / self-improvement loop
 
 ## Not building yet
