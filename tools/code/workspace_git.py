@@ -2,7 +2,8 @@
 
 Git metadata lives under %LOCALAPPDATA%\\MiniAI\\workspace-git (medium IL),
 not inside the low-IL workspace. Every invocation disables hooks, fsmonitor,
-protocol helpers, and user/system gitconfig.
+protocol helpers, and user/system gitconfig. The repo config file is written
+from an allowlist and verified before every git call.
 """
 
 from __future__ import annotations
@@ -22,6 +23,34 @@ from tools.code.paths import (
 
 GIT_AUTHOR_NAME = "MiniAI"
 GIT_AUTHOR_EMAIL = "miniai@local"
+
+HISTORY_PAUSED_MSG = (
+    "Workspace history settings were changed unexpectedly; history is paused"
+)
+
+# Only these keys may appear in the external git dir's config file.
+ALLOWED_CONFIG: dict[str, str] = {
+    "core.repositoryformatversion": "0",
+    "core.bare": "false",
+    "core.hooksPath": "NUL",
+    "core.fsmonitor": "false",
+    "core.autocrlf": "false",
+    "user.name": GIT_AUTHOR_NAME,
+    "user.email": GIT_AUTHOR_EMAIL,
+}
+
+# Keys git/MiniAI used to leave in the config before the allowlist rewrite;
+# safe to discard on upgrade. Anything else (filters, hooksPath overrides as
+# separate keys, etc.) is left in place so verify_git_config refuses.
+_LEGACY_EXTRA_KEYS = frozenset(
+    {
+        "core.worktree",
+        "core.filemode",
+        "core.logallrefupdates",
+        "core.symlinks",
+        "core.ignorecase",
+    }
+)
 
 # Set by ensure_repo when migrating away from workspace\\.git.
 _MIGRATION_NOTE = ""
@@ -62,9 +91,8 @@ def _git_env() -> dict[str, str]:
     home = str(miniai_data_home())
     miniai_data_home().mkdir(parents=True, exist_ok=True)
     systemroot = os.environ.get("SYSTEMROOT") or os.environ.get("WINDIR") or r"C:\Windows"
-    # Keep PATH so `git` can be found; drop every GIT_* from the parent.
     path = os.environ.get("PATH", "")
-    env = {
+    return {
         "SYSTEMROOT": systemroot,
         "WINDIR": systemroot,
         "PATH": path,
@@ -79,7 +107,88 @@ def _git_env() -> dict[str, str]:
         "GIT_COMMITTER_NAME": GIT_AUTHOR_NAME,
         "GIT_COMMITTER_EMAIL": GIT_AUTHOR_EMAIL,
     }
-    return env
+
+
+def _write_allowed_config(gd: Path) -> None:
+    """Replace the git config file with only allowlisted keys/values."""
+    gd.mkdir(parents=True, exist_ok=True)
+    text = (
+        "[core]\n"
+        "\trepositoryformatversion = 0\n"
+        "\tbare = false\n"
+        "\thooksPath = NUL\n"
+        "\tfsmonitor = false\n"
+        "\tautocrlf = false\n"
+        "[user]\n"
+        f"\tname = {GIT_AUTHOR_NAME}\n"
+        f"\temail = {GIT_AUTHOR_EMAIL}\n"
+    )
+    (gd / "config").write_text(text, encoding="utf-8")
+
+
+def _list_config_entries(gd: Path) -> list[tuple[str, str]]:
+    """Return (key, value) pairs from the external config via git config --file."""
+    cfg = gd / "config"
+    if not cfg.is_file():
+        raise WorkspaceGitError(HISTORY_PAUSED_MSG)
+    try:
+        cp = subprocess.run(
+            ["git", "config", "--file", str(cfg), "--list"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=_git_env(),
+            timeout=30,
+        )
+    except FileNotFoundError as exc:
+        raise WorkspaceGitError("git is not installed or not on PATH.") from exc
+    if cp.returncode != 0:
+        raise WorkspaceGitError(HISTORY_PAUSED_MSG)
+    entries: list[tuple[str, str]] = []
+    for line in (cp.stdout or "").splitlines():
+        line = line.strip()
+        if not line or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        entries.append((key.strip(), val.strip()))
+    return entries
+
+
+def _config_keys_lower(gd: Path) -> set[str]:
+    return {k.lower() for k, _ in _list_config_entries(gd)}
+
+
+def verify_git_config(gd: Optional[Path] = None) -> None:
+    """Refuse if the external config has any key outside the allowlist."""
+    path = gd or workspace_git_dir()
+    allowed = {k.lower() for k in ALLOWED_CONFIG}
+    try:
+        keys = _config_keys_lower(path)
+    except WorkspaceGitError:
+        raise
+    except OSError as exc:
+        raise WorkspaceGitError(HISTORY_PAUSED_MSG) from exc
+    extra = keys - allowed
+    if extra:
+        raise WorkspaceGitError(HISTORY_PAUSED_MSG)
+
+
+def _normalize_legacy_config(gd: Path) -> None:
+    """Rewrite allowlist config when safe (legacy extras or missing required keys)."""
+    try:
+        keys = _config_keys_lower(gd)
+    except WorkspaceGitError:
+        _write_allowed_config(gd)
+        return
+    allowed = {k.lower() for k in ALLOWED_CONFIG}
+    extra = keys - allowed
+    missing = allowed - keys
+    if extra and not (extra <= {k.lower() for k in _LEGACY_EXTRA_KEYS}):
+        # Unknown keys present — leave them for verify_git_config to refuse.
+        return
+    if extra or missing:
+        _write_allowed_config(gd)
 
 
 def _run_git(
@@ -88,9 +197,12 @@ def _run_git(
     check: bool = True,
     git_dir_path: Optional[Path] = None,
     work_tree: Optional[Path] = None,
+    skip_verify: bool = False,
 ) -> subprocess.CompletedProcess:
     gd = git_dir_path or workspace_git_dir()
     wt = work_tree or workspace_dir()
+    if not skip_verify:
+        verify_git_config(gd)
     cmd = _safe_git_prefix(gd, wt) + args
     try:
         cp = subprocess.run(
@@ -135,7 +247,6 @@ def _init_fresh(gd: Path, ws: Path) -> None:
     gd.parent.mkdir(parents=True, exist_ok=True)
     if gd.exists():
         _rmtree(gd)
-    # git init with explicit separate git-dir
     cmd = [
         "git",
         "-c",
@@ -165,9 +276,8 @@ def _init_fresh(gd: Path, ws: Path) -> None:
         raise WorkspaceGitError(
             f"git init --bare failed: {(cp.stderr or cp.stdout or '').strip()}"
         )
-    # Point worktree config for non-bare use via --work-tree
-    _run_git(["config", "core.bare", "false"], git_dir_path=gd, work_tree=ws)
-    _run_git(["config", "core.worktree", str(ws)], git_dir_path=gd, work_tree=ws)
+    # Discard whatever init wrote; install allowlisted config only.
+    _write_allowed_config(gd)
     _ensure_exclude(gd)
     ignore = ws / ".gitignore"
     if not ignore.exists():
@@ -182,12 +292,11 @@ def _init_fresh(gd: Path, ws: Path) -> None:
 
 
 def _sanitize_copied_git_dir(gd: Path) -> None:
-    """Strip hooks and dangerous config from a copied git directory."""
+    """Strip hooks from a copied git directory; config is rewritten separately."""
     hooks = gd / "hooks"
     if hooks.exists():
         shutil.rmtree(hooks, ignore_errors=True)
     hooks.mkdir(parents=True, exist_ok=True)
-    # Drop sample hooks / hook templates if any remain.
     for p in hooks.glob("*"):
         try:
             if p.is_file():
@@ -199,18 +308,12 @@ def _sanitize_copied_git_dir(gd: Path) -> None:
 
 
 def _migrate_from_workspace_git(old_git: Path, gd: Path, ws: Path) -> bool:
-    """Import history from workspace\\.git into the external git dir.
-
-    Uses a filesystem copy (not ``git clone``, which needs the file protocol
-    blocked by ``protocol.allow=never``), then sanitizes hooks and re-points
-    the work tree. Returns True on success.
-    """
+    """Import history from workspace\\.git; discard migrated config entirely."""
     gd.parent.mkdir(parents=True, exist_ok=True)
     if gd.exists():
         _rmtree(gd)
     try:
         if old_git.is_file():
-            # Worktree gitfile pointer — read the real git dir.
             text = old_git.read_text(encoding="utf-8", errors="replace").strip()
             if text.lower().startswith("gitdir:"):
                 real = Path(text.split(":", 1)[1].strip())
@@ -224,13 +327,10 @@ def _migrate_from_workspace_git(old_git: Path, gd: Path, ws: Path) -> bool:
     except OSError:
         return False
     _sanitize_copied_git_dir(gd)
+    # Discard migrated config; write allowlist from scratch.
+    _write_allowed_config(gd)
+    _ensure_exclude(gd)
     try:
-        _run_git(["config", "core.bare", "false"], git_dir_path=gd, work_tree=ws)
-        _run_git(["config", "core.worktree", str(ws)], git_dir_path=gd, work_tree=ws)
-        _run_git(["config", "core.hooksPath", "NUL"], git_dir_path=gd, work_tree=ws)
-        _run_git(["config", "core.fsmonitor", "false"], git_dir_path=gd, work_tree=ws)
-        _ensure_exclude(gd)
-        # Prove the repo is readable (empty repo may have no HEAD commit yet).
         cp = _run_git(
             ["rev-parse", "--git-dir"], git_dir_path=gd, work_tree=ws, check=False
         )
@@ -242,7 +342,6 @@ def _migrate_from_workspace_git(old_git: Path, gd: Path, ws: Path) -> bool:
 
 
 def _clear_readonly(path: Path) -> None:
-    """Clear the read-only attribute so rmtree can remove git object packs."""
     try:
         if path.exists():
             os.chmod(path, 0o700)
@@ -288,6 +387,7 @@ def _delete_path(path: Path) -> None:
             timeout=60,
         )
 
+
 def ensure_repo() -> Path:
     """Ensure external git dir is ready; migrate/delete workspace\\.git if present."""
     global _MIGRATION_NOTE
@@ -298,6 +398,7 @@ def ensure_repo() -> Path:
     if gd.exists() and (gd / "HEAD").exists():
         _ensure_exclude(gd)
         _sanitize_copied_git_dir(gd)
+        _normalize_legacy_config(gd)
         if old.exists():
             _delete_path(old)
         return ws

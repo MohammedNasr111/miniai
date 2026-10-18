@@ -566,3 +566,8 @@ Investigation only (no features enabled, no firewall rules created).
 - Escape tests (`scripts/test_coding_tools.py` 8–12): planted `workspace\.git` hooks/config do not fire on auto-commit (marker absent, config hash stable); low-IL write to `workspace-git` → PermissionError; medium-IL junction refused by `ws_write`/`ws_edit` (outside folder empty); low-IL `CreateSymbolicLinkW` reports success err 0 but no junction on disk; export skips junction / nothing outside copied; history/restore work with external git dir.
 - Known limitation (ARCHITECTURE): low-IL may call CreateSymbolicLinkW/CreateJunction (probe success without on-disk junction); if a junction appears, path tools refuse it.
 - Regressions: every no-arg test script PASS (`logs/review_20261018-2222_git_escape_regressions.log`; `test_fetch_url` reconfirmed EXIT=0 with yes/no stdin). `test_chat` 5c updated for schema-aware timeout (removed shadowed `import json`).
+
+## 2026-10-18 — Workspace git config rebuilt from allowlist and verified before every call
+- External git dir config is written from scratch (core.bare/repositoryformatversion/hooksPath/fsmonitor/autocrlf, user.name/email MiniAI); migrated config discarded.
+- Before every git call, `git config --file` list is checked; any key outside the allowlist raises `Workspace history settings were changed unexpectedly; history is paused` (no git command runs).
+- Test 13: `.gitattributes` with `* filter=evil` alone still commits (marker absent); injecting `filter.evil.clean` into the external config refuses commit. `scripts/test_coding_tools.py` FAILURES=0.

@@ -23,6 +23,8 @@ import time  # noqa: E402
 from tools.code.paths import workspace_dir, workspace_git_dir  # noqa: E402
 from tools.code.runner import run_python  # noqa: E402
 from tools.code.workspace_git import (  # noqa: E402
+    HISTORY_PAUSED_MSG,
+    WorkspaceGitError,
     commit_workspace,
     ensure_repo,
     hash_git_config,
@@ -500,6 +502,68 @@ def main() -> int:
         ok12,
         f"sha1={sha1} sha2={sha2} content={content!r} note={note!r} "
         f"git_dir={workspace_git_dir()}",
+    )
+
+    # --- 13. .gitattributes filter alone is inert; injected filter config refused ---
+    from tools.code.workspace_git import _write_allowed_config
+
+    ensure_repo()
+    _write_allowed_config(workspace_git_dir())
+    marker13 = (
+        Path(os.environ.get("TEMP", tempfile.gettempdir()))
+        / "miniai_filter_evil_marker.txt"
+    )
+    if marker13.exists():
+        marker13.unlink()
+    stamp13 = str(int(time.time() * 1000))
+    attrs = ws / ".gitattributes"
+    attrs.write_text("* filter=evil\n", encoding="utf-8")
+    # Without injected config key, attributes alone must not run a filter / marker.
+    probe_a = ws / "filter_probe_a.txt"
+    probe_a.write_text(f"attrs-only-{stamp13}\n", encoding="utf-8")
+    sha_attrs = None
+    err_attrs = None
+    try:
+        sha_attrs = commit_workspace(f"attrs only probe {stamp13}")
+    except WorkspaceGitError as exc:
+        err_attrs = str(exc)
+    attrs_ok = (
+        sha_attrs is not None
+        and err_attrs is None
+        and not marker13.exists()
+    )
+    # Inject filter.evil.clean into the external config (medium IL, as the test).
+    # Keep the clean command free of backslashes/quotes so git config --list
+    # still parses; the key alone must trigger the allowlist refuse.
+    cfg_path = workspace_git_dir() / "config"
+    cfg_text = cfg_path.read_text(encoding="utf-8")
+    evil_line = (
+        '\n[filter "evil"]\n'
+        "\tclean = false\n"
+    )
+    cfg_path.write_text(cfg_text + evil_line, encoding="utf-8")
+    probe_b = ws / "filter_probe_b.txt"
+    probe_b.write_text(f"with-evil-key-{stamp13}\n", encoding="utf-8")
+    refused = False
+    refuse_msg = ""
+    try:
+        commit_workspace("should refuse evil filter")
+    except WorkspaceGitError as exc:
+        refused = HISTORY_PAUSED_MSG in str(exc)
+        refuse_msg = str(exc)
+    # Restore allowlisted config so later suites are not paused.
+    _write_allowed_config(workspace_git_dir())
+    if marker13.exists():
+        marker13.unlink()
+        marker_after = True
+    else:
+        marker_after = False
+    ok13 = attrs_ok and refused and not marker_after
+    _check(
+        "13_filter_allowlist",
+        ok13,
+        f"attrs_ok={attrs_ok} sha={sha_attrs} err_attrs={err_attrs!r} "
+        f"refused={refused} msg={refuse_msg!r} marker={marker_after}",
     )
 
     print(f"\nFAILURES={FAILURES}")
