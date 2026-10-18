@@ -14,6 +14,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LEMONADE_BASE_URL = "http://localhost:13305/api/v1"
 # Default: Qwen3-30B-A3B-GGUF. Override with MINIAI_MODEL (e.g. Qwen3-14B-GGUF).
 LEMONADE_MODEL = os.environ.get("MINIAI_MODEL", "Qwen3-30B-A3B-GGUF")
+# Approximate RAM the loaded default model needs (for the low-memory warning).
+MODEL_NEEDED_RAM_GB = 18
 LEMONADE_TIMEOUT_SECONDS = 90  # generous: covers the ~20s cold-load seen
                                # in Stage 1 (idle-unload) plus generation
 LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 450  # Measured up to 263 s for web_research synthesis (thinking on, ~4K

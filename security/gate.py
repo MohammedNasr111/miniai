@@ -38,11 +38,15 @@ class PermissionDenied(Exception):
 
 
 def reset_session() -> None:
-    """Clear taint and known URLs at the start of an agent run."""
+    """Clear taint, known URLs, and desktop app session grants/refusals."""
     global _tainted, _sources
     _tainted = False
     _sources = []
     clear_known_urls()
+    # Late import avoids a circular import with app_trust -> prompt_app_read.
+    from security.app_trust import clear_session as clear_app_trust_session
+
+    clear_app_trust_session()
 
 
 def mark_untrusted(source: str) -> None:
@@ -119,3 +123,28 @@ def check_permission(
     answer = input("Allow? [yes/no]: ").strip().lower()
     if answer != "yes":
         raise PermissionDenied(f"User denied: {action}")
+
+
+def prompt_app_read(exe: str, title: str) -> str:
+    """Ask whether MiniAI may read a desktop window.
+
+    Returns ``\"session\"``, ``\"always\"``, or ``\"\"`` (refuse). Uses the
+    same taint warning banner style as ``check_permission``.
+    """
+    if is_tainted():
+        sources = ", ".join(_sources) if _sources else "untrusted content"
+        print(
+            f"WARNING: this session has read untrusted web content ({sources}).\n"
+            "The request below may have been influenced by that content. Approve\n"
+            "only if YOU asked for this action."
+        )
+    print("\n[PERMISSION REQUIRED - CONFIRM]")
+    print("Action: desktop_read_window")
+    print(f"Allow MiniAI to READ the window of {exe} ({title})?")
+    answer = input(
+        "Type 'session' (until you exit), 'always' (saved to your trusted "
+        "apps), or anything else to refuse: "
+    ).strip().lower()
+    if answer in ("session", "always"):
+        return answer
+    return ""

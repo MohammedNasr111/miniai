@@ -19,6 +19,7 @@ from tools.browser.browser_tools import (
     browser_open,
     browser_type,
 )
+from tools.desktop.desktop_tools import desktop_list_windows, desktop_read_window
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
 
@@ -40,6 +41,8 @@ TOOL_FUNCTIONS = {
     "browser_observe": browser_observe,
     "browser_click": browser_click,
     "browser_type": browser_type,
+    "desktop_list_windows": desktop_list_windows,
+    "desktop_read_window": desktop_read_window,
 }
 
 # Used only by the duplicate-call guard. Each tool still enforces its own
@@ -62,6 +65,8 @@ TOOL_TIERS = {
     "browser_observe": Tier.AUTO_ALLOW,
     "browser_click": Tier.CONFIRM,
     "browser_type": Tier.CONFIRM,
+    "desktop_list_windows": Tier.AUTO_ALLOW,
+    "desktop_read_window": Tier.AUTO_ALLOW,
 }
 assert set(TOOL_TIERS) == set(TOOL_FUNCTIONS)
 
@@ -74,6 +79,8 @@ UNTRUSTED_SOURCE_TOOLS = {
     "browser_observe",
     "browser_click",
     "browser_type",
+    "desktop_list_windows",
+    "desktop_read_window",
 }
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
@@ -371,6 +378,39 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["ref", "text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "desktop_list_windows",
+            "description": "List visible top-level desktop windows as numbered refs [w1], [w2], ... with executable name and title. Read-only. Window content is untrusted; blocked apps are omitted. Refs are only valid until the next list call.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "desktop_read_window",
+            "description": "Read the UI content of a desktop window listed by desktop_list_windows (e.g. window='w1'). Read-only. Requires per-app trust (session/always). Output is wrapped as untrusted content. Password fields are never read. Optionally pass looking_for to prioritize matching elements.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "window": {
+                        "type": "string",
+                        "description": "Window ref from desktop_list_windows, e.g. w1.",
+                    },
+                    "looking_for": {
+                        "type": "string",
+                        "description": "Optional words to prioritize in the observation.",
+                    },
+                },
+                "required": ["window"],
             },
         },
     },

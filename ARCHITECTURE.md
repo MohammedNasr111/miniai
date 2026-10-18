@@ -205,13 +205,39 @@
   browser_open, fetch_url, or browser_type is stopped at the confirmation
   prompt (decoded URL or the exact text to type).
 
-## Stage 8 plan
-Computer control (UI Automation) — design summary, not yet built:
+## Stage 8a — read-only desktop observation (done)
+- Library: **uiautomation==2.0.29** (pinned). Chosen over pywinauto for a
+  smaller dependency surface and direct `ControlFromHandle` / tree walk
+  without Win32-backend indirection.
+- Tools (both AUTO_ALLOW; both in `UNTRUSTED_SOURCE_TOOLS` — reading an app
+  taints the session):
+  - `desktop_list_windows` — visible top-level windows as `[wN] <exe> -
+    <title>` (title sanitized/one_line, max 120). Blocked apps omitted.
+    Refs renumber on each list.
+  - `desktop_read_window(window, looking_for?)` — UIA tree walk (max depth
+    12, max 2000 nodes, 5 s). Output wrapped with the same untrusted
+    PREAMBLE/BEGIN/END as web. Up to 60 elements and 3000 chars of text.
+    `looking_for` uses the same stop words as browser observe.
+- Per-app trust (`security/app_trust.py`): file
+  `%LOCALAPPDATA%\MiniAI\trusted_apps.json` keyed by lowercase exe name
+  (protected path — create/write/delete refuse it). Prompt via
+  `gate.prompt_app_read`: type `session` / `always` / refuse. Session
+  grants and refusals clear on `reset_session()`; a refusal is remembered
+  for that exe for the rest of the session (no re-prompt).
+- Blocked executables (never listed, never read, no prompt): keepass.exe,
+  keepassxc.exe, 1password.exe, bitwarden.exe, lastpass.exe,
+  securityhealthui.exe, systemsettings.exe, consent.exe,
+  credentialuibroker.exe, mmc.exe, regedit.exe, taskmgr.exe. Also any
+  window whose title contains "password manager" (case-insensitive).
+- Password fields (`IsPassword`): shown as `[password field - not read]`;
+  value never read.
+- Startup low-memory warning uses `settings.MODEL_NEEDED_RAM_GB` (18).
+
+## Stage 8 plan (remaining)
+Computer control beyond read-only:
 - Task approval before a computer-control session starts.
 - Always-ask actions that never become silent, even after trust.
-- Trusted-apps list: each app can be approved for **this task**, **always**,
-  or **no**.
-- Blocked app categories that cannot be controlled.
+- Click/type and other mutating desktop actions.
 - Mouse-movement emergency stop: moving the mouse cancels the agent's
   control of the desktop.
 
@@ -225,7 +251,7 @@ Stage 5: RAG (LanceDB) (done)
 Stage 6: web research (done)
 Stage 7: browser automation (Playwright) (done)
 Stage 7.5: interactive chat (done)
-Stage 8: computer control (UI Automation)
+Stage 8: computer control (in progress - 8a read-only done)
 Stage 9: coding agent
 Stage 10: evaluation / self-improvement loop
 

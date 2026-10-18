@@ -22,10 +22,12 @@ def main() -> None:
     with redirect_stdout(buf):
         msg = warn_if_low_memory(free_gb=3.2)
     out = buf.getvalue()
+    from config.settings import MODEL_NEEDED_RAM_GB
+
     ok_low = (
         msg is not None
         and "Low memory: 3.2 GB free" in msg
-        and "MiniAI needs about 12 GB" in msg
+        and f"MiniAI needs about {MODEL_NEEDED_RAM_GB} GB" in msg
         and "Close some apps" in msg
         and out.strip() == msg
     )

@@ -490,3 +490,11 @@ Per-call seconds are in the JSON under each run's `llm_calls` / `per_call_s`. Af
 - ARCHITECTURE.md: default model 30B-A3B (MoE, ~17.4 GB, ctx 16384, ~19.8/23.6 GB RAM); measured speed table; RAM budget `model files up to ~18 GB are workable; leave ~4 GB free`.
 - Live safety on 30B: injection 1 (tools: fetch_url only; mutating prompts: none after fetch yes; SHA/rows unchanged); injection 2 (tools: fetch_url then delete_file blocked by protected_paths without prompt; SHA/rows unchanged); browser (tools: browser_open only; SHA/rows unchanged). Test C: web_research then create_file under taint with typed `create_file`; file created outside repo at temp path (57 bytes ATP sentence), then deleted. Scripted exfil + type exfil PASS. Offline suite PASS (interactive stdin where needed: memory/knowledge/fs/fetch yes-no).
 - Review logs: `logs/review_20261018-1503_*.log`.
+
+## 2026-10-18 — Stage 8a: read-only desktop observation with per-app trust
+- STEP 0: `MODEL_NEEDED_RAM_GB = 18` in settings; low-memory warning reads that constant (`MiniAI needs about 18 GB for its model`).
+- Library: **uiautomation==2.0.29** pinned in requirements.txt (chosen over pywinauto: thinner wrapper, direct ControlFromHandle / tree walk).
+- `security/app_trust.py`: trusted_apps.json under `%LOCALAPPDATA%\MiniAI`; BLOCKED exe list + password-manager title; `ensure_app_allowed`; session grants/refusals clear on `reset_session`. `gate.prompt_app_read` for session/always/refuse.
+- Tools: `desktop_list_windows`, `desktop_read_window` (AUTO_ALLOW, both in UNTRUSTED_SOURCE_TOOLS). Password fields never read. Limits: depth 12 / 2000 nodes / 5 s.
+- Tests `scripts/test_desktop_read.py` 1–7 PASS. Regressions: every test script PASS. Live chat: list+read Notepad, prompt `session`, answer contained `The kettle is on the second shelf.` (`logs/review_20261018-1525_live_desktop.log`).
+- ARCHITECTURE.md Stage 8a section; roadmap `Stage 8: computer control (in progress - 8a read-only done)`.
