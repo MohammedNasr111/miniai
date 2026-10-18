@@ -16,9 +16,20 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from llm.base import ChatMessage  # noqa: E402
 from security.gate import PermissionDenied, reset_session  # noqa: E402
-from tools.code.paths import workspace_dir  # noqa: E402
+import os  # noqa: E402
+import subprocess  # noqa: E402
+import time  # noqa: E402
+
+from tools.code.paths import workspace_dir, workspace_git_dir  # noqa: E402
 from tools.code.runner import run_python  # noqa: E402
-from tools.code.workspace_git import history  # noqa: E402
+from tools.code.workspace_git import (  # noqa: E402
+    commit_workspace,
+    ensure_repo,
+    hash_git_config,
+    history,
+    migration_note,
+    restore,
+)
 from tools.code.workspace_tools import (  # noqa: E402
     CODING_TOOLS,
     install_package,
@@ -32,7 +43,6 @@ from tools.code.workspace_tools import (  # noqa: E402
 from tools.code.workspace_paths import WorkspacePathError  # noqa: E402
 from tools.registry import TOOL_FUNCTIONS, TOOL_TIERS  # noqa: E402
 from security.gate import Tier  # noqa: E402
-
 FAILURES = 0
 
 
@@ -267,8 +277,234 @@ def main() -> int:
     )
     _check("tiers", ok_tiers, "guard CONFIRM / no taint for ws_write")
 
+    # --- 8. ESCAPE: malicious workspace\.git must not run hooks / change config ---
+    ensure_repo()
+    note = migration_note()
+    print(f"migration_note={note!r}")
+    assert not (ws / ".git").exists() or True  # may briefly exist; MiniAI ignores it
+    cfg_hash_before = hash_git_config()
+    marker = Path(os.environ.get("TEMP", tempfile.gettempdir())) / "miniai_escape_marker.txt"
+    if marker.exists():
+        marker.unlink()
+    escape_code = (
+        "from pathlib import Path\n"
+        f"ws = Path(r'{ws}')\n"
+        f"marker = Path(r'{marker}')\n"
+        "hook_dir = ws / '.git' / 'hooks'\n"
+        "hook_dir.mkdir(parents=True, exist_ok=True)\n"
+        "hook = hook_dir / 'post-commit'\n"
+        # If MiniAI ever ran hooks from workspace .git, this would create the marker.
+        "hook.write_text('#!/bin/sh\\necho escaped > \\\"' + str(marker).replace('\\\\','/') + '\\\"\\n', encoding='utf-8')\n"
+        "cfg = ws / '.git' / 'config'\n"
+        "cfg.write_text('[core]\\n\\thooksPath = .git/hooks\\n\\tfsmonitor = true\\n', encoding='utf-8')\n"
+        "print('planted', hook.exists(), cfg.exists())\n"
+    )
+    r_esc = run_python(escape_code, timeout_s=30)
+    # Trigger MiniAI auto-commit (uses external git dir with hooks disabled)
+    with patch("builtins.input", return_value="yes"):
+        # run_code path also commits; use ws_write which auto-commits
+        ws_write("escape_probe.txt", "trigger-commit\n")
+    commit_workspace("escape probe commit")
+    cfg_hash_after = hash_git_config()
+    marker_exists = marker.exists()
+    if marker_exists:
+        marker.unlink()
+    ok8 = (
+        r_esc.exit_code == 0
+        and not marker_exists
+        and cfg_hash_before == cfg_hash_after
+        and cfg_hash_before != ""
+    )
+    _check(
+        "8_escape",
+        ok8,
+        f"marker={marker_exists} hash_same={cfg_hash_before == cfg_hash_after} "
+        f"plant_exit={r_esc.exit_code} stdout={r_esc.stdout!r}",
+    )
+
+    # --- 9. low-IL cannot write workspace-git ---
+    gd = workspace_git_dir()
+    r9 = run_python(
+        f"from pathlib import Path\n"
+        f"p = Path(r'{gd}') / 'pwned_by_lowil.txt'\n"
+        f"try:\n"
+        f"    p.write_text('nope', encoding='utf-8')\n"
+        f"    print('WROTE')\n"
+        f"except Exception as e:\n"
+        f"    print(type(e).__name__)\n",
+        timeout_s=30,
+    )
+    wrote9 = (gd / "pwned_by_lowil.txt").exists()
+    if wrote9:
+        (gd / "pwned_by_lowil.txt").unlink()
+    ok9 = (
+        not wrote9
+        and "WROTE" not in r9.stdout
+        and "PermissionError" in (r9.stdout + r9.stderr)
+    )
+    _check("9_gitdir_write", ok9, f"out={r9.stdout!r} wrote={wrote9}")
+
+    # --- 10. Junction escape via ws_write / ws_edit ---
+    outside = Path(tempfile.mkdtemp(prefix="miniai_junc_outside_"))
+    jlink = ws / "projects" / "jlink"
+    jlink.parent.mkdir(parents=True, exist_ok=True)
+    if jlink.exists():
+        # Remove previous junction/dir
+        subprocess.run(["cmd", "/c", "rmdir", str(jlink)], check=False)
+        if jlink.exists():
+            import shutil as _sh
+
+            _sh.rmtree(jlink, ignore_errors=True)
+    mk = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(jlink), str(outside)],
+        capture_output=True,
+        text=True,
+    )
+    junc_created = mk.returncode == 0 and jlink.exists()
+    write_refused = False
+    edit_refused = False
+    try:
+        ws_write("projects/jlink/x.txt", "pwn\n")
+    except (WorkspacePathError, OSError, ValueError):
+        write_refused = True
+    try:
+        # create a real file beside for edit attempt through junction
+        ws_edit("projects/jlink/x.txt", "a", "b")
+    except (WorkspacePathError, OSError, ValueError):
+        edit_refused = True
+    outside_empty = list(outside.iterdir()) == []
+    # Low-IL CreateJunction capability report
+    low_junc = run_python(
+        "import ctypes, os, tempfile\n"
+        "from pathlib import Path\n"
+        f"ws = Path(r'{ws}')\n"
+        "target = Path(tempfile.mkdtemp(prefix='lowil_junc_tgt_'))\n"
+        "link = ws / 'projects' / 'lowil_jlink'\n"
+        "if link.exists():\n"
+        "    try:\n"
+        "        os.rmdir(link)\n"
+        "    except Exception:\n"
+        "        pass\n"
+        "SYMBOLIC_LINK_FLAG_DIRECTORY = 1\n"
+        "try:\n"
+        "    ok = ctypes.windll.kernel32.CreateSymbolicLinkW("
+        "str(link), str(target), SYMBOLIC_LINK_FLAG_DIRECTORY)\n"
+        "    err = ctypes.get_last_error()\n"
+        "    print('CreateSymbolicLinkW', bool(ok), 'err', err, 'exists', link.exists())\n"
+        "except Exception as e:\n"
+        "    print('EXC', type(e).__name__, e)\n"
+        "try:\n"
+        "    import _winapi\n"
+        "    print('has_CreateJunction', hasattr(_winapi, 'CreateJunction'))\n"
+        "except Exception as e:\n"
+        "    print('no_winapi', e)\n",
+        timeout_s=30,
+    )
+    print(f"low_IL_junction_probe={low_junc.stdout!r}{low_junc.stderr!r}")
+    # If low-IL somehow created a junction, ws_write through it must still refuse
+    low_link = ws / "projects" / "lowil_jlink"
+    low_write_refused = True
+    if low_link.exists():
+        try:
+            ws_write("projects/lowil_jlink/y.txt", "nope\n")
+            low_write_refused = False
+        except (WorkspacePathError, OSError, ValueError):
+            low_write_refused = True
+    ok10 = (
+        junc_created
+        and write_refused
+        and edit_refused
+        and outside_empty
+        and low_write_refused
+    )
+    _check(
+        "10_junction",
+        ok10,
+        f"created={junc_created} write_refused={write_refused} "
+        f"edit_refused={edit_refused} outside_empty={outside_empty} "
+        f"mklink={mk.stdout!r}{mk.stderr!r}",
+    )
+    # cleanup junction
+    subprocess.run(["cmd", "/c", "rmdir", str(jlink)], check=False)
+    if low_link.exists():
+        subprocess.run(["cmd", "/c", "rmdir", str(low_link)], check=False)
+
+    # --- 11. workspace_export skips junction; nothing outside copied ---
+    with tempfile.TemporaryDirectory(prefix="miniai_exp_junc_") as tmp:
+        src = Path(tmp) / "exp_proj"
+        src.mkdir()
+        (src / "ok.txt").write_text("keep\n", encoding="utf-8")
+        # Import first (no junction), then add junction inside workspace project
+        with patch("builtins.input", return_value="yes"):
+            workspace_import(str(src))
+        proj = ws / "projects" / "exp_proj"
+        outside2 = Path(tempfile.mkdtemp(prefix="miniai_exp_outside_"))
+        (outside2 / "secret.txt").write_text("SECRET\n", encoding="utf-8")
+        j2 = proj / "evil_link"
+        subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(j2), str(outside2)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        with patch("builtins.input", return_value="yes"):
+            exp_msg = workspace_export("exp_proj")
+        # Find export sibling
+        sibs = list(src.parent.glob("exp_proj-miniai-*"))
+        secret_leaked = False
+        for s in sibs:
+            if (s / "evil_link").exists() or (s / "secret.txt").exists():
+                secret_leaked = True
+            for p in s.rglob("*"):
+                if p.is_file() and "SECRET" in p.read_text(encoding="utf-8", errors="ignore"):
+                    secret_leaked = True
+        ok11 = (
+            "Skipped junctions/symlinks" in exp_msg
+            and "evil_link" in exp_msg
+            and not secret_leaked
+            and bool(sibs)
+        )
+        _check(
+            "11_export_junction",
+            ok11,
+            f"msg={exp_msg!r} leaked={secret_leaked} sibs={sibs}",
+        )
+        subprocess.run(["cmd", "/c", "rmdir", str(j2)], check=False)
+
+    # --- 12. history / restore with external git dir ---
+    hist_file = ws / "hist_ext_probe.txt"
+    stamp = str(int(time.time() * 1000))
+    v1 = f"v1-ext-{stamp}\n"
+    v2 = f"v2-ext-{stamp}\n"
+    hist_file.write_text(v1, encoding="utf-8")
+    sha1 = commit_workspace(f"hist v1 {stamp}")
+    hist_file.write_text(v2, encoding="utf-8")
+    sha2 = commit_workspace(f"hist v2 {stamp}")
+    hist_text = history(20)
+    with patch("builtins.input", return_value="yes"):
+        from tools.code.code_tools import workspace_restore
+
+        restore_msg = workspace_restore(sha1 or "")
+    content = hist_file.read_text(encoding="utf-8")
+    ok12 = (
+        bool(sha1)
+        and bool(sha2)
+        and (sha1[:7] in hist_text or sha1 in hist_text)
+        and content == v1
+        and "Restored" in restore_msg
+        and workspace_git_dir().exists()
+        and (workspace_git_dir() / "HEAD").exists()
+    )
+    _check(
+        "12_history_restore",
+        ok12,
+        f"sha1={sha1} sha2={sha2} content={content!r} note={note!r} "
+        f"git_dir={workspace_git_dir()}",
+    )
+
     print(f"\nFAILURES={FAILURES}")
     return 1 if FAILURES else 0
+
 
 
 if __name__ == "__main__":

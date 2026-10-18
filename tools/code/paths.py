@@ -33,6 +33,16 @@ def workspace_dir() -> Path:
     return userprofile() / "AppData" / "LocalLow" / "MiniAI" / "workspace"
 
 
+def workspace_git_dir() -> Path:
+    """Medium-integrity git metadata (not writable by low-IL workspace code)."""
+    return localappdata() / "MiniAI" / "workspace-git"
+
+
+def miniai_data_home() -> Path:
+    """HOME for sandbox git so user/global gitconfig is not read."""
+    return localappdata() / "MiniAI"
+
+
 def runner_venv_dir() -> Path:
     """Medium-integrity venv; not writable by low-IL code."""
     return localappdata() / "MiniAI" / "runner-venv"

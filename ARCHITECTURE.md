@@ -207,6 +207,11 @@
 - Tabbed apps (Notepad, browsers) show one document at a time; MiniAI acts
   only on the active tab and refuses if it changed (window title check
   after the last `desktop_read_window`).
+- Low-IL code may call `CreateSymbolicLinkW` / `_winapi.CreateJunction`
+  (probe returned success with err 0 but no junction on disk in testing);
+  if a junction appears under the workspace, `ws_*` refuses paths that
+  cross it and import/export skip reparse points — but the sandbox can
+  still *attempt* to create them.
 
 ## Stage 8a — read-only desktop observation (done)
 - Library: **uiautomation==2.0.29** (pinned). Chosen over pywinauto for a
@@ -310,6 +315,15 @@ richer patterns).
   no-write-up, not no-read-up); program output returns to the local model
   (hence untrusted markers + taint); network blocking depends on the optional
   firewall rule.
+- MiniAI's own tools never run on data the sandbox can write without treating
+  it as hostile: git metadata lives outside the workspace
+  (`%LOCALAPPDATA%\\MiniAI\\workspace-git`) and git runs with hooks, fsmonitor,
+  global/system config, and protocols disabled (`protocol.allow=never`,
+  `core.hooksPath=NUL`, `GIT_CONFIG_NOSYSTEM`, `GIT_CONFIG_GLOBAL=NUL`,
+  `HOME` under `%LOCALAPPDATA%\\MiniAI`). A leftover `workspace\\.git` is
+  migrated (filesystem copy + hook sanitization) then deleted; `.git/` is in
+  the external repo's `info/exclude`. Junctions/symlinks are refused by
+  workspace path resolution and skipped (listed) on import/export.
 
 ## Stage 9b — coding loop (done)
 - **Workspace file tools** (`ws_read`, `ws_list`, `ws_write`, `ws_edit`): paths

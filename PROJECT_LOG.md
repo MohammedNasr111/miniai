@@ -558,3 +558,11 @@ Investigation only (no features enabled, no firewall rules created).
 - Tests `scripts/test_coding_tools.py` 1–7 + tiers PASS. Regressions: every test script PASS.
 - Live: word-count + pytest via chat; tools `ws_write` x2, `run_tests` (path miss then ok); rounds=3; wall ~85s; independent runner pytest on `workspace/tests`: **5 passed**. Log: `logs/review_20261018-2205_live_coding.log`.
 - ARCHITECTURE.md Stage 9b.
+
+## 2026-10-18 — Close workspace-git sandbox escape: external git dir, safe git flags, junctions refused
+- Git metadata moved to `%LOCALAPPDATA%\MiniAI\workspace-git` (medium IL). Every git call uses `--git-dir`/`--work-tree` plus `-c core.hooksPath=NUL -c core.fsmonitor=false -c core.attributesFile=NUL -c protocol.allow=never -c core.sshCommand=false`; env drops inherited `GIT_*`, sets `HOME`/`USERPROFILE` to `%LOCALAPPDATA%\MiniAI`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=NUL`.
+- Migration: if `workspace\.git` exists, filesystem copy into the external dir (clone --bare blocked by `protocol.allow=never`), sanitize hooks, then delete `workspace\.git`. `.git/` added to external `info/exclude` and workspace `.gitignore`.
+- `ws_*` / import / export: refuse or skip reparse points (`os.lstat` + `FILE_ATTRIBUTE_REPARSE_POINT`); skipped junctions listed in export/import results.
+- Escape tests (`scripts/test_coding_tools.py` 8–12): planted `workspace\.git` hooks/config do not fire on auto-commit (marker absent, config hash stable); low-IL write to `workspace-git` → PermissionError; medium-IL junction refused by `ws_write`/`ws_edit` (outside folder empty); low-IL `CreateSymbolicLinkW` reports success err 0 but no junction on disk; export skips junction / nothing outside copied; history/restore work with external git dir.
+- Known limitation (ARCHITECTURE): low-IL may call CreateSymbolicLinkW/CreateJunction (probe success without on-disk junction); if a junction appears, path tools refuse it.
+- Regressions: every no-arg test script PASS (`logs/review_20261018-2222_git_escape_regressions.log`; `test_fetch_url` reconfirmed EXIT=0 with yes/no stdin). `test_chat` 5c updated for schema-aware timeout (removed shadowed `import json`).

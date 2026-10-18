@@ -38,6 +38,7 @@ from tools.code.runner import (
 from tools.code.workspace_git import commit_workspace
 from tools.code.workspace_paths import (
     WorkspacePathError,
+    is_reparse_point,
     numbered_text,
     projects_dir,
     resolve_in_workspace,
@@ -261,13 +262,33 @@ def install_package(name: str, version: Optional[str] = None) -> str:
     ) + f".\n{out[-8000:]}"
 
 
-def _iter_import_files(src: Path) -> tuple[list[Path], int]:
+def _walk_no_reparse(
+    root: Path,
+) -> tuple[list[Path], list[str], int]:
+    """Walk root without following junctions/symlinks.
+
+    Returns (files, skipped_reparse_relpaths, total_bytes).
+    """
     files: list[Path] = []
+    skipped: list[str] = []
     total = 0
-    for dirpath, dirnames, filenames in os.walk(src):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        # Drop skipped names and reparse-point directories (do not descend).
+        keep_dirs: list[str] = []
+        for d in list(dirnames):
+            if d in SKIP_DIR_NAMES:
+                continue
+            child = Path(dirpath) / d
+            if is_reparse_point(child):
+                skipped.append(child.relative_to(root).as_posix() + "/")
+                continue
+            keep_dirs.append(d)
+        dirnames[:] = keep_dirs
         for name in filenames:
             p = Path(dirpath) / name
+            if is_reparse_point(p):
+                skipped.append(p.relative_to(root).as_posix())
+                continue
             files.append(p)
             try:
                 total += p.stat().st_size
@@ -281,7 +302,7 @@ def _iter_import_files(src: Path) -> tuple[list[Path], int]:
                 raise ValueError(
                     f"Refused: folder exceeds {MAX_IMPORT_BYTES} bytes."
                 )
-    return files, total
+    return files, skipped, total
 
 
 def _file_sha256(path: Path) -> str:
@@ -294,14 +315,12 @@ def _file_sha256(path: Path) -> str:
 
 def _rel_hash_map(root: Path) -> dict[str, str]:
     out: dict[str, str] = {}
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
-        for name in filenames:
-            p = Path(dirpath) / name
-            rel = p.relative_to(root).as_posix()
-            if rel == ORIGIN_FILENAME:
-                continue
-            out[rel] = _file_sha256(p)
+    files, _skipped, _total = _walk_no_reparse(root)
+    for p in files:
+        rel = p.relative_to(root).as_posix()
+        if rel == ORIGIN_FILENAME:
+            continue
+        out[rel] = _file_sha256(p)
     return out
 
 
@@ -313,17 +332,21 @@ def workspace_import(folder: str) -> str:
         raise ValueError(f"Cannot resolve folder: {folder} ({exc})") from exc
     if not src.is_dir():
         raise ValueError(f"Not a directory: {folder}")
+    if is_reparse_point(src):
+        raise ValueError(f"Refused: folder is a junction/symlink: {folder}")
     assert_not_protected(src)
-    files, total = _iter_import_files(src)
+    files, skipped, total = _walk_no_reparse(src)
     name = src.name
     if not name or name in (".", ".."):
         raise ValueError("Cannot derive project name from folder.")
     dest = projects_dir() / name
+    skip_preview = "\n".join(f"  - {s}" for s in skipped) if skipped else "  (none)"
     description = (
         f"Import folder into workspace\\projects\\{name}.\n"
         f"Source (read-only): {src}\n"
         f"Files to copy: {len(files)} ({total} bytes)\n"
-        f"Skipped directory names: {sorted(SKIP_DIR_NAMES)}"
+        f"Skipped directory names: {sorted(SKIP_DIR_NAMES)}\n"
+        f"Skipped junctions/symlinks:\n{skip_preview}"
     )
     check_permission(
         action="workspace_import",
@@ -342,15 +365,18 @@ def workspace_import(folder: str) -> str:
         "original": str(src),
         "name": name,
         "imported_files": len(files),
+        "skipped_reparse": skipped,
     }
     (dest / ORIGIN_FILENAME).write_text(
         json.dumps(origin, indent=2), encoding="utf-8"
     )
     sha = commit_workspace(f"workspace_import {name}")
-    return (
-        f"Imported {len(files)} file(s) into projects/{name}."
-        + (f" Commit {sha}." if sha else "")
-    )
+    msg = f"Imported {len(files)} file(s) into projects/{name}."
+    if skipped:
+        msg += f" Skipped junctions/symlinks: {', '.join(skipped)}."
+    if sha:
+        msg += f" Commit {sha}."
+    return msg
 
 
 def _export_dest(original: Path, name: str) -> Path:
@@ -406,21 +432,24 @@ def workspace_export(project: str) -> str:
         description=description,
     )
     dest.mkdir(parents=True)
-    for dirpath, dirnames, filenames in os.walk(proj):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
-        for name in filenames:
-            if name == ORIGIN_FILENAME:
-                continue
-            src_f = Path(dirpath) / name
-            rel = src_f.relative_to(proj)
-            target = dest / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_f, target)
-    return (
+    files, skipped, _total = _walk_no_reparse(proj)
+    copied = 0
+    for src_f in files:
+        if src_f.name == ORIGIN_FILENAME:
+            continue
+        rel = src_f.relative_to(proj)
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_f, target)
+        copied += 1
+    msg = (
         f"Exported projects/{project} to {dest} "
-        f"({len(changed)} path(s) differ from original). "
+        f"({len(changed)} path(s) differ from original; {copied} file(s) copied). "
         "Original folder was not modified."
     )
+    if skipped:
+        msg += f" Skipped junctions/symlinks: {', '.join(skipped)}."
+    return msg
 
 
 # Coding tools that raise the turn round cap to 10.

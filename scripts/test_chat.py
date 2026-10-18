@@ -462,30 +462,41 @@ def main() -> None:
             end_session(session5b)
 
     # --- 5c: first-pass timeout formula ---
-    # Empty-ish history: estimate small -> max(90, 60 + small) = 90
+    # Includes TOOL_SCHEMAS size (Stage 9b): max(provider, 60+(hist+schema)/50),
+    # capped at LEMONADE_SYNTHESIS_TIMEOUT_SECONDS.
+    from tools.registry import TOOL_SCHEMAS
+
+    schema_est = len(json.dumps(TOOL_SCHEMAS)) / 4.0
+    cap = float(settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS)
+
+    def _expected(hist, provider=90.0) -> int:
+        est = prompt_size_estimate(hist)
+        raw = max(float(provider), 60.0 + (est + schema_est) / 50.0)
+        return int(min(raw, cap))
+
     hist_small = [ChatMessage(role="system", content="x" * 100)]
     est_small = prompt_size_estimate(hist_small)
     t_small = first_pass_timeout_seconds(hist_small, 90)
-    # Large history: chars=200_000 -> estimate=50_000 -> 60+1000=1060 -> cap 450
     hist_large = [ChatMessage(role="user", content="y" * 200_000)]
     est_large = prompt_size_estimate(hist_large)
     t_large = first_pass_timeout_seconds(hist_large, 90)
-    # Medium: chars=20_000 -> estimate=5000 -> 60+100=160 > 90
     hist_med = [ChatMessage(role="user", content="z" * 20_000)]
     t_med = first_pass_timeout_seconds(hist_med, 90)
     ok5c = (
         history_char_count(hist_small) == 100
         and est_small == 25.0
-        and t_small == 90
+        and t_small == _expected(hist_small)
         and est_large == 50_000.0
         and t_large == settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
-        and t_med == 160
+        and t_med == _expected(hist_med)
+        and schema_est > 0
     )
     report(
         "5c-timeout-formula",
         ok5c,
         f"t_small={t_small} t_med={t_med} t_large={t_large} "
-        f"cap={settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS}",
+        f"cap={settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS} "
+        f"schema_est={schema_est:.1f}",
     )
 
     # --- 6: cross-turn compression keeps latest per tool name ---
