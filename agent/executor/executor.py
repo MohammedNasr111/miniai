@@ -16,12 +16,39 @@ _BROWSER_TOOLS = frozenset(
     {"browser_open", "browser_observe", "browser_click", "browser_type"}
 )
 _CLOSED_MARKER = "The browser closed unexpectedly"
-_STALE_REF_MSG = (
-    "Not run: the page changed earlier in this step. Call browser_observe and "
-    "use element numbers from that."
-)
 _PAGE_CHANGING_TOOLS = frozenset({"browser_open", "browser_click"})
 _STALE_REF_TOOLS = frozenset({"browser_click", "browser_type"})
+
+
+def _format_stale_args(args: Any) -> str:
+    """Format tool args for the NOT DONE skip message."""
+    if not isinstance(args, dict):
+        return repr(args)
+    parts: list[str] = []
+    for key, value in args.items():
+        if isinstance(value, bool):
+            parts.append(f"{key}={'true' if value else 'false'}")
+        elif isinstance(value, str):
+            parts.append(f"{key}={value!r}")
+        else:
+            parts.append(f"{key}={value}")
+    return ", ".join(parts)
+
+
+def _stale_ref_message(name: str, args: Any) -> str:
+    """Explicit skip message naming the action and what did not happen."""
+    call = f"{name}({_format_stale_args(args)})"
+    if name == "browser_click":
+        verb = "nothing was clicked"
+    else:
+        verb = "nothing was typed or submitted"
+    return (
+        f"NOT DONE: {call} was not "
+        f"run, so {verb}. The page changed earlier in this "
+        f"step, so element numbers chosen before seeing it may point at the wrong "
+        f"thing. The newest observation is in the previous tool result; pick the "
+        f"element number from it and call {name} again."
+    )
 
 
 def _log_tool(
@@ -95,7 +122,7 @@ def execute_tool_calls(
             args = raw_args
         print(f"\n[TOOL CALL] {name}({args})")
         if page_changed and name in _STALE_REF_TOOLS:
-            content = _STALE_REF_MSG
+            content = _stale_ref_message(name, args)
             print(f"[TOOL RESULT] {content[:200]}")
             _log_tool(transcript, name, args, content, "skipped", started)
             results.append(

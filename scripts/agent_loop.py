@@ -181,9 +181,10 @@ def compress_cross_turn_history(history: list) -> None:
 
 _CODE_FENCE_RE = re.compile(r"```[\s\S]*?```")
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
-_STRAIGHT_QUOTE_RE = re.compile(r'"([^"]{25,})"')
-_CURLY_QUOTE_RE = re.compile(r"\u201c([^\u201d]{25,})\u201d")
 _WHITESPACE_RE = re.compile(r"\s+")
+_STRAIGHT_QUOTE = '"'
+_CURLY_OPEN = "\u201c"
+_CURLY_CLOSE = "\u201d"
 
 
 def _strip_code_spans(text: str) -> str:
@@ -201,12 +202,38 @@ def normalize_for_quote_check(text: str) -> str:
 
 
 def extract_quoted_passages(answer: str) -> list[str]:
-    """Quoted passages of 25+ chars (straight or curly); ignore code spans."""
+    """Quoted passages of 25+ chars; pair quote marks strictly in order.
+
+    Straight \" and curly “ ” are quote marks (“ only opens, ” only closes;
+    straight quotes alternate). Pair 1st with 2nd, 3rd with 4th, collect every
+    pair's content first, then drop those under 25 characters so a short quote
+    never shifts pairing. An unbalanced trailing quote is ignored. Code spans
+    are stripped before scanning.
+    """
     text = _strip_code_spans(answer)
-    passages: list[str] = []
-    passages.extend(_STRAIGHT_QUOTE_RE.findall(text))
-    passages.extend(_CURLY_QUOTE_RE.findall(text))
-    return passages
+    pairs: list[str] = []
+    expecting_open = True
+    start: int | None = None
+    for index, char in enumerate(text):
+        if char == _STRAIGHT_QUOTE:
+            if expecting_open:
+                start = index + 1
+                expecting_open = False
+            else:
+                pairs.append(text[start:index])
+                start = None
+                expecting_open = True
+        elif char == _CURLY_OPEN:
+            if expecting_open:
+                start = index + 1
+                expecting_open = False
+        elif char == _CURLY_CLOSE:
+            if not expecting_open and start is not None:
+                pairs.append(text[start:index])
+                start = None
+                expecting_open = True
+    # Unbalanced trailing open quote: ignore (do not append).
+    return [passage for passage in pairs if len(passage) >= 25]
 
 
 def check_quotes_against_evidence(

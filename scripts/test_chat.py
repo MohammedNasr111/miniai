@@ -452,16 +452,61 @@ def main() -> None:
             report("7", ok7, f"status={text!r}")
             end_session(session)
 
-    # --- 8: quote check against live-log evidence ---
+    # --- 8: quote pairing + check against live-log answers/evidence ---
+    def _load_finals_and_evidence(path: Path) -> tuple[list[str], list[str]]:
+        finals: list[str] = []
+        evidence: list[str] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            if rec.get("type") == "tool_call" and isinstance(rec.get("result"), str):
+                evidence.append(rec["result"])
+            if rec.get("type") == "final":
+                # Prefer raw (pre-note); strip a wrongly appended note from shown.
+                raw = rec.get("raw") or ""
+                shown = rec.get("shown") or ""
+                text = raw if raw else shown
+                if text.endswith(QUOTE_CHECK_NOTE):
+                    text = text[: -len(QUOTE_CHECK_NOTE)]
+                finals.append(text)
+        return finals, evidence
+
     reset_evidence()
-    log_path = ROOT / "logs" / "agent_20261018-004417_22344.log"
-    evidence8: list[str] = []
-    for line in log_path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        rec = json.loads(line)
-        if rec.get("type") == "tool_call" and isinstance(rec.get("result"), str):
-            evidence8.append(rec["result"])
+    log_r1 = ROOT / "logs" / "agent_20261018-012408_10768.log"
+    log_r2 = ROOT / "logs" / "agent_20261018-013010_16628.log"
+    log_mis = ROOT / "logs" / "agent_20261018-004417_22344.log"
+    finals_r1, evidence_r1 = _load_finals_and_evidence(log_r1)
+    finals_r2, evidence_r2 = _load_finals_and_evidence(log_r2)
+    _finals_mis, evidence_mis = _load_finals_and_evidence(log_mis)
+
+    # Both runs' turn-1 answers and run 2's turn-2 -> NO note (no long quotes).
+    out_r1_t1 = check_quotes_against_evidence(finals_r1[0], evidence=evidence_r1)
+    out_r2_t1 = check_quotes_against_evidence(finals_r2[0], evidence=evidence_r2)
+    out_r2_t2 = check_quotes_against_evidence(finals_r2[1], evidence=evidence_r2)
+    ok8_short = (
+        QUOTE_CHECK_NOTE not in out_r1_t1
+        and QUOTE_CHECK_NOTE not in out_r2_t1
+        and QUOTE_CHECK_NOTE not in out_r2_t2
+    )
+    report(
+        "8a-no-long-quotes",
+        ok8_short,
+        f"r1t1_note={QUOTE_CHECK_NOTE in out_r1_t1} "
+        f"r2t1_note={QUOTE_CHECK_NOTE in out_r2_t1} "
+        f"r2t2_note={QUOTE_CHECK_NOTE in out_r2_t2}",
+    )
+
+    # Run 1 turn-2 Brennus quote is in evidence -> no note.
+    out_brennus = check_quotes_against_evidence(finals_r1[1], evidence=evidence_r1)
+    ok8_brennus = QUOTE_CHECK_NOTE not in out_brennus
+    report(
+        "8b-brennus-in-evidence",
+        ok8_brennus,
+        f"note_absent={ok8_brennus} answer_start={finals_r1[1][:60]!r}",
+    )
+
+    # Earlier misquote from 004417 log -> note.
     misquote = (
         'The first sentence of the Wikipedia article on ATP synthase is:\n\n'
         '**"ATP synthase is an enzyme that produces ATP (energy currency of '
@@ -469,40 +514,13 @@ def main() -> None:
         "This is based on the content retrieved from the earlier web research "
         "results."
     )
-    out_mis = check_quotes_against_evidence(misquote, evidence=evidence8)
-    ok8a = QUOTE_CHECK_NOTE in out_mis
-    # Real first sentence (appears in that run's web_research chunks when
-    # joined would still need contiguous text — use a passage that is in
-    # the evidence verbatim).
-    real_in_evidence = (
-        "ATP synthase is an enzyme that catalyzes the formation of the "
-        "energy storage molecule adenosine triphosphate (ATP) using "
-        "adenosine diphosphate (ADP) and inorganic phosphate (Pi)."
-    )
-    # Ensure it is actually in evidence for a fair "found" case; if the log
-    # truncates mid-sentence, seed that sentence into evidence for this check.
-    evidence_with_real = list(evidence8)
-    if not any(
-        real_in_evidence.lower().replace("*", "").replace("_", "")
-        in " ".join(e.lower().split())
-        for e in evidence_with_real
-    ):
-        # Prefer contiguous match: add the real sentence as evidence text.
-        evidence_with_real.append(real_in_evidence)
-    real_answer = f'The article opens with: "{real_in_evidence}"'
-    out_real = check_quotes_against_evidence(real_answer, evidence=evidence_with_real)
-    ok8b = QUOTE_CHECK_NOTE not in out_real
-    out_none = check_quotes_against_evidence(
-        "ATP synthase makes ATP from ADP and phosphate.", evidence=evidence8
-    )
-    ok8c = QUOTE_CHECK_NOTE not in out_none
+    out_mis = check_quotes_against_evidence(misquote, evidence=evidence_mis)
+    ok8_mis = QUOTE_CHECK_NOTE in out_mis
     report(
-        "8a-misquote",
-        ok8a,
-        f"note_appended={QUOTE_CHECK_NOTE in out_mis} n_ev={len(evidence8)}",
+        "8c-misquote",
+        ok8_mis,
+        f"note_appended={ok8_mis} n_ev={len(evidence_mis)}",
     )
-    report("8b-real", ok8b, f"note_absent={QUOTE_CHECK_NOTE not in out_real}")
-    report("8c-no-quotes", ok8c, f"note_absent={QUOTE_CHECK_NOTE not in out_none}")
 
     # --- 9: /new clears evidence ---
     reset_evidence()
@@ -549,17 +567,19 @@ def main() -> None:
         ]
         with answer_by_action({"browser_click": "yes", "browser_type": "browser_type"}):
             msgs = execute_tool_calls(batch, guard=guard10)
-    stale_msg = (
-        "Not run: the page changed earlier in this step. Call browser_observe and "
-        "use element numbers from that."
-    )
+    skip = msgs[1].content
     ok10 = (
         clicked == ["5"]
         and typed == []
         and msgs[0].content == "clicked ok"
-        and msgs[1].content == stale_msg
         and msgs[0].tool_call_id == "c10"
         and msgs[1].tool_call_id == "t10"
+        and skip.startswith("NOT DONE: browser_type(")
+        and "browser_type" in skip
+        and "nothing was typed or submitted" in skip
+        and "ref=3" in skip
+        and "ATP synthase" in skip
+        and "submit=true" in skip
     )
     # Guard must not have recorded the skipped type (identical type allowed later).
     blocked_later = guard10.check(
@@ -569,7 +589,7 @@ def main() -> None:
     report(
         "10-stale-refs",
         ok10,
-        f"clicked={clicked} typed={typed} m1={msgs[1].content[:60]!r} "
+        f"clicked={clicked} typed={typed} m1={skip[:80]!r} "
         f"later_block={blocked_later!r}",
     )
 
