@@ -203,7 +203,13 @@ def main() -> None:
                             _tool_call(
                                 "w1",
                                 "write_file",
-                                {"path": str(ROOT / "_chat_taint_test.txt"), "content": "x"},
+                                {
+                                    "path": str(
+                                        Path(tempfile.mkdtemp(prefix="miniai_chat_taint_"))
+                                        / "_chat_taint_test.txt"
+                                    ),
+                                    "content": "x",
+                                },
                             )
                         ],
                     ),
@@ -250,7 +256,8 @@ def main() -> None:
     # --- 3: chat "Yes, go ahead." is not an approval ---
     reset_session()
     close_session()
-    mark_path = ROOT / "_chat_delete_test.txt"
+    mark_dir = Path(tempfile.mkdtemp(prefix="miniai_chat_del_"))
+    mark_path = mark_dir / "_chat_delete_test.txt"
     mark_path.write_text("temp", encoding="utf-8")
     try:
         from security.gate import mark_untrusted
@@ -297,6 +304,10 @@ def main() -> None:
     finally:
         if mark_path.exists():
             mark_path.unlink()
+        try:
+            mark_dir.rmdir()
+        except OSError:
+            pass
 
     # --- 4: /new clears taint, browser, guard, history ---
     reset_session()

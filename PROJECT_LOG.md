@@ -444,3 +444,10 @@ Append one dated entry here after every completed task, in the form:
 - Fix: `first_pass_timeout_seconds` = `min(cap, max(provider.timeout, 60 + (history_chars/4)/50))` with cap `LEMONADE_SYNTHESIS_TIMEOUT_SECONDS`; value is what `llm_call` already logs as `timeout`. `run_user_turn` catches `requests.Timeout` / `ConnectionError`, rolls history back like Ctrl+C, writes `turn_error`, returns a timeout notice; session continues.
 - ARCHITECTURE.md known limitation: multi-step browsing with 14B often plans ahead; stale refs are skipped so it can recover next step. Stage 7.5 remains done.
 - Tests: `test_chat` 5b/5c PASS; regressions across test scripts PASS (`test_web_search` check 8 updated to accept browser tools in `UNTRUSTED_SOURCE_TOOLS`).
+
+## 2026-10-18 — Recoverable file changes: Recycle Bin deletes, backups before overwrite, protected agent folder
+- `delete_file` uses `send2trash==2.1.0` (Recycle Bin); prompt `Move to Recycle Bin: <path>`; no `os.remove`; send2trash failure leaves the file in place.
+- `write_file` copies the existing file to `%LOCALAPPDATA%\MiniAI\backups\<stamp>_<name>` before overwrite; backup failure aborts the write; prompt notes a backup will be kept.
+- `security/protected_paths.py`: create/write/delete refuse (no prompt) targets inside the project root, `browser_profile`, or `%LOCALAPPDATA%\MiniAI` after full resolve + case-insensitive compare. Message: `MiniAI does not modify its own files or settings.`
+- Tests: `scripts/test_recoverable_files.py` 1–5 PASS (Recycle Bin verified by `.Bin` content search for a unique marker; send2trash failure; backup success/failure; protected paths including `..\miniai\...`, case fold, browser_profile). `test_fs_tools` / `test_chat` mutating paths moved outside the repo. Regressions: every test script PASS.
+- ARCHITECTURE.md: core decision on recoverable file changes; Stage 8 plan (task approval, always-ask, trusted-apps this-task/always/no, blocked categories, mouse-movement emergency stop).

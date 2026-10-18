@@ -141,7 +141,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "write_file",
-            "description": "Overwrite an existing file's content at the given path, replacing whatever was there. This will prompt the user for confirmation before proceeding.",
+            "description": "Overwrite an existing file's content at the given path. A timestamped backup of the previous content is saved first. Prompts for confirmation. Cannot modify MiniAI's own folder or settings.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -156,7 +156,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "delete_file",
-            "description": "Permanently delete the file at the given path. This cannot be undone and will always prompt the user for confirmation, even if create_file or write_file was just confirmed.",
+            "description": "Move the file at the given path to the Recycle Bin (it can be restored from there). Always prompts the user for confirmation, even if create_file or write_file was just confirmed. Cannot modify MiniAI's own folder or settings.",
             "parameters": {
                 "type": "object",
                 "properties": {

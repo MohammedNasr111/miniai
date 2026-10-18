@@ -79,6 +79,9 @@
   chat() method (tools optional) - local (Lemonade) is default, cloud
   (OpenAI/Anthropic) is optional and explicit. Streaming is deferred until
   a latency-sensitive use case exists.
+- File changes are recoverable by design: deletes go to the Recycle Bin,
+  overwrites keep a backup in %LOCALAPPDATA%\MiniAI\backups, and the agent
+  cannot modify its own folder or settings.
 - Every tool call must route through a single permission-gate middleware
   (security/) — not per-tool checks. Tiers: auto-allow (read/search/web
   search), confirm-first (create/modify files, terminal, memory
@@ -188,6 +191,16 @@
   read memories without a prompt; any attempt to send them out through
   browser_open, fetch_url, or browser_type is stopped at the confirmation
   prompt (decoded URL or the exact text to type).
+
+## Stage 8 plan
+Computer control (UI Automation) — design summary, not yet built:
+- Task approval before a computer-control session starts.
+- Always-ask actions that never become silent, even after trust.
+- Trusted-apps list: each app can be approved for **this task**, **always**,
+  or **no**.
+- Blocked app categories that cannot be controlled.
+- Mouse-movement emergency stop: moving the mouse cancels the agent's
+  control of the desktop.
 
 ## Roadmap
 Stage 0: environment setup (done)

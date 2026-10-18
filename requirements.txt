@@ -8,3 +8,4 @@ trafilatura>=2.0
 python-dotenv>=1.0
 # Pinned: session.py uses Playwright internals (ws._impl_obj) for WebSocket close.
 playwright==1.64.0
+send2trash==2.1.0
