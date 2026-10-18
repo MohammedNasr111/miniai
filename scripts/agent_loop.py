@@ -265,6 +265,28 @@ def check_quotes_against_evidence(
     return answer
 
 
+def history_char_count(history: list) -> int:
+    """Total characters of message content in history."""
+    return sum(len(getattr(message, "content", None) or "") for message in history)
+
+
+def prompt_size_estimate(history: list) -> float:
+    """Approx size used for adaptive timeouts: history characters / 4."""
+    return history_char_count(history) / 4.0
+
+
+def first_pass_timeout_seconds(history: list, provider_timeout: float | int) -> int:
+    """Timeout for the two_pass thinking-off call.
+
+    max(provider.timeout, 60 + prompt_size_estimate/50), capped at
+    LEMONADE_SYNTHESIS_TIMEOUT_SECONDS.
+    """
+    estimate = prompt_size_estimate(history)
+    raw = max(float(provider_timeout), 60.0 + estimate / 50.0)
+    cap = float(settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS)
+    return int(min(raw, cap))
+
+
 def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, discarded=False):
     if transcript is None:
         return
@@ -288,8 +310,8 @@ def _call_model(provider, history, transcript=None):
     policy = getattr(settings, "THINKING_POLICY", "on_after_tools")
 
     if policy == "two_pass":
-        # Always try thinking off first.
-        timeout_off = provider.timeout
+        # Always try thinking off first; grow timeout with prompt size.
+        timeout_off = first_pass_timeout_seconds(history, provider.timeout)
         started = time.perf_counter()
         response = provider.chat(
             history,

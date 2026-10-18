@@ -438,3 +438,9 @@ Append one dated entry here after every completed task, in the form:
 - Stale-ref skip message names the action and args (e.g. `NOT DONE: browser_type(ref=…, text=…, submit=true) was not run, so nothing was typed or submitted…`; click uses `nothing was clicked`).
 - Offline `test_chat`: turn-1 answers from `agent_20261018-012408_10768` / `agent_20261018-013010_16628` and run-2 turn-2 -> no note; run-1 Brennus quote in evidence -> no note; misquote from `agent_20261018-004417_22344` -> note; stale-batch asserts action name and `nothing was`. FAILURES 0.
 - Live two-turn ATP chat x2: Run 1 PASS (`logs/agent_20261018-115412_336.log`); Run 2 FAIL ReadTimeout (`logs/agent_20261018-120157_19760.log`). Failed live run does not block commit.
+
+## 2026-10-18 — Chat: adaptive first-pass timeout; timeouts cancel one message, not the session
+- Finding (from prior live ATP pair 1/2): Run 1 PASS (`logs/agent_20261018-115412_336.log`); Run 2 FAIL with `ReadTimeout` at 90 s on the two_pass thinking-off call (`logs/agent_20261018-120157_19760.log`). A provider timeout previously escaped `run_user_turn` and could abort the REPL mid-session.
+- Fix: `first_pass_timeout_seconds` = `min(cap, max(provider.timeout, 60 + (history_chars/4)/50))` with cap `LEMONADE_SYNTHESIS_TIMEOUT_SECONDS`; value is what `llm_call` already logs as `timeout`. `run_user_turn` catches `requests.Timeout` / `ConnectionError`, rolls history back like Ctrl+C, writes `turn_error`, returns a timeout notice; session continues.
+- ARCHITECTURE.md known limitation: multi-step browsing with 14B often plans ahead; stale refs are skipped so it can recover next step. Stage 7.5 remains done.
+- Tests: `test_chat` 5b/5c PASS; regressions across test scripts PASS (`test_web_search` check 8 updated to accept browser tools in `UNTRUSTED_SOURCE_TOOLS`).

@@ -226,7 +226,13 @@ def test_8() -> None:
     finally:
         TOOL_FUNCTIONS.pop("web_search", None)
         reset_session()
-    untrusted = UNTRUSTED_SOURCE_TOOLS == {"fetch_url", "web_research"}
+    # Real set includes browser tools; only assert web_search was not added
+    # and the patch did not stick on the registry constant.
+    untrusted = (
+        "fetch_url" in UNTRUSTED_SOURCE_TOOLS
+        and "web_research" in UNTRUSTED_SOURCE_TOOLS
+        and "web_search" not in UNTRUSTED_SOURCE_TOOLS
+    )
     still_absent = "web_search" not in TOOL_FUNCTIONS
     ok = not_registered and tainted and untrusted and still_absent
     _check(

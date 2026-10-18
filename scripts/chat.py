@@ -13,6 +13,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+import requests
+
 from agent.executor.guard import CallGuard
 from agent.transcript import Transcript
 from llm.base import ChatMessage
@@ -28,6 +30,12 @@ from scripts.agent_loop import (
     reset_evidence,
     run_tool_rounds,
     system_prompt,
+)
+
+TURN_TIMEOUT_MESSAGE = (
+    "The model took too long to answer (timeout). Nothing from this message "
+    "was saved to the conversation; any actions you already approved were not "
+    "undone. You can ask again."
 )
 
 
@@ -116,7 +124,9 @@ def run_user_turn(session: ChatSession, user_text: str) -> str:
     """Append one user message, run tools, append cleaned final answer.
 
     On KeyboardInterrupt, truncates history to its pre-turn length and
-    re-raises after printing is left to the caller.
+    re-raises after printing is left to the caller. On provider timeout or
+    connection error, rolls history back the same way, logs turn_error, and
+    returns TURN_TIMEOUT_MESSAGE so the session can continue.
     """
     session.ensure_system()
     pre_len = len(session.history)
@@ -149,6 +159,16 @@ def run_user_turn(session: ChatSession, user_text: str) -> str:
         del session.history[pre_len:]
         assert _assistant_tool_calls_matched(session.history)
         raise
+    except (requests.Timeout, requests.ConnectionError) as exc:
+        del session.history[pre_len:]
+        assert _assistant_tool_calls_matched(session.history)
+        if session.transcript is not None:
+            session.transcript.write(
+                "turn_error",
+                error=type(exc).__name__,
+                message=str(exc),
+            )
+        return TURN_TIMEOUT_MESSAGE
 
 
 def handle_command(session: ChatSession, line: str, provider: Any) -> tuple[ChatSession, bool]:

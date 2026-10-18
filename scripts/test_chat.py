@@ -24,15 +24,21 @@ from tools.browser.browser_tools import close_session
 from tools.browser.session import BrowserSession
 from tools.registry import TOOL_FUNCTIONS
 
+import requests
+
 from scripts.agent_loop import (
     CROSS_TURN_OMITTED,
     QUOTE_CHECK_NOTE,
     check_quotes_against_evidence,
     compress_cross_turn_history,
+    first_pass_timeout_seconds,
     get_evidence,
+    history_char_count,
+    prompt_size_estimate,
     reset_evidence,
 )
 from scripts.chat import (
+    TURN_TIMEOUT_MESSAGE,
     end_session,
     handle_command,
     new_session,
@@ -371,6 +377,105 @@ def main() -> None:
     )
     report("5", ok5, f"len={len(session.history)} pre={pre} matched={_matched(session.history)}")
     end_session(session)
+
+    # --- 5b: ReadTimeout mid-turn rolls back; next turn works ---
+    reset_session()
+    close_session()
+    with patch.object(browser_tools, "_launch_session", side_effect=_launch):
+        with patch.object(BrowserSession, "open", _open_fixture):
+            provider5b = ScriptedProvider(
+                [
+                    ChatResponse(
+                        content="",
+                        finish_reason="tool_calls",
+                        tool_calls=[
+                            _tool_call(
+                                "to1",
+                                "browser_open",
+                                {"url": "https://example.com"},
+                            )
+                        ],
+                    ),
+                    ChatResponse(
+                        content="opened ok", finish_reason="stop", tool_calls=None
+                    ),
+                    # After timeout recovery, next turn:
+                    ChatResponse(
+                        content="recovered", finish_reason="stop", tool_calls=None
+                    ),
+                ]
+            )
+            session5b = new_session(provider5b)
+            with answer_by_action({"browser_open": "yes"}):
+                a_ok = run_user_turn(session5b, "open please")
+            pre5b = len(session5b.history)
+            matched_before = _matched(session5b.history)
+
+            class TimeoutProvider(ScriptedProvider):
+                def chat(self, messages, tools=None, **kwargs):
+                    raise requests.ReadTimeout("simulated timeout")
+
+            session5b.provider = TimeoutProvider([])
+            msg_to = run_user_turn(session5b, "this will time out")
+            rolled = (
+                len(session5b.history) == pre5b
+                and _matched(session5b.history)
+                and matched_before
+                and msg_to == TURN_TIMEOUT_MESSAGE
+            )
+            # Transcript should have turn_error
+            turn_err = False
+            if session5b.transcript is not None:
+                for line in session5b.transcript.path.read_text(
+                    encoding="utf-8"
+                ).splitlines():
+                    rec = json.loads(line)
+                    if rec.get("type") == "turn_error":
+                        turn_err = rec.get("error") == "ReadTimeout"
+                        break
+            session5b.provider = provider5b
+            a_next = run_user_turn(session5b, "hello again")
+            ok5b = (
+                rolled
+                and turn_err
+                and a_ok == "opened ok"
+                and a_next == "recovered"
+                and _matched(session5b.history)
+            )
+            report(
+                "5b-timeout-rollback",
+                ok5b,
+                f"rolled={rolled} turn_err={turn_err} a_next={a_next!r} "
+                f"hist_len={len(session5b.history)}",
+            )
+            end_session(session5b)
+
+    # --- 5c: first-pass timeout formula ---
+    # Empty-ish history: estimate small -> max(90, 60 + small) = 90
+    hist_small = [ChatMessage(role="system", content="x" * 100)]
+    est_small = prompt_size_estimate(hist_small)
+    t_small = first_pass_timeout_seconds(hist_small, 90)
+    # Large history: chars=200_000 -> estimate=50_000 -> 60+1000=1060 -> cap 450
+    hist_large = [ChatMessage(role="user", content="y" * 200_000)]
+    est_large = prompt_size_estimate(hist_large)
+    t_large = first_pass_timeout_seconds(hist_large, 90)
+    # Medium: chars=20_000 -> estimate=5000 -> 60+100=160 > 90
+    hist_med = [ChatMessage(role="user", content="z" * 20_000)]
+    t_med = first_pass_timeout_seconds(hist_med, 90)
+    ok5c = (
+        history_char_count(hist_small) == 100
+        and est_small == 25.0
+        and t_small == 90
+        and est_large == 50_000.0
+        and t_large == settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
+        and t_med == 160
+    )
+    report(
+        "5c-timeout-formula",
+        ok5c,
+        f"t_small={t_small} t_med={t_med} t_large={t_large} "
+        f"cap={settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS}",
+    )
 
     # --- 6: cross-turn compression keeps latest per tool name ---
     # Build 3 turns with two web_research and two browser_observe results.

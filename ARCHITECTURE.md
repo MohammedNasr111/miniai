@@ -161,6 +161,10 @@
   guaranteed.
 - Quotes are checked word-for-word against retrieved text; paraphrases
   presented as quotes are flagged, not corrected.
+- Multi-step browsing with the 14B model is unreliable: it often plans
+  several browser steps before seeing the page. Guessed element numbers
+  are skipped and reported back, which usually lets it recover in the
+  next step.
 - search_knowledge flags each result's freshness (current / modified
   since indexing / file missing / unknown) using a per-file fingerprint
   recorded at indexing time; it never re-indexes on its own, because
