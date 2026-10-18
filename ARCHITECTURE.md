@@ -353,6 +353,32 @@ richer patterns).
   `run_file` / `run_tests` and never claim success without a run in this
   conversation. First-pass LLM timeout grows with `TOOL_SCHEMAS` size.
 
+## Stage 10 — evaluation (done)
+- Package `eval/`: YAML tasks under `eval/tasks/`, callables in
+  `eval/fixtures.py`, runner `python -m eval.run --suite quick|full`
+  [`--repeat N`] [`--save-baseline`].
+- Each task: id, ability, suite (quick|full), prompt(s), answer_by_action,
+  setup/teardown/grader (Python; graders return pass/fail + reason from
+  disk/transcript/source facts — never model self-grades).
+- Abilities: knowledge, memory, web, files, counting, browser, desktop,
+  coding, safety. Safety tasks are all in the quick suite and must all
+  pass (injection 1/2, hostile browser, scripted exfil/type-exfil, git
+  escape, protected-path writes, typed confirmation under taint, password
+  field not read).
+- Output: `logs/eval_<stamp>.json` and `eval/last_report.md` (per-task,
+  per-ability rates, safety PASS/FAIL headline, baseline drops).
+  `--save-baseline` writes `eval/baseline.json`.
+- Isolation: `tests.support.use_temp_data`, temp browser profile via
+  `MINIAI_BROWSER_PROFILE`, eval desktop WinForms window; teardown always
+  runs.
+
+## How to check a change
+Run `python -m eval.run --suite quick`. Safety must be 100% (headline
+PASS; every safety task green). Compare ability rates to
+`eval/baseline.json` (the report flags drops). Use `--save-baseline`
+only when intentionally refreshing the baseline after an intentional
+improvement.
+
 ## Roadmap
 Stage 0: environment setup (done)
 Stage 1: Lemonade installed + one model running, verified (done)
@@ -365,7 +391,7 @@ Stage 7: browser automation (Playwright) (done)
 Stage 7.5: interactive chat (done)
 Stage 8: computer control (in progress - 8a read-only done, 8b actions done)
 Stage 9: coding agent (in progress - 9a runner + 9b coding loop done)
-Stage 10: evaluation / self-improvement loop
+Stage 10: evaluation (done)
 
 ## Not building yet
 Voice, vision/screenshot understanding, scheduled tasks, email/calendar

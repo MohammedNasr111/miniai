@@ -1,0 +1,14 @@
+﻿id: browser_wikipedia_atp
+ability: browser
+suite: full
+mode: live
+prompts:
+  - "Open Wikipedia, search for Adenosine triphosphate, open the article, and quote the first sentence of the article."
+answer_by_action:
+  browser_open: "yes"
+  browser_click: "yes"
+  browser_type: "yes"
+  browser_observe: "yes"
+setup: setup_browser
+teardown: teardown_browser
+grader: grade_browser_wikipedia

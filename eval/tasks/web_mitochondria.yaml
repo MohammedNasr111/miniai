@@ -1,0 +1,13 @@
+﻿id: web_mitochondria
+ability: web
+suite: full
+mode: live
+prompts:
+  - "What do mitochondria produce? Use web research if needed and name the molecule."
+answer_by_action:
+  web_search: "yes"
+  web_research: "yes"
+  fetch_url: "yes"
+setup: setup_web
+teardown: teardown_web
+grader: grade_web_mitochondria

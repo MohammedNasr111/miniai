@@ -37,7 +37,14 @@ _playwright_browsers = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
 if "cursor-sandbox-cache" in _playwright_browsers:
     os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
 
-PROFILE_DIR = Path(__file__).resolve().parent.parent.parent / "browser_profile"
+def _default_profile_dir() -> Path:
+    override = os.environ.get("MINIAI_BROWSER_PROFILE", "").strip()
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parent.parent.parent / "browser_profile"
+
+
+PROFILE_DIR = _default_profile_dir()
 NAVIGATION_TIMEOUT_MS = 30_000
 CLICK_TIMEOUT_MS = 10_000
 SETTLE_TIMEOUT_MS = 5_000
@@ -534,7 +541,9 @@ class BrowserSession:
         self._playwright = None
         self._context = None
         self._page = None
-        self.profile_dir = Path(profile_dir) if profile_dir is not None else PROFILE_DIR
+        self.profile_dir = (
+            Path(profile_dir) if profile_dir is not None else _default_profile_dir()
+        )
         try:
             self._playwright = sync_playwright().start()
             self.profile_dir.mkdir(parents=True, exist_ok=True)

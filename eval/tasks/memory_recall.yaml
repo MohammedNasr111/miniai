@@ -1,0 +1,12 @@
+﻿id: memory_recall
+ability: memory
+suite: quick
+mode: live
+prompts:
+  - "Save this fact to memory (category fact): {fact}"
+  - "What fact did I just ask you to remember? Quote it exactly."
+answer_by_action:
+  save_memory: "yes"
+setup: setup_memory
+teardown: teardown_memory
+grader: grade_memory_recall

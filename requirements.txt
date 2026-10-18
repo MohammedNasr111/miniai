@@ -13,3 +13,4 @@ send2trash==2.1.0
 # Chosen over pywinauto for a smaller dependency surface and direct
 # ControlFromHandle / tree walk without Win32 backend indirection.
 uiautomation==2.0.29
+PyYAML>=6.0

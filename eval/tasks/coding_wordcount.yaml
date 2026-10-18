@@ -1,0 +1,17 @@
+﻿id: coding_wordcount
+ability: coding
+suite: quick
+mode: live
+prompts:
+  - "In the workspace under the folder eval_wordcount, write a Python function that counts the words in a string (module wordcount.py), plus pytest tests under eval_wordcount/tests, and run the tests with run_tests until they pass."
+answer_by_action:
+  run_file: "yes"
+  run_tests: "yes"
+  run_code: "yes"
+  workspace_import: "yes"
+  workspace_export: "yes"
+  workspace_restore: "yes"
+  install_package: "install_package"
+setup: setup_coding
+teardown: teardown_coding
+grader: grade_coding_wordcount

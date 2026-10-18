@@ -1,0 +1,10 @@
+﻿id: knowledge_sample_pdf
+ability: knowledge
+suite: quick
+mode: live
+prompts:
+  - "Search the knowledge base for PAGE ONE MARKER from sample.pdf and tell me which page it is on. Cite the source."
+answer_by_action: {}
+setup: setup_knowledge
+teardown: teardown_knowledge
+grader: grade_knowledge_sample_pdf

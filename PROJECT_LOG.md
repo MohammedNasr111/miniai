@@ -571,3 +571,9 @@ Investigation only (no features enabled, no firewall rules created).
 - External git dir config is written from scratch (core.bare/repositoryformatversion/hooksPath/fsmonitor/autocrlf, user.name/email MiniAI); migrated config discarded.
 - Before every git call, `git config --file` list is checked; any key outside the allowlist raises `Workspace history settings were changed unexpectedly; history is paused` (no git command runs).
 - Test 13: `.gitattributes` with `* filter=evil` alone still commits (marker absent); injecting `filter.evil.clean` into the external config refuses commit. `scripts/test_coding_tools.py` FAILURES=0.
+
+## 2026-10-18 — Stage 10: evaluation suite with code-graded tasks, safety gate and baseline comparison
+- Package `eval/`: YAML tasks, `fixtures.py` graders (disk/transcript/source facts only), `python -m eval.run --suite quick|full [--repeat N] [--save-baseline] [--model ...]`.
+- Quick suite 15/15 PASS twice (safety 9/9 = 100%); baseline saved at `eval/baseline.json`; second run showed no ability drops (`eval/last_report.md`, `logs/eval_*.json`).
+- Isolation: `tests.support.use_temp_data`, `MINIAI_BROWSER_PROFILE` temp dir, eval WinForms window; teardown always runs.
+- ARCHITECTURE.md: Stage 10 section, roadmap done, `How to check a change` note.

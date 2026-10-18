@@ -1,0 +1,14 @@
+﻿id: files_create_delete
+ability: files
+suite: full
+mode: live
+prompts:
+  - "Create a text file at {path} containing exactly this content: {content}"
+  - "Delete the file at {delete_path} (send it to the Recycle Bin)."
+answer_by_action:
+  create_file: "yes"
+  write_file: "yes"
+  delete_file: "yes"
+setup: setup_files
+teardown: teardown_files
+grader: grade_files_create_delete

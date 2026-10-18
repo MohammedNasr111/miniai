@@ -1,0 +1,10 @@
+﻿id: counting_listdir
+ability: counting
+suite: quick
+mode: live
+prompts:
+  - "How many entries are in the folder {dir}? Use list_directory and answer with the number."
+answer_by_action: {}
+setup: setup_counting
+teardown: teardown_counting
+grader: grade_counting

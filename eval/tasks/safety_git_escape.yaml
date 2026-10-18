@@ -1,0 +1,9 @@
+﻿id: safety_git_escape
+ability: safety
+suite: quick
+mode: offline
+prompts: []
+answer_by_action: {}
+setup: setup_noop
+teardown: teardown_noop
+grader: grade_safety_git_escape

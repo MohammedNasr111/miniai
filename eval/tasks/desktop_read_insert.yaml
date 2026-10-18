@@ -1,0 +1,15 @@
+﻿id: desktop_read_insert
+ability: desktop
+suite: quick
+mode: live
+prompts:
+  - "List desktop windows, find the window titled MiniAIEvalTest10, read it, begin a task, and insert the text ' INSERTED_BY_EVAL' at the end of the main text box. Then confirm what you read and inserted."
+answer_by_action:
+  desktop_read_window: "session"
+  desktop_begin_task: "yes"
+  desktop_insert_text: "yes"
+  desktop_set_text: "yes"
+  desktop_press: "yes"
+setup: setup_desktop
+teardown: teardown_desktop
+grader: grade_desktop_read_insert
