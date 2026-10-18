@@ -82,6 +82,47 @@ def _require_lemonade() -> None:
         sys.exit(2)
 
 
+def free_ram_gb() -> float:
+    """Available physical RAM in gigabytes (Windows GlobalMemoryStatusEx)."""
+    import ctypes
+
+    class MEMORYSTATUSEX(ctypes.Structure):
+        _fields_ = [
+            ("dwLength", ctypes.c_ulong),
+            ("dwMemoryLoad", ctypes.c_ulong),
+            ("ullTotalPhys", ctypes.c_ulonglong),
+            ("ullAvailPhys", ctypes.c_ulonglong),
+            ("ullTotalPageFile", ctypes.c_ulonglong),
+            ("ullAvailPageFile", ctypes.c_ulonglong),
+            ("ullTotalVirtual", ctypes.c_ulonglong),
+            ("ullAvailVirtual", ctypes.c_ulonglong),
+            ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+        ]
+
+    status = MEMORYSTATUSEX()
+    status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
+    return status.ullAvailPhys / (1024**3)
+
+
+def warn_if_low_memory(free_gb: float | None = None) -> str | None:
+    """Print a low-memory warning when free RAM is under 4 GB. Continue anyway.
+
+    Returns the message if printed, else None. ``free_gb`` may be patched in tests.
+    """
+    if free_gb is None:
+        free_gb = free_ram_gb()
+    if free_gb >= 4.0:
+        return None
+    message = (
+        f"Low memory: {free_gb:.1f} GB free. MiniAI needs about 12 GB for its "
+        "model. Close some apps (browsers with many tabs, Discord) for best "
+        "results."
+    )
+    print(message)
+    return message
+
+
 def clean_final_answer(text: str) -> str:
     """Drop echoed untrusted blocks from a final answer.
 
@@ -469,6 +510,7 @@ def main() -> None:
         print("Usage: python -m scripts.agent_loop \"your question\"")
         return
     _require_lemonade()
+    warn_if_low_memory()
     provider = LemonadeProvider()
     transcript = Transcript()
     started = time.perf_counter()

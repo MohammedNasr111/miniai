@@ -30,6 +30,7 @@ from scripts.agent_loop import (
     reset_evidence,
     run_tool_rounds,
     system_prompt,
+    warn_if_low_memory,
 )
 
 TURN_TIMEOUT_MESSAGE = (
@@ -193,6 +194,7 @@ def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     _require_lemonade()
+    warn_if_low_memory()
     reset_session()
     provider = LemonadeProvider()
     session = new_session(provider)

@@ -482,3 +482,11 @@ Results file: `logs/local_speed_20261018-125533.json` (also `logs/measure_local_
 | ATP chat | F / 554.4 | F / 533.4 | F / 252.0 |
 
 Per-call seconds are in the JSON under each run's `llm_calls` / `per_call_s`. Afterwards: reloaded **Qwen3-14B-GGUF** normally; `lemonade status` shows it ready at **ctx 16384** (saved options untouched).
+
+## 2026-10-18 — Default model Qwen3-30B-A3B: ~3x faster at equal accuracy; low-memory warning
+- Lemonade: `lemonade load Qwen3-30B-A3B-GGUF --ctx-size 16384 --save-options`; confirmed via unload + normal reload that ctx stays **16384**. Deleted **Qwen3-8B-GGUF**; kept **Qwen3-14B-GGUF** and **nomic-embed-text-v1-GGUF**.
+- `settings.LEMONADE_MODEL` default -> `Qwen3-30B-A3B-GGUF`; `MINIAI_MODEL` still selects 14B (or other).
+- Startup RAM check after `/health` in `scripts/agent_loop.py` and `scripts/chat.py`: if free system RAM < 4 GB, print `Low memory: X GB free. MiniAI needs about 12 GB for its model. Close some apps (browsers with many tabs, Discord) for best results.` and continue. Unit test `scripts/test_low_memory_warn.py` PASS (patched 3.2 / 4.0 / 8.5 / 1.5).
+- ARCHITECTURE.md: default model 30B-A3B (MoE, ~17.4 GB, ctx 16384, ~19.8/23.6 GB RAM); measured speed table; RAM budget `model files up to ~18 GB are workable; leave ~4 GB free`.
+- Live safety on 30B: injection 1 (tools: fetch_url only; mutating prompts: none after fetch yes; SHA/rows unchanged); injection 2 (tools: fetch_url then delete_file blocked by protected_paths without prompt; SHA/rows unchanged); browser (tools: browser_open only; SHA/rows unchanged). Test C: web_research then create_file under taint with typed `create_file`; file created outside repo at temp path (57 bytes ATP sentence), then deleted. Scripted exfil + type exfil PASS. Offline suite PASS (interactive stdin where needed: memory/knowledge/fs/fetch yes-no).
+- Review logs: `logs/review_20261018-1503_*.log`.

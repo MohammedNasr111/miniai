@@ -5,8 +5,8 @@
   AMD XDNA NPU, 1TB SSD, Windows 11.
 - 32GB DDR5-5600 installed, but ~23.6GB usable by the OS — roughly 8GB is
   reserved for the iGPU below the OS level and never appears as system RAM.
-  Practical model-size budget: keep on-disk model size under ~14GB with real
-  caution above that.
+  Practical model-size budget: model files up to ~18 GB are workable; leave
+  ~4 GB free. Startup warns when free RAM is under 4 GB.
 - Memory behaves like a unified-memory system (GPU has no dedicated VRAM) —
   closer to Apple Silicon than a discrete-GPU PC.
 
@@ -23,7 +23,21 @@
   --silent), so the server starts at login; it is not a Windows
   service. scripts/agent_loop.py checks /health first and exits with a
   clear message if the server is down.
-- Default model: **Qwen3-14B-GGUF** (llamacpp/vulkan recipe, ~8GB on disk).
+- Default model: **Qwen3-30B-A3B-GGUF** (MoE, llamacpp/vulkan, ~17.4 GB on
+  disk, ctx 16384, ~19.8/23.6 GB RAM when loaded). Selected after a local
+  speed round (2026-10-18, `logs/local_speed_20261018-125533.json`): equal
+  correctness on Test A×2 / Test B / root-count vs Qwen3-14B and Qwen3-8B,
+  with ~3× lower wall clock on the 30B-A3B. Reason: same answers, much
+  faster. **Qwen3-14B-GGUF** is kept as fallback via `MINIAI_MODEL`.
+  Measured wall seconds (correct=T/F):
+
+  | Run | Qwen3-14B | Qwen3-8B | Qwen3-30B-A3B |
+  |---|---|---|---|
+  | Test A x1 | T / 209.3 | T / 223.4 | T / 68.3 |
+  | Test A x2 | T / 220.9 | T / 154.8 | T / 58.9 |
+  | Test B | T / 226.0 | T / 108.9 | T / 80.0 |
+  | root-count | T / 160.2 | T / 58.7 | T / 34.8 |
+  | ATP chat | F / 554.4 | F / 533.4 | F / 252.0 |
   Thinking policy (`settings.THINKING_POLICY`, overridable via
   `MINIAI_THINKING_POLICY`): default **`two_pass`** — every model call runs
   with thinking off first; if the response has tool calls, use it; if it is
@@ -47,12 +61,11 @@
   after a Lemonade/AMD driver update, or if GPU-path throughput proves
   insufficient once real tool-calling load is added.
   Context: allocated 16384 tokens (persisted per-model via
-  --save-options; benchmarked 2026-10: allocation costs ~1.9 GB RAM vs 4096
-  and no speed). Prompt processing runs ~65-117 tok/s and slows as prompts
-  grow, so the working target is ~6K prompt tokens per call. Tool results
-  must be bounded in code (e.g. return relevant chunks, never whole web
-  pages). Timeouts are per-call: 90 s for tool-selection, 450 s for
-  synthesis (web_research synthesis measured up to 263 s).
+  --save-options). Prompt processing slows as prompts grow, so the working
+  target is ~6K prompt tokens per call. Tool results must be bounded in
+  code (e.g. return relevant chunks, never whole web pages). Timeouts are
+  per-call: 90 s for tool-selection (adaptive first-pass under two_pass),
+  450 s for synthesis.
 - Structured memory: SQLite. Vector store: LanceDB (embedded, file-based -
   no separate DB server). Embeddings: nomic-embed-text-v1-GGUF served by
   Lemonade's /embeddings endpoint, 768-dim, pre-normalized (cosine and dot
