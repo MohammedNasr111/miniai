@@ -583,3 +583,10 @@ Investigation only (no features enabled, no firewall rules created).
 - README.md points to USER_GUIDE and ARCHITECTURE.
 - Eval report: per-task `infra_retries`; `last_report.md` shows `retried after server error: N` and a Stability section.
 - Roadmap stages 0-10 complete.
+
+## 2026-10-19 — Stage 11a: Approver interface + app window (no network port)
+- `security/approver.py`: Approver ABC + ConsoleApprover (exact prior `input()` wording). Gate and desktop continue use `get_approver()` only; decision logic stays in the gate.
+- `answer_by_action` installs `MappingApprover` via `set_approver` and still patches `builtins.input` for ConsoleApprover.
+- App: `python -m app` with **pywebview==5.4** / Edge **WebView2 155.0.4283.62**; no HTTP server. UI from `app/design/miniai_design.html` into `app/ui/`. WebviewApprover shows yes/no and typed cards; agent on a background thread; markdown answers escaped (no raw HTML).
+- Tests: `scripts/test_approver_app.py` (scripted typed, XSS, grep no stray `input(`, launch); live mitochondria + `create_file` via card (`LIVE_OK=True`); screenshot `app/design/actual_v1.png`.
+- Fix: WebviewApprover must not hold its lock across `Event.wait` (deadlocked poll/resolve). js_api is a thin `_JsApi` (no `window` attribute). JS polls `poll_approval` for cross-thread delivery.

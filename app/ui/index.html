@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniAI</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand"><div class="logo">M</div><b>MiniAI</b><span>local</span></div>
+  <button class="new-chat" id="btn-new-chat" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New chat<kbd>Ctrl N</kbd></button>
+  <div class="section-label">Today</div>
+  <div class="history" id="history-list">
+    <button class="chat-item active" type="button">New chat</button>
+  </div>
+  <div class="sys">
+    <div class="sys-row"><span class="dot" id="model-dot"></span><span id="model-status">Model · …</span></div>
+    <div class="sys-row">Memory <div class="meter"><i id="mem-meter" style="width:0%"></i></div> <span id="mem-label">—</span></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <h1 id="chat-title">New chat</h1>
+    <span class="spacer"></span>
+    <span class="chip warn" id="chip-taint" hidden><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Web content read</span>
+    <span class="chip" id="chip-runner">Isolated runner · …</span>
+  </header>
+
+  <div class="scroll" id="scroll">
+    <div class="thread" id="thread"></div>
+  </div>
+
+  <div class="composer-wrap">
+    <div class="composer">
+      <textarea id="composer" rows="1" placeholder="Ask MiniAI anything…"></textarea>
+      <button class="icon-btn stop" id="btn-stop" type="button" title="Stop"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></button>
+      <button class="icon-btn send" id="btn-send" type="button" title="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+    </div>
+    <div class="hint"><span>Runs on this PC · only web research goes online</span><span>Enter to send · Shift+Enter new line</span></div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

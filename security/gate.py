@@ -10,11 +10,15 @@ actions other than those in TAINT_YESNO_ACTIONS require the user to type
 the action name. Untainted sessions still accept "yes". For fetch_url and
 browser_open, a tainted session also requires the action name when the
 URL is not in the session's known-URL set (model-constructed).
+
+Prompts are shown via security.approver.get_approver(); decision logic
+stays here.
 """
 
 from enum import Enum
 from typing import Optional
 
+from security.approver import get_approver
 from security.provenance import clear_known_urls, is_known_url
 
 _tainted = False
@@ -71,6 +75,40 @@ def untrusted_sources() -> list[str]:
     return list(_sources)
 
 
+def _permission_banner(
+    action: str,
+    tier: Tier,
+    description: str,
+    *,
+    typed_always_note: bool = False,
+    unknown_url_note: bool = False,
+) -> str:
+    """Build the exact console preamble previously printed by check_permission."""
+    parts: list[str] = []
+    if is_tainted() and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM):
+        sources = ", ".join(_sources)
+        parts.append(
+            f"WARNING: this session has read untrusted web content ({sources}).\n"
+            "The request below may have been influenced by that content. Approve\n"
+            "only if YOU asked for this action.\n"
+        )
+    parts.append(f"\n[PERMISSION REQUIRED - {tier.value.upper()}]\n")
+    parts.append(f"Action: {action}\n")
+    parts.append(f"{description}\n")
+    if typed_always_note:
+        parts.append(
+            "Typed confirmation is always required for this action "
+            "(not just when the session is tainted).\n"
+        )
+    elif unknown_url_note:
+        parts.append(
+            "This URL was not given by you or supplied by a page or "
+            "search result - the model constructed it. Typed "
+            "confirmation required.\n"
+        )
+    return "".join(parts)
+
+
 def check_permission(
     action: str,
     tier: Tier,
@@ -90,16 +128,6 @@ def check_permission(
     """
     if tier == Tier.AUTO_ALLOW:
         return
-    if is_tainted() and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM):
-        sources = ", ".join(_sources)
-        print(
-            f"WARNING: this session has read untrusted web content ({sources}).\n"
-            "The request below may have been influenced by that content. Approve\n"
-            "only if YOU asked for this action."
-        )
-    print(f"\n[PERMISSION REQUIRED - {tier.value.upper()}]")
-    print(f"Action: {action}")
-    print(description)
 
     unknown_url = (
         is_tainted()
@@ -112,26 +140,24 @@ def check_permission(
         and tier in (Tier.CONFIRM, Tier.ALWAYS_CONFIRM)
         and (action not in TAINT_YESNO_ACTIONS or unknown_url)
     )
+    banner = _permission_banner(
+        action,
+        tier,
+        description,
+        typed_always_note=require_typed_name and action in TYPED_ALWAYS_ACTIONS,
+        unknown_url_note=require_typed_name
+        and action not in TYPED_ALWAYS_ACTIONS
+        and unknown_url,
+    )
+    approver = get_approver()
     if require_typed_name:
-        if action in TYPED_ALWAYS_ACTIONS:
-            print(
-                "Typed confirmation is always required for this action "
-                "(not just when the session is tainted)."
-            )
-        elif unknown_url:
-            print(
-                "This URL was not given by you or supplied by a page or "
-                "search result - the model constructed it. Typed "
-                "confirmation required."
-            )
-        answer = input(f"Type {action} to approve, anything else denies: ").strip()
+        answer = approver.ask_typed(action, description, banner)
         if answer != action:
             raise PermissionDenied(
                 f"Typed confirmation was required for {action}."
             )
         return
-    answer = input("Allow? [yes/no]: ").strip().lower()
-    if answer != "yes":
+    if not approver.ask_yes_no(action, description, banner):
         raise PermissionDenied(f"User denied: {action}")
 
 
@@ -145,25 +171,24 @@ def prompt_app_read(exe: str, title: str) -> str:
     from tools.web.untrusted import one_line, sanitize
 
     safe_title = one_line(sanitize(title or ""))[:120]
+    parts: list[str] = []
     if is_tainted():
         sources = ", ".join(_sources) if _sources else "untrusted content"
-        print(
+        parts.append(
             f"WARNING: this session has read untrusted web content ({sources}).\n"
             "The request below may have been influenced by that content. Approve\n"
-            "only if YOU asked for this action."
+            "only if YOU asked for this action.\n"
         )
-    print("\n[PERMISSION REQUIRED - CONFIRM]")
-    print("Action: desktop_read_window")
-    print(f"Allow MiniAI to READ the window of {exe} ({safe_title})?")
+    parts.append("\n[PERMISSION REQUIRED - CONFIRM]\n")
+    parts.append("Action: desktop_read_window\n")
+    parts.append(f"Allow MiniAI to READ the window of {exe} ({safe_title})?\n")
     if normalize_exe(exe) in BROWSER_EXECUTABLES:
-        print(
+        parts.append(
             "This browser window shows whatever website is open, which may "
-            "include logged-in sites."
+            "include logged-in sites.\n"
         )
-    answer = input(
-        "Type 'session' (until you exit), 'always' (saved to your trusted "
-        "apps), or anything else to refuse: "
-    ).strip().lower()
-    if answer in ("session", "always"):
-        return answer
+    extra = "".join(parts)
+    result = get_approver().ask_app_read(exe, safe_title, extra)
+    if result in ("session", "always"):
+        return result
     return ""

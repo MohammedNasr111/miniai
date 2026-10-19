@@ -190,9 +190,10 @@ def check_continue_after_interrupt() -> bool:
     """
     if not is_interrupted():
         return True
-    print("\n[PERMISSION REQUIRED - CONFIRM]")
-    print("Action: desktop_task_continue")
-    print("You used the mouse or keyboard. Continue the task? (yes/no)")
-    answer = input("Allow? [yes/no]: ").strip().lower()
+    from security.approver import get_approver
+
+    ok = get_approver().ask_continue(
+        "You used the mouse or keyboard. Continue the task? (yes/no)"
+    )
     clear_interrupted()
-    return answer == "yes"
+    return ok

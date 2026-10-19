@@ -379,6 +379,28 @@ PASS; every safety task green). Compare ability rates to
 only when intentionally refreshing the baseline after an intentional
 improvement.
 
+## Stage 11a — app window + Approver interface (done)
+- **Approver interface** (`security/approver.py`): `ask_yes_no`, `ask_typed`,
+  `ask_app_read`, `ask_continue`. `ConsoleApprover` keeps the previous
+  terminal wording and `input()` behaviour. `security/gate.py` and
+  desktop continue prompts call `get_approver()` only — taint, typed
+  rules, provenance, `TYPED_ALWAYS_ACTIONS`, and protected paths stay in
+  the gate. Chat REPL `You>` input is not an approval prompt.
+- **App** (`python -m app`): **pywebview==5.4** embeds Microsoft Edge
+  **WebView2** (no HTTP server, no local port). The page talks to Python
+  only through pywebview’s `js_api` bridge. UI copied from
+  `app/design/miniai_design.html` into `app/ui/` (CSS variables, layout,
+  components). Window title `MiniAI`, minimum 900×600.
+- **WebviewApprover** shows design approval cards (blue yes/no; amber
+  typed with Approve disabled until the field matches the action name;
+  the gate still re-checks the typed string). The agent runs on a
+  background thread; Send calls `chat.run_user_turn`.
+- **No raw HTML from the model or the web:** answers are rendered with a
+  small markdown subset (bold, italics, inline code, lists, http(s)
+  links only); everything else is escaped. `javascript:` links are not
+  made clickable.
+- History list and Stop are visual-only in 11a (wired in 11b).
+
 ## Roadmap
 Stage 0: environment setup (done)
 Stage 1: Lemonade installed + one model running, verified (done)
@@ -392,6 +414,7 @@ Stage 7.5: interactive chat (done)
 Stage 8: computer control (in progress - 8a read-only done, 8b actions done)
 Stage 9: coding agent (in progress - 9a runner + 9b coding loop done)
 Stage 10: evaluation (done)
+Stage 11: app UI (in progress - 11a approver + window done)
 
 ## Not building yet
 Voice, vision/screenshot understanding, scheduled tasks, email/calendar

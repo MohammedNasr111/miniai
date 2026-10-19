@@ -62,21 +62,28 @@ def answer_by_action(
     mapping: dict[str, str],
     default: str = "no",
 ) -> Iterator[list[tuple[str, str, str]]]:
-    """Patch input() to answer from the latest printed ``Action: <name>``.
+    """Answer approval prompts from the latest ``Action: <name>``.
 
-    Live tests should use this instead of ordered stdin lines. Unmapped
-    actions get ``default`` (usually ``"no"``). Yields a log list of
-    ``(action, prompt, answer)`` tuples filled as prompts are answered.
+    Patches ``builtins.input`` (ConsoleApprover still calls ``input()``) and
+    also wraps the active Approver so WebviewApprover / future approvers are
+    covered. Unmapped actions get ``default`` (usually ``\"no\"``). Yields a
+    log of ``(action, prompt, answer)`` tuples.
     """
+    from security.approver import Approver, get_approver, set_approver
+
     last_action: dict[str, str | None] = {"name": None}
     log: list[tuple[str, str, str]] = []
     real_print = builtins.print
 
+    def _note_action_from_text(text: str) -> None:
+        for line in text.splitlines():
+            if line.startswith("Action: "):
+                last_action["name"] = line[len("Action: ") :].strip()
+
     def capturing_print(*args, **kwargs):
         sep = kwargs.get("sep", " ")
         text = sep.join(str(a) for a in args)
-        if text.startswith("Action: "):
-            last_action["name"] = text[len("Action: ") :].strip()
+        _note_action_from_text(text)
         return real_print(*args, **kwargs)
 
     def smart_input(prompt: str = "") -> str:
@@ -86,8 +93,55 @@ def answer_by_action(
         real_print(f"[INPUT] action={action!r} prompt={prompt!r} -> {answer!r}")
         return answer
 
-    with (
-        patch("builtins.print", side_effect=capturing_print),
-        patch("builtins.input", side_effect=smart_input),
-    ):
-        yield log
+    class MappingApprover(Approver):
+        """Delegates display to the previous approver's prints via banner; answers from mapping."""
+
+        def ask_yes_no(self, action: str, description: str, banner: str) -> bool:
+            _note_action_from_text(banner or "")
+            if banner:
+                capturing_print(banner, end="" if banner.endswith("\n") else "\n")
+            prompt = "Allow? [yes/no]: "
+            answer = smart_input(prompt)
+            return answer.strip().lower() == "yes"
+
+        def ask_typed(self, action: str, description: str, banner: str) -> str:
+            _note_action_from_text(banner or "")
+            if banner:
+                capturing_print(banner, end="" if banner.endswith("\n") else "\n")
+            prompt = f"Type {action} to approve, anything else denies: "
+            return smart_input(prompt)
+
+        def ask_app_read(self, exe: str, title: str, extra: str):
+            _note_action_from_text(extra or "")
+            if extra:
+                capturing_print(extra, end="" if extra.endswith("\n") else "\n")
+            prompt = (
+                "Type 'session' (until you exit), 'always' (saved to your trusted "
+                "apps), or anything else to refuse: "
+            )
+            # desktop_read_window is the Action: line in extra
+            action = last_action["name"] or "desktop_read_window"
+            answer = mapping.get(action, default)
+            log.append((action, prompt, answer))
+            real_print(f"[INPUT] action={action!r} prompt={prompt!r} -> {answer!r}")
+            if answer in ("session", "always"):
+                return answer
+            return "refuse"
+
+        def ask_continue(self, message: str) -> bool:
+            capturing_print("\n[PERMISSION REQUIRED - CONFIRM]")
+            capturing_print("Action: desktop_task_continue")
+            capturing_print(message)
+            prompt = "Allow? [yes/no]: "
+            answer = smart_input(prompt)
+            return answer.strip().lower() == "yes"
+
+    previous = set_approver(MappingApprover())
+    try:
+        with (
+            patch("builtins.print", side_effect=capturing_print),
+            patch("builtins.input", side_effect=smart_input),
+        ):
+            yield log
+    finally:
+        set_approver(previous)
