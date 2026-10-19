@@ -13,8 +13,14 @@ from send2trash import send2trash
 
 
 def chats_dir() -> Path:
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-    path = Path(base) / "MiniAI" / "chats"
+    override = os.environ.get("MINIAI_CHATS_DIR")
+    if override:
+        path = Path(override)
+    else:
+        base = os.environ.get("LOCALAPPDATA") or str(
+            Path.home() / "AppData" / "Local"
+        )
+        path = Path(base) / "MiniAI" / "chats"
     path.mkdir(parents=True, exist_ok=True)
     return path
 

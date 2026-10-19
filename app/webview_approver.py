@@ -241,7 +241,7 @@ class AppBridge:
             else f"Isolated runner · {fw}"
         )
         mem_pct = 0
-        mem_label = "—"
+        mem_label = "n/a"
         mem_level = "ok"
         try:
             import psutil
@@ -255,13 +255,16 @@ class AppBridge:
                 mem_level = "danger"
             elif mem_pct > 80:
                 mem_level = "warn"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.info("memory meter unavailable: %s", exc)
         model = self._loaded_model_name()
+        # Display name as reported by health; drop a trailing -GGUF tag so
+        # the UI shows e.g. Qwen3-30B-A3B rather than Qwen3-30B-A3B-GGUF.
+        display = model[:-5] if model.endswith("-GGUF") else model
         self._call_js(
             "on_status",
             {
-                "model": f"{model} · ready",
+                "model": f"{display} · ready",
                 "runner": runner,
                 "tainted": is_tainted(),
                 "memory_pct": mem_pct,
@@ -484,36 +487,77 @@ class _JsApi:
     def __init__(self, bridge: AppBridge) -> None:
         self._bridge = bridge
 
+    def _require_index(self) -> bool:
+        """Refuse every bridge call unless the window URL is the app index."""
+        from pathlib import Path
+
+        from app.nav_lock import is_app_index_url
+
+        index = Path(__file__).resolve().parent / "ui" / "index.html"
+        win = self._bridge.window
+        if win is None:
+            logger.warning("js_api refused: no window")
+            return False
+        try:
+            url = win.get_current_url() or ""
+        except Exception as exc:
+            logger.warning("js_api refused: get_current_url failed: %s", exc)
+            return False
+        if not is_app_index_url(url, index):
+            logger.warning("js_api refused: foreign URL %r", url)
+            return False
+        return True
+
     def ready(self) -> None:
+        if not self._require_index():
+            return
         self._bridge.push_status()
         self._bridge._call_js("on_history", self._bridge.list_chats())
 
     def poll_approval(self) -> Optional[dict[str, Any]]:
+        if not self._require_index():
+            return None
         return self._bridge.approver.take_pending()
 
     def approval_reply(self, nonce: str, value: str = "") -> bool:
+        if not self._require_index():
+            return False
         return self._bridge.approver.resolve(
             str(nonce) if nonce is not None else "",
             str(value) if value is not None else "",
         )
 
     def send_message(self, text: str) -> None:
+        if not self._require_index():
+            return
         self._bridge.send_message(str(text or ""))
 
     def stop_turn(self) -> None:
+        if not self._require_index():
+            return
         self._bridge.stop_turn()
 
     def new_chat(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
         return self._bridge.new_chat()
 
     def list_chats(self) -> list[dict[str, Any]]:
+        if not self._require_index():
+            return []
         return self._bridge.list_chats()
 
     def open_chat(self, chat_id: str) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
         return self._bridge.open_chat(str(chat_id or ""))
 
     def delete_chat(self, chat_id: str) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
         return self._bridge.delete_chat(str(chat_id or ""))
 
     def open_external(self, url: str) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
         return self._bridge.open_external(str(url or ""))

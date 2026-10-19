@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from urllib.parse import unquote, urlparse
-from urllib.request import url2pathname
 
 UI_DIR = Path(__file__).resolve().parent / "ui"
 INDEX = UI_DIR / "index.html"
@@ -18,39 +16,24 @@ def index_uri() -> str:
     return INDEX.resolve().as_uri()
 
 
-def _path_from_url(url: str) -> Path | None:
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme == "file":
-            path = url2pathname(unquote(parsed.path))
-            # On Windows url2pathname may yield /C:/...
-            if path.startswith("/") and len(path) > 2 and path[2] == ":":
-                path = path[1:]
-            return Path(path).resolve()
-        return None
-    except Exception:
-        return None
+# Re-export helpers used by tests / bridge.
+from app.nav_lock import (  # noqa: E402
+    is_app_index_url,
+    is_boot_or_index,
+    path_from_url,
+)
 
 
 def _is_allowed_url(url: str) -> bool:
-    if not url:
-        return False
-    # Allow about:blank during early boot; anything else must be our index.
-    if url in ("about:blank", "about:srcdoc"):
-        return True
-    path = _path_from_url(url)
-    if path is None:
-        return False
-    try:
-        return path == INDEX.resolve()
-    except Exception:
-        return False
+    """After-load layer: index or about:blank."""
+    return is_boot_or_index(url, INDEX)
 
 
 def main() -> int:
     import webview
 
     from app.dark_titlebar import apply_dark_titlebar
+    from app.nav_lock import attach_native_nav_lock
     from app.webview_approver import AppBridge
     from security.approver import set_approver
 
@@ -58,12 +41,13 @@ def main() -> int:
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
 
-    # Only our JS open_external path may open browsers.
+    # Only our JS / NewWindowRequested path may open browsers.
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = False
 
     bridge = AppBridge()
     set_approver(bridge.approver)
     allowed = index_uri()
+    index_path = INDEX.resolve()
 
     window = webview.create_window(
         title="MiniAI",
@@ -81,20 +65,24 @@ def main() -> int:
             current = window.get_current_url() or ""
         except Exception:
             current = ""
-        if not _is_allowed_url(current):
+        if not is_boot_or_index(current, index_path):
             logger.warning(
-                "navigation lock: blocked URL %r — reloading index", current
+                "navigation lock (after-load): blocked URL %r — reloading index",
+                current,
             )
             try:
                 window.load_url(allowed)
             except Exception as exc:
                 logger.warning("navigation lock reload failed: %s", exc)
         apply_dark_titlebar(window)
+        # Native hooks need window.native (set when the form exists).
+        attach_native_nav_lock(window, index_path, bridge.open_external)
 
     window.events.loaded += _on_loaded
 
     def _on_shown() -> None:
         apply_dark_titlebar(window)
+        attach_native_nav_lock(window, index_path, bridge.open_external)
         bridge.start_status_loop()
 
     try:
@@ -104,6 +92,7 @@ def main() -> int:
 
     def _after_start() -> None:
         apply_dark_titlebar(window)
+        attach_native_nav_lock(window, index_path, bridge.open_external)
         bridge.start_status_loop()
 
     try:

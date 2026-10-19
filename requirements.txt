@@ -16,3 +16,4 @@ uiautomation==2.0.29
 PyYAML>=6.0
 # Stage 11a: desktop app (Edge WebView2 via pywebview; no HTTP server).
 pywebview==5.4
+psutil>=5.9

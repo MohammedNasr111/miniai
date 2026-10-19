@@ -402,12 +402,16 @@ improvement.
 - History list and Stop are visual-only in 11a (wired in 11b).
 
 ## Stage 11b — app lockdown, design finish, core features (done)
-- **Navigation lock:** the webview may only show `app/ui/index.html`.
-  Link clicks are intercepted in `app.js` (delegated `preventDefault`) and
-  handed to `js_api.open_external(url)`, which allows only `^https?://` and
-  opens them with `os.startfile`. `webview.settings['OPEN_EXTERNAL_LINKS_IN_BROWSER']`
-  is `False`. On every `loaded` event, any other URL is logged and replaced
-  with the index.
+- **Navigation lock (before navigate):** on Windows/EdgeChromium, handlers attach
+  at `window.native.browser.webview` (WebView2) —
+  `NavigationStarting` sets `e.Cancel = True` for any URI that is not the app
+  index (or `about:blank` during boot); `CoreWebView2.NewWindowRequested` sets
+  `e.Handled = True` and routes `http(s)` to `open_external`. After-load reload
+  of a foreign URL remains as a second layer. Link clicks are also intercepted
+  in `app.js` (delegated `preventDefault`) → `js_api.open_external`.
+  `webview.settings['OPEN_EXTERNAL_LINKS_IN_BROWSER']` is `False`.
+- **Bridge URL guard:** every `js_api` method refuses unless
+  `window.get_current_url()` is the app index file.
 - **Approval nonces:** each approval request includes a random 128-bit id
   (`secrets.token_hex(16)`). `approval_reply(id, value)` is accepted only
   when `id` matches the single pending request; wrong/stale ids are ignored

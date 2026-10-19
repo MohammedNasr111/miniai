@@ -126,7 +126,10 @@
     if (payload.waiting) return "Waiting for your approval";
     const n = (payload.steps || []).length;
     const total = payload.total || "";
-    if (payload.running && n === 0) return "Working…";
+    if (payload.running) {
+      if (n === 0) return "Working…";
+      return "Working · " + n + " step" + (n === 1 ? "" : "s");
+    }
     if (total) {
       return (
         "Worked for " +
@@ -500,9 +503,17 @@
       composer.focus();
     },
     on_error: function (msg) {
-      showAnswer(String(msg || "Error"));
+      clearApproval();
+      renderActivity({
+        steps: [],
+        waiting: false,
+        running: false,
+        total: "",
+      });
+      showSystemNote(String(msg || "Error"));
       busy = false;
       btnSend.disabled = false;
+      composer.focus();
     },
     on_history: function (groups) {
       renderHistory(groups || []);

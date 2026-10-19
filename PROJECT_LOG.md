@@ -596,3 +596,6 @@ Investigation only (no features enabled, no firewall rules created).
 - Dark title bar (DWM 20/19); memory meter 10s refresh with warn/danger; model name from Lemonade health; activity labels + total time; `actual_v2.png` at 1360×860.
 - Live activity callbacks on `execute_tool_calls` / `run_user_turn`; Stop via cancel flag → KeyboardInterrupt rollback; saved chats in `%LOCALAPPDATA%\MiniAI\chats\`; shortcut script + generated `miniai.ico`.
 - Tests: `scripts/test_app_security.py`.
+
+## 2026-10-19 — App: cancel foreign navigation before it starts; bridge refuses foreign pages; real-app screenshots
+- **Fixed this round:** (1) Native WebView2 `NavigationStarting` cancel + `NewWindowRequested`→`open_external` via `window.native.browser.webview` (keep after-load reload). (2) Every `js_api` method refuses unless current URL is the app index. (3) Tests patch `os.startfile`, assert NavigationStarting cancel log, assert foreign `js_api` refuse. (4) Memory meter needs `psutil` (added to requirements) so GB numbers show. (5) Live activity summary says `Working · N steps` while running; `Worked for …` only when done. (6) Real-app shots `actual_v3_running.png` / `actual_v3_done.png` with Qwen3-30B-A3B (Lemonade load: ctx 8192, `--n-gpu-layers 35` so tools fit VRAM). Sidebar shows only real saved chats (no seeded samples). Desktop shortcut → `pythonw.exe -m app`.
