@@ -1,4 +1,4 @@
-"""Capture app/design/actual_v1.png from the running MiniAI window."""
+"""Capture app/design/actual_v2.png (1360x860) with the design sample conversation."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-OUT = PROJECT_ROOT / "app" / "design" / "actual_v1.png"
+OUT = PROJECT_ROOT / "app" / "design" / "actual_v2.png"
 INDEX = PROJECT_ROOT / "app" / "ui" / "index.html"
 
 
@@ -19,7 +19,6 @@ def main() -> int:
     def _seed_and_shot():
         time.sleep(2.0)
         win = webview.windows[0]
-        # Seed a conversation resembling the design mock.
         win.evaluate_js(
             """
             (function(){
@@ -32,29 +31,48 @@ def main() -> int:
                 runner: 'Isolated runner · offline',
                 tainted: true,
                 memory_pct: 84,
-                memory_label: '19.8 / 23.6 GB'
+                memory_label: '19.8 / 23.6 GB',
+                memory_level: 'warn'
               });
+              window.miniai.on_history([
+                {section:'Today', items:[
+                  {id:'1', title:'Latest Python version'},
+                  {id:'2', title:'Summarise my notes on ATP'}
+                ]},
+                {section:'Yesterday', items:[
+                  {id:'3', title:'Fix the flaky login test'}
+                ]}
+              ]);
               const u = document.createElement('div');
               u.className = 'msg-user';
               u.textContent = "What's the latest stable version of Python? Cite your source.";
               t.appendChild(u);
-              window.miniai.on_tools([
-                {name: 'Researched the web · read 4 pages', t: '14.2s'},
-                {name: 'Wrote the answer', t: '1m 28s'}
-              ]);
+              window.miniai.on_activity({
+                steps: [
+                  {name: 'Researched the web', t: '14.2s', running: false},
+                  {name: 'Wrote the answer', t: '1m 28s', running: false}
+                ],
+                total: '1m 42s',
+                waiting: false,
+                running: false
+              });
               window.miniai.on_answer({
                 text: 'The latest stable version is **Python 3.15.0**, released on **9 October 2026**.',
                 sources: [
                   {label: 'python.org/downloads', url: 'https://www.python.org/downloads/'},
                   {label: 'devguide.python.org/versions', url: 'https://devguide.python.org/versions/'}
                 ],
-                tainted: true
+                tainted: true,
+                steps: [
+                  {name: 'Researched the web', t: '14.2s'},
+                  {name: 'Wrote the answer', t: '1m 28s'}
+                ],
+                total: '1m 42s'
               });
             })();
             """
         )
         time.sleep(0.8)
-        # Grab the window client area via Win32 PrintWindow / BitBlt.
         try:
             import ctypes
             from ctypes import wintypes
@@ -71,9 +89,7 @@ def main() -> int:
             mem = gdi32.CreateCompatibleDC(hdc)
             bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
             gdi32.SelectObject(mem, bmp)
-            # PW_RENDERFULLCONTENT = 2
             user32.PrintWindow(hwnd, mem, 2)
-            # Save via PIL if available, else BMP write
             try:
                 from PIL import Image
 
@@ -110,7 +126,6 @@ def main() -> int:
                 user32.ReleaseDC(hwnd, hdc)
         except Exception as exc:
             seeded["err"] = str(exc)
-            # Fallback: full-screen grab
             try:
                 from PIL import ImageGrab
 
@@ -126,8 +141,8 @@ def main() -> int:
     webview.create_window(
         "MiniAI",
         INDEX.as_uri(),
-        width=1100,
-        height=720,
+        width=1360,
+        height=860,
         min_size=(900, 600),
         background_color="#0D0E11",
     )

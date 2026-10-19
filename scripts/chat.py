@@ -121,7 +121,13 @@ def _assistant_tool_calls_matched(history: list[ChatMessage]) -> bool:
     return not pending
 
 
-def run_user_turn(session: ChatSession, user_text: str) -> str:
+def run_user_turn(
+    session: ChatSession,
+    user_text: str,
+    on_tool_start=None,
+    on_tool_end=None,
+    cancel_check=None,
+) -> str:
     """Append one user message, run tools, append cleaned final answer.
 
     On KeyboardInterrupt, truncates history to its pre-turn length and
@@ -139,6 +145,9 @@ def run_user_turn(session: ChatSession, user_text: str) -> str:
             session.history,
             session.guard,
             session.transcript,
+            on_tool_start=on_tool_start,
+            on_tool_end=on_tool_end,
+            cancel_check=cancel_check,
         )
         session.history.append(
             ChatMessage(role="assistant", content=response.content or "")

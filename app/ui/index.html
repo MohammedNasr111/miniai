@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <title>MiniAI</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -11,13 +12,10 @@
 <aside class="sidebar">
   <div class="brand"><div class="logo">M</div><b>MiniAI</b><span>local</span></div>
   <button class="new-chat" id="btn-new-chat" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New chat<kbd>Ctrl N</kbd></button>
-  <div class="section-label">Today</div>
-  <div class="history" id="history-list">
-    <button class="chat-item active" type="button">New chat</button>
-  </div>
+  <div class="history" id="history-list"></div>
   <div class="sys">
     <div class="sys-row"><span class="dot" id="model-dot"></span><span id="model-status">Model · …</span></div>
-    <div class="sys-row">Memory <div class="meter"><i id="mem-meter" style="width:0%"></i></div> <span id="mem-label">—</span></div>
+    <div class="sys-row">Memory <div class="meter"><i id="mem-meter"></i></div> <span id="mem-label">—</span></div>
   </div>
 </aside>
 
@@ -42,6 +40,10 @@
     <div class="hint"><span>Runs on this PC · only web research goes online</span><span>Enter to send · Shift+Enter new line</span></div>
   </div>
 </main>
+
+<nav id="ctx-menu" class="ctx-menu" hidden>
+  <button type="button" id="ctx-delete">Delete chat</button>
+</nav>
 
 <script src="app.js"></script>
 </body>

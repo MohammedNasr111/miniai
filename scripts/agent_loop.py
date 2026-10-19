@@ -438,7 +438,15 @@ def _tool_call_name(tool_call) -> str:
     return getattr(tool_call, "name", "") or ""
 
 
-def run_tool_rounds(provider, history, guard, transcript=None):
+def run_tool_rounds(
+    provider,
+    history,
+    guard,
+    transcript=None,
+    on_tool_start=None,
+    on_tool_end=None,
+    cancel_check=None,
+):
     """Run tool rounds until the model answers or the round cap is hit.
 
     history and guard are updated in place so a caller can append another
@@ -448,14 +456,22 @@ def run_tool_rounds(provider, history, guard, transcript=None):
 
     Default round cap is 5. If any coding tool (ws_*, run_*, install_package,
     workspace_*) is used this turn, the cap becomes 10.
+
+    Optional on_tool_start / on_tool_end / cancel_check support the app UI
+    (live activity + Stop). cancel_check raising KeyboardInterrupt rolls
+    the turn back in run_user_turn.
     """
     from tools.code.workspace_tools import CODING_TOOLS
 
     _register_user_urls(history)
+    if cancel_check is not None and cancel_check():
+        raise KeyboardInterrupt()
     response = _call_model(provider, history, transcript)
     rounds = 0
     max_rounds = 5
     while response.tool_calls and rounds < max_rounds:
+        if cancel_check is not None and cancel_check():
+            raise KeyboardInterrupt()
         if any(_tool_call_name(tc) in CODING_TOOLS for tc in response.tool_calls):
             max_rounds = 10
         history.append(
@@ -466,11 +482,18 @@ def run_tool_rounds(provider, history, guard, transcript=None):
             )
         )
         tool_messages = execute_tool_calls(
-            response.tool_calls, guard=guard, transcript=transcript
+            response.tool_calls,
+            guard=guard,
+            transcript=transcript,
+            on_tool_start=on_tool_start,
+            on_tool_end=on_tool_end,
+            cancel_check=cancel_check,
         )
         for message in tool_messages:
             append_evidence(message.content or "")
         history.extend(tool_messages)
+        if cancel_check is not None and cancel_check():
+            raise KeyboardInterrupt()
         response = _call_model(provider, history, transcript)
         rounds += 1
     cap = bool(response.tool_calls)

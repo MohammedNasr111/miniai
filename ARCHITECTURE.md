@@ -401,6 +401,33 @@ improvement.
   made clickable.
 - History list and Stop are visual-only in 11a (wired in 11b).
 
+## Stage 11b — app lockdown, design finish, core features (done)
+- **Navigation lock:** the webview may only show `app/ui/index.html`.
+  Link clicks are intercepted in `app.js` (delegated `preventDefault`) and
+  handed to `js_api.open_external(url)`, which allows only `^https?://` and
+  opens them with `os.startfile`. `webview.settings['OPEN_EXTERNAL_LINKS_IN_BROWSER']`
+  is `False`. On every `loaded` event, any other URL is logged and replaced
+  with the index.
+- **Approval nonces:** each approval request includes a random 128-bit id
+  (`secrets.token_hex(16)`). `approval_reply(id, value)` is accepted only
+  when `id` matches the single pending request; wrong/stale ids are ignored
+  and logged.
+- **CSP:** `index.html` ships
+  `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;
+  connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'`
+  with no inline script/style.
+- **Design:** dark title bar via `DwmSetWindowAttribute` (20 / fallback 19);
+  memory meter every 10s (amber >80%, red >92%); model label from Lemonade
+  `/health` loaded LLM; activity line `Worked for … · N steps` with friendly
+  tool names; hint line visible at 900×600+.
+- **Features:** live activity steps + in-place approval cards; Stop cancels
+  like Ctrl+C (history rolled back, system note); saved chats as JSON under
+  `%LOCALAPPDATA%\MiniAI\chats\` (user text, final answers, sources,
+  timestamps — not raw tool results; taint/browser never restored); sidebar
+  Today/Yesterday/Earlier; right-click Delete → Recycle Bin; Ctrl+N / Enter /
+  Shift+Enter / Esc; Desktop shortcut via `scripts/make_shortcut.ps1`
+  (`pythonw -m app`, custom `.ico`).
+
 ## Roadmap
 Stage 0: environment setup (done)
 Stage 1: Lemonade installed + one model running, verified (done)
@@ -414,7 +441,7 @@ Stage 7.5: interactive chat (done)
 Stage 8: computer control (in progress - 8a read-only done, 8b actions done)
 Stage 9: coding agent (in progress - 9a runner + 9b coding loop done)
 Stage 10: evaluation (done)
-Stage 11: app UI (in progress - 11a approver + window done)
+Stage 11: app UI (in progress - 11a/11b done)
 
 ## Not building yet
 Voice, vision/screenshot understanding, scheduled tasks, email/calendar

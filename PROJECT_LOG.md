@@ -590,3 +590,9 @@ Investigation only (no features enabled, no firewall rules created).
 - App: `python -m app` with **pywebview==5.4** / Edge **WebView2 155.0.4283.62**; no HTTP server. UI from `app/design/miniai_design.html` into `app/ui/`. WebviewApprover shows yes/no and typed cards; agent on a background thread; markdown answers escaped (no raw HTML).
 - Tests: `scripts/test_approver_app.py` (scripted typed, XSS, grep no stray `input(`, launch); live mitochondria + `create_file` via card (`LIVE_OK=True`); screenshot `app/design/actual_v1.png`.
 - Fix: WebviewApprover must not hold its lock across `Event.wait` (deadlocked poll/resolve). js_api is a thin `_JsApi` (no `window` attribute). JS polls `poll_approval` for cross-thread delivery.
+
+## 2026-10-19 — Stage 11b: app lockdown, design finish, core features
+- Navigation lock (index-only + `open_external` https?/http only); approval nonces; CSP meta with no inline script/style.
+- Dark title bar (DWM 20/19); memory meter 10s refresh with warn/danger; model name from Lemonade health; activity labels + total time; `actual_v2.png` at 1360×860.
+- Live activity callbacks on `execute_tool_calls` / `run_user_turn`; Stop via cancel flag → KeyboardInterrupt rollback; saved chats in `%LOCALAPPDATA%\MiniAI\chats\`; shortcut script + generated `miniai.ico`.
+- Tests: `scripts/test_app_security.py`.

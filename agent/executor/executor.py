@@ -108,10 +108,15 @@ def execute_tool_calls(
     tool_calls: list[dict[str, Any]],
     guard: Optional[CallGuard] = None,
     transcript: Optional[Transcript] = None,
+    on_tool_start: Optional[Any] = None,
+    on_tool_end: Optional[Any] = None,
+    cancel_check: Optional[Any] = None,
 ) -> list[ChatMessage]:
     results = []
     page_changed = False
     for call in tool_calls:
+        if cancel_check is not None and cancel_check():
+            raise KeyboardInterrupt()
         started = time.perf_counter()
         name = call["function"]["name"]
         call_id = call["id"]
@@ -121,10 +126,25 @@ def execute_tool_calls(
         except json.JSONDecodeError:
             args = raw_args
         print(f"\n[TOOL CALL] {name}({args})")
+        if on_tool_start is not None:
+            try:
+                on_tool_start(name, args)
+            except Exception:
+                pass
+        def _end(outcome_name: str) -> None:
+            if on_tool_end is not None:
+                try:
+                    on_tool_end(
+                        name, time.perf_counter() - started, outcome_name
+                    )
+                except Exception:
+                    pass
+
         if page_changed and name in _STALE_REF_TOOLS:
             content = _stale_ref_message(name, args)
             print(f"[TOOL RESULT] {content[:200]}")
             _log_tool(transcript, name, args, content, "skipped", started)
+            _end("skipped")
             results.append(
                 ChatMessage(role="tool", content=content, tool_call_id=call_id)
             )
@@ -134,6 +154,7 @@ def execute_tool_calls(
             if blocked is not None:
                 print(f"[TOOL RESULT] {blocked[:200]}")
                 _log_tool(transcript, name, args, blocked, "blocked", started)
+                _end("blocked")
                 results.append(
                     ChatMessage(role="tool", content=blocked, tool_call_id=call_id)
                 )
@@ -178,6 +199,11 @@ def execute_tool_calls(
         _flush_browser_side_effects(name, content, guard, transcript)
         print(f"[TOOL RESULT] {content[:200]}")
         _log_tool(transcript, name, args, content, outcome, started)
+        if on_tool_end is not None:
+            try:
+                on_tool_end(name, time.perf_counter() - started, outcome)
+            except Exception:
+                pass
         results.append(
             ChatMessage(role="tool", content=content, tool_call_id=call_id)
         )
