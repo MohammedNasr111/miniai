@@ -46,6 +46,8 @@ class EvalContext:
     prompt_tokens: int = 0
     wall_s: float = 0.0
     mode: str = "live"  # live | offline
+    # Infrastructure retries after Lemonade/server errors (not task-logic retries).
+    infra_retries: int = 0
 
 
 def _resolve_callable(dotted: str) -> Callable:
@@ -152,7 +154,21 @@ def _wait_for_lemonade(timeout_s: float = 180.0) -> None:
     raise RuntimeError(f"Lemonade not ready after {timeout_s}s: {last_err}")
 
 
+def _is_server_error(exc: BaseException) -> bool:
+    text = f"{type(exc).__name__}: {exc}"
+    return (
+        "500" in text
+        or "502" in text
+        or "503" in text
+        or "backend_watchdog" in text
+        or "ReadTimeout" in text
+        or "ConnectionError" in text
+    )
+
+
 def _run_live_task(task: dict[str, Any], ctx: EvalContext) -> None:
+    import requests
+
     from tests.support import answer_by_action
 
     from llm.lemonade.provider import LemonadeProvider
@@ -160,11 +176,6 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext) -> None:
     from security.gate import reset_session
     from tools.browser.browser_tools import close_session
 
-    _wait_for_lemonade()
-    reset_session()
-    close_session()
-    provider = LemonadeProvider()
-    session = new_session(provider)
     mapping = dict(task.get("answer_by_action") or {})
     prompts = task.get("prompts") or []
     if isinstance(prompts, str):
@@ -176,27 +187,48 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext) -> None:
             rendered.append(str(prompt).format(**ctx.state))
         except Exception:
             rendered.append(str(prompt))
+
+    max_attempts = 3
+    last_exc: Optional[BaseException] = None
     started = time.perf_counter()
-    try:
-        with answer_by_action(mapping, default="no") as prompt_log:
-            for prompt in rendered:
-                answer = run_user_turn(session, prompt)
-                ctx.answers.append(answer or "")
-            ctx.prompt_log = list(prompt_log)
-    finally:
-        ctx.wall_s = time.perf_counter() - started
-        if session.transcript is not None:
-            ctx.transcript_path = Path(session.transcript.path)
-            ctx.model_calls, ctx.prompt_tokens = _count_transcript_stats(
-                ctx.transcript_path
-            )
-            # Prefer transcript's own last_prompt_tokens if present
-            if session.last_prompt_tokens:
-                ctx.prompt_tokens = max(
-                    ctx.prompt_tokens, int(session.last_prompt_tokens)
-                )
-        end_session(session)
+    for attempt in range(max_attempts):
+        if attempt > 0:
+            ctx.infra_retries += 1
+            time.sleep(5)
+        _wait_for_lemonade()
+        reset_session()
         close_session()
+        provider = LemonadeProvider()
+        session = new_session(provider)
+        ctx.answers = []
+        try:
+            with answer_by_action(mapping, default="no") as prompt_log:
+                for prompt in rendered:
+                    answer = run_user_turn(session, prompt)
+                    ctx.answers.append(answer or "")
+                ctx.prompt_log = list(prompt_log)
+            last_exc = None
+            break
+        except (requests.HTTPError, requests.Timeout, requests.ConnectionError) as exc:
+            last_exc = exc
+            if not _is_server_error(exc) or attempt + 1 >= max_attempts:
+                raise
+            print(f"[eval] server error on {ctx.task_id}; retrying ({attempt+1})")
+        finally:
+            if session.transcript is not None:
+                ctx.transcript_path = Path(session.transcript.path)
+                ctx.model_calls, ctx.prompt_tokens = _count_transcript_stats(
+                    ctx.transcript_path
+                )
+                if session.last_prompt_tokens:
+                    ctx.prompt_tokens = max(
+                        ctx.prompt_tokens, int(session.last_prompt_tokens)
+                    )
+            end_session(session)
+            close_session()
+    ctx.wall_s = time.perf_counter() - started
+    if last_exc is not None:
+        raise last_exc
 
 
 def _run_one(task: dict[str, Any]) -> dict[str, Any]:
@@ -266,6 +298,7 @@ def _run_one(task: dict[str, Any]) -> dict[str, Any]:
         "wall_s": round(ctx.wall_s, 3),
         "model_calls": ctx.model_calls,
         "prompt_tokens": ctx.prompt_tokens,
+        "infra_retries": int(ctx.infra_retries),
         "answers": ctx.answers,
         "error": err_tb,
     }
@@ -343,11 +376,27 @@ def _write_report(
     lines.extend(["", "## Per task", ""])
     for r in results:
         status = "PASS" if r["pass"] else "FAIL"
+        retries = int(r.get("infra_retries") or 0)
+        retry_note = (
+            f"; retried after server error: {retries}" if retries else ""
+        )
         lines.append(
             f"- **{status}** `{r['id']}` ({r['ability']}) "
-            f"{r['wall_s']}s calls={r['model_calls']} tokens={r['prompt_tokens']}: "
-            f"{r['reason']}"
+            f"{r['wall_s']}s calls={r['model_calls']} tokens={r['prompt_tokens']}"
+            f"{retry_note}: {r['reason']}"
         )
+    retried = [
+        r for r in results if int(r.get("infra_retries") or 0) > 0
+    ]
+    lines.extend(["", "## Stability", ""])
+    if not retried:
+        lines.append("- (no infrastructure retries)")
+    else:
+        for r in retried:
+            n = int(r.get("infra_retries") or 0)
+            lines.append(
+                f"- `{r['id']}`: retried after server error: {n}"
+            )
     if drops:
         lines.extend(["", "## Baseline drops", ""])
         for d in drops:
@@ -410,6 +459,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         merged["wall_s"] = round(sum(x["wall_s"] for x in runs) / len(runs), 3)
         merged["model_calls"] = sum(x["model_calls"] for x in runs)
         merged["prompt_tokens"] = sum(x["prompt_tokens"] for x in runs)
+        merged["infra_retries"] = sum(int(x.get("infra_retries") or 0) for x in runs)
         if not merged["pass"]:
             fails = [x["reason"] for x in runs if not x["pass"]]
             merged["reason"] = fails[0] if fails else merged["reason"]

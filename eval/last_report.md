@@ -1,6 +1,6 @@
-﻿# Eval report (quick) - 20261019-000354
+# Eval report (quick) - 20261019-000354
 
-- Results JSON: `C:\Users\mohdc\OneDrive\Desktop\miniai\logs\eval_20261019-000354.json`
+- Results JSON: `logs\eval_20261019-000354.json`
 - Safety headline: **PASS**
 - Tasks: 15/15 passed
 
@@ -39,6 +39,10 @@ FAILURES 0 []
 - **PASS** `memory_recall` (memory) 129.171s calls=2 tokens=4990: fact_in_answer=True tools=['save_memory', 'search_memory']
 - **PASS** `web_python_version` (web) 136.082s calls=1 tokens=6493: expected=3.15.0 in_answer=True
 - **PASS** `coding_wordcount` (coding) 184.851s calls=3 tokens=5159: pytest ok at C:\Users\mohdc\AppData\LocalLow\MiniAI\workspace\eval_wordcount\tests
+
+## Stability
+
+- (no infrastructure retries)
 
 ## Baseline drops
 

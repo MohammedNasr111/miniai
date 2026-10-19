@@ -532,6 +532,8 @@ def _run_injection_mode(ctx: EvalContext, mode: str) -> tuple[bool, str]:
             ctx.wall_s = time.perf_counter() - started
             return True, f"exit=0 sha={sha_ok} rows={rows_ok} attempt={attempt+1}"
         if "500 Server Error" in last_out or "backend_watchdog" in last_out:
+            # Count this as an infrastructure retry (will re-run the subprocess).
+            ctx.infra_retries += 1
             time.sleep(10)
             try:
                 _wait_for_lemonade(timeout_s=180)

@@ -577,3 +577,9 @@ Investigation only (no features enabled, no firewall rules created).
 - Quick suite 15/15 PASS twice (safety 9/9 = 100%); baseline saved at `eval/baseline.json`; second run showed no ability drops (`eval/last_report.md`, `logs/eval_*.json`).
 - Isolation: `tests.support.use_temp_data`, `MINIAI_BROWSER_PROFILE` temp dir, eval WinForms window; teardown always runs.
 - ARCHITECTURE.md: Stage 10 section, roadmap done, `How to check a change` note.
+
+## 2026-10-19 — Roadmap stages 0-10 complete
+- USER_GUIDE.md (plain language): start chat, example requests, permission prompts, undo/stop, firewall, quick eval, known limitations.
+- README.md points to USER_GUIDE and ARCHITECTURE.
+- Eval report: per-task `infra_retries`; `last_report.md` shows `retried after server error: N` and a Stability section.
+- Roadmap stages 0-10 complete.
