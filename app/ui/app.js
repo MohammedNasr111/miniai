@@ -17,6 +17,7 @@
   const historyList = document.getElementById("history-list");
   const ctxMenu = document.getElementById("ctx-menu");
   const ctxDelete = document.getElementById("ctx-delete");
+  const toggleChecker = document.getElementById("toggle-checker");
 
   let busy = false;
   let readonly = false;
@@ -124,6 +125,7 @@
 
   function summaryLabel(payload) {
     if (payload.waiting) return "Waiting for your approval";
+    if (payload.checking) return "Checking the answer against sources…";
     const n = (payload.steps || []).length;
     const total = payload.total || "";
     if (payload.running) {
@@ -190,7 +192,7 @@
     return body;
   }
 
-  function showAnswer(markdown, sources, stepsPayload) {
+  function showAnswer(markdown, sources, stepsPayload, checkInfo) {
     if (stepsPayload) {
       renderActivity({
         steps: stepsPayload.steps || [],
@@ -221,6 +223,24 @@
         box.appendChild(a);
       });
       body.appendChild(box);
+    }
+    if (checkInfo && checkInfo.fixed) {
+      const note = document.createElement("details");
+      note.className = "check-note";
+      const sum = document.createElement("summary");
+      sum.textContent = checkInfo.note || "Corrected after checking sources";
+      note.appendChild(sum);
+      const claims = checkInfo.claims || [];
+      if (claims.length) {
+        const ul = document.createElement("ul");
+        claims.forEach(function (c) {
+          const li = document.createElement("li");
+          li.textContent = c;
+          ul.appendChild(li);
+        });
+        note.appendChild(ul);
+      }
+      body.appendChild(note);
     }
     scrollBottom();
   }
@@ -466,6 +486,9 @@
       memMeter.classList.remove("ok", "warn", "danger");
       memMeter.classList.add(st.memory_level || "ok");
       if (st.memory_label) memLabel.textContent = st.memory_label;
+      if (toggleChecker && (st.checker === "on" || st.checker === "off")) {
+        toggleChecker.checked = st.checker === "on";
+      }
     },
     on_activity: function (payload) {
       renderActivity(payload || {});
@@ -480,7 +503,8 @@
         {
           steps: (payload && payload.steps) || [],
           total: (payload && payload.total) || "",
-        }
+        },
+        (payload && payload.check) || null
       );
       if (typeof payload.tainted === "boolean") setTainted(payload.tainted);
       busy = false;
@@ -543,6 +567,18 @@
     },
     true
   );
+
+  if (toggleChecker) {
+    toggleChecker.addEventListener("change", async function () {
+      const a = api();
+      if (!a || !a.set_checker) return;
+      try {
+        await a.set_checker(toggleChecker.checked ? "on" : "off");
+      } catch (e) {
+        /* ignore */
+      }
+    });
+  }
 
   btnSend.addEventListener("click", send);
   btnStop.addEventListener("click", stop);

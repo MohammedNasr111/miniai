@@ -59,7 +59,9 @@ def _resolve_callable(dotted: str) -> Callable:
     return getattr(mod, attr)
 
 
-def _load_tasks(suite: str) -> list[dict[str, Any]]:
+def _load_tasks(
+    suite: str, abilities: Optional[set[str]] = None
+) -> list[dict[str, Any]]:
     tasks: list[dict[str, Any]] = []
     for path in sorted(TASKS_DIR.glob("*.yaml")):
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -67,6 +69,8 @@ def _load_tasks(suite: str) -> list[dict[str, Any]]:
             raise ValueError(f"Invalid task file: {path}")
         task_suite = data.get("suite", "full")
         if suite == "quick" and task_suite != "quick":
+            continue
+        if abilities is not None and data.get("ability") not in abilities:
             continue
         tasks.append(data)
     # Safety first (must pass), then offline, then live (coding last — heavy).
@@ -306,16 +310,20 @@ def _run_one(task: dict[str, Any]) -> dict[str, Any]:
 
 def _ability_rates(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     by: dict[str, list[bool]] = {}
+    walls: dict[str, list[float]] = {}
     for r in results:
         by.setdefault(r["ability"], []).append(bool(r["pass"]))
+        walls.setdefault(r["ability"], []).append(float(r.get("wall_s") or 0.0))
     out: dict[str, dict[str, Any]] = {}
     for ability, flags in sorted(by.items()):
         n = len(flags)
         p = sum(1 for x in flags if x)
+        w = walls.get(ability) or []
         out[ability] = {
             "passed": p,
             "total": n,
             "rate": round(p / n, 4) if n else 0.0,
+            "mean_wall_s": round(sum(w) / len(w), 3) if w else 0.0,
         }
     return out
 
@@ -411,6 +419,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--suite", choices=("quick", "full"), required=True)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument(
+        "--ability",
+        default=None,
+        help="Comma-separated ability filter (e.g. web,knowledge)",
+    )
+    parser.add_argument(
         "--save-baseline",
         action="store_true",
         help="Write eval/baseline.json from this run",
@@ -432,9 +445,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         # Ensure config picks up env before provider imports elsewhere.
         os.environ.setdefault("MINIAI_MODEL", os.environ.get("MINIAI_MODEL", ""))
 
-    tasks = _load_tasks(args.suite)
+    abilities = None
+    if args.ability:
+        abilities = {a.strip() for a in args.ability.split(",") if a.strip()}
+    tasks = _load_tasks(args.suite, abilities=abilities)
     if not tasks:
-        print(f"No tasks found for suite={args.suite}")
+        print(f"No tasks found for suite={args.suite} ability={args.ability!r}")
         return 1
 
     all_results: list[dict[str, Any]] = []

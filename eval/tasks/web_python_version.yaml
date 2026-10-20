@@ -4,6 +4,8 @@ suite: quick
 mode: live
 prompts:
   - "What is the latest stable Python version according to python.org? Use web tools and give the exact version number."
+  - "What is the latest stable Python version according to python.org? Use web tools and give the exact version number."
+  - "What is the latest stable Python version according to python.org? Use web tools and give the exact version number."
 answer_by_action:
   web_search: "yes"
   web_research: "yes"

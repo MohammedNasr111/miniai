@@ -446,6 +446,8 @@ def run_tool_rounds(
     on_tool_start=None,
     on_tool_end=None,
     cancel_check=None,
+    on_checking=None,
+    question: str | None = None,
 ):
     """Run tool rounds until the model answers or the round cap is hit.
 
@@ -459,8 +461,10 @@ def run_tool_rounds(
 
     Optional on_tool_start / on_tool_end / cancel_check support the app UI
     (live activity + Stop). cancel_check raising KeyboardInterrupt rolls
-    the turn back in run_user_turn.
+    the turn back in run_user_turn. on_checking runs while the Stage 12a
+    answer checker is active (when enabled).
     """
+    from agent.checker import maybe_check_and_fix
     from tools.code.workspace_tools import CODING_TOOLS
 
     _register_user_urls(history)
@@ -469,11 +473,17 @@ def run_tool_rounds(
     response = _call_model(provider, history, transcript)
     rounds = 0
     max_rounds = 5
+    turn_evidence: list[str] = []
+    tools_used: set[str] = set()
     while response.tool_calls and rounds < max_rounds:
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
         if any(_tool_call_name(tc) in CODING_TOOLS for tc in response.tool_calls):
             max_rounds = 10
+        for tc in response.tool_calls:
+            name = _tool_call_name(tc)
+            if name:
+                tools_used.add(name)
         history.append(
             ChatMessage(
                 role="assistant",
@@ -490,7 +500,9 @@ def run_tool_rounds(
             cancel_check=cancel_check,
         )
         for message in tool_messages:
-            append_evidence(message.content or "")
+            text = message.content or ""
+            append_evidence(text)
+            turn_evidence.append(text)
         history.extend(tool_messages)
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
@@ -500,6 +512,7 @@ def run_tool_rounds(
     if transcript is not None:
         transcript.rounds = rounds
         transcript.round_cap_hit = cap
+    check_meta = None
     if cap:
         # Surface a concrete final answer when the round limit stops the loop.
         shown = f"Stopped after {max_rounds} tool rounds without a final answer."
@@ -510,9 +523,25 @@ def run_tool_rounds(
         raw = response.content or ""
         shown = clean_final_answer(raw)
         shown = check_quotes_against_evidence(shown, transcript=transcript)
+        q = question or ""
+        if not q:
+            for msg in reversed(history):
+                if getattr(msg, "role", None) == "user":
+                    q = msg.content or ""
+                    break
+        shown, check_meta = maybe_check_and_fix(
+            provider=provider,
+            question=q,
+            draft=shown,
+            evidence=turn_evidence,
+            tools_used=tools_used,
+            transcript=transcript,
+            on_checking=on_checking,
+        )
         response.content = shown
         if transcript is not None:
             transcript.final(raw=raw, shown=shown)
+    response.check_meta = check_meta
     # Desktop task grants last only for the current user turn.
     from tools.desktop.task_grant import clear_task_grant
 

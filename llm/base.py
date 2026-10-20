@@ -24,6 +24,8 @@ class ChatResponse(BaseModel):
     finish_reason: Optional[str] = None
     tool_calls: Optional[list[dict[str, Any]]] = None
     raw: dict[str, Any] = {}
+    # Stage 12a answer-checker metadata (set by agent_loop, not the provider).
+    check_meta: Optional[dict[str, Any]] = None
 
 
 class LLMProvider(ABC):

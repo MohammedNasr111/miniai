@@ -4,6 +4,8 @@ suite: full
 mode: live
 prompts:
   - "What do mitochondria produce? Use web research if needed and name the molecule."
+  - "What do mitochondria produce? Use web research if needed and name the molecule."
+  - "What do mitochondria produce? Use web research if needed and name the molecule."
 answer_by_action:
   web_search: "yes"
   web_research: "yes"

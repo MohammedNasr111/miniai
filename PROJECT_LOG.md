@@ -599,3 +599,19 @@ Investigation only (no features enabled, no firewall rules created).
 
 ## 2026-10-19 — App: cancel foreign navigation before it starts; bridge refuses foreign pages; real-app screenshots
 - **Fixed this round:** (1) Native WebView2 `NavigationStarting` cancel + `NewWindowRequested`→`open_external` via `window.native.browser.webview` (keep after-load reload). (2) Every `js_api` method refuses unless current URL is the app index. (3) Tests patch `os.startfile`, assert NavigationStarting cancel log, assert foreign `js_api` refuse. (4) Memory meter needs `psutil` (added to requirements) so GB numbers show. (5) Live activity summary says `Working · N steps` while running; `Worked for …` only when done. (6) Real-app shots `actual_v3_running.png` / `actual_v3_done.png` with Qwen3-30B-A3B (Lemonade load: ctx 8192, `--n-gpu-layers 35` so tools fit VRAM). Sidebar shows only real saved chats (no seeded samples). Desktop shortcut → `pythonw.exe -m app`.
+
+## 2026-10-21 — Stage 12a: answer checker (draft → check → fix); default OFF pending measurement
+- `agent/checker.py`: `check_answer` / `rewrite_answer` / `maybe_check_and_fix`. Runs only when the turn used an evidence tool; evidence trimmed to ~6K tokens; one model call (thinking ON, no tools, JSON); quotes verified word-for-word via `normalize_for_quote_check` (bad quotes → unsupported); bad JSON → verdict `ok` (logged, never blocks). At most one rewrite on contradicted claims.
+- Wired in `scripts/agent_loop.py` + `scripts/chat.py` (`last_check` / `ChatResponse.check_meta`). Settings: `CHECKER` / `MINIAI_CHECKER` default `off`. App toggle “Double-check answers” in sidebar footer (`%LOCALAPPDATA%\MiniAI\app.json`); activity “Checking the answer against sources…”; note “Corrected after checking sources” when a fix ran.
+- Offline: `scripts/test_checker.py` a–d FAILURES=0 (real evidence from `logs/agent_20261019-235413_11344.log`).
+- Eval: `web_python_version_x5`; knowledge/web tasks with 3 identical prompts; `--ability web,knowledge`; `python -m eval.run --suite full --ability web,knowledge --repeat 5` with `MINIAI_CHECKER=off` then `=on`. Default left **off**.
+- Measure (raw task×repeat runs; JSON `logs/eval_20261020-221719.json` off, `logs/eval_20261021-024852.json` on):
+
+| Ability | CHECKER | Pass rate | Mean wall (s) |
+|---|---|---|---|
+| knowledge | off | 5/5 (1.00) | 336.622 |
+| knowledge | on | 5/5 (1.00) | 691.774 |
+| web | off | 15/15 (1.00) | 508.097 |
+| web | on | 15/15 (1.00) | 852.285 |
+
+- Checker adds ~2× wall time with no pass-rate change on these tasks. Full code review dump: `logs/review_20261021-0249_stage12a_checker.log`.

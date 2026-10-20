@@ -228,6 +228,7 @@ class AppBridge:
         return configured
 
     def push_status(self) -> None:
+        from app.prefs import get_checker_pref
         from security.gate import is_tainted
         from tools.code.runner import firewall_rule_status
 
@@ -270,6 +271,7 @@ class AppBridge:
                 "memory_pct": mem_pct,
                 "memory_label": mem_label,
                 "memory_level": mem_level,
+                "checker": get_checker_pref(),
             },
         )
 
@@ -422,12 +424,41 @@ class AppBridge:
                 {"steps": [], "waiting": False, "total": "0s", "running": True},
             )
 
+            def _on_checking() -> None:
+                self._call_js(
+                    "on_activity",
+                    {
+                        "steps": [
+                            {
+                                "name": s["name"],
+                                "t": s.get("t") or "",
+                                "running": False,
+                            }
+                            for s in self._turn_steps
+                        ]
+                        + [
+                            {
+                                "name": "Checking the answer against sources…",
+                                "t": "",
+                                "running": True,
+                            }
+                        ],
+                        "waiting": False,
+                        "total": format_duration(
+                            time.perf_counter() - self._turn_t0
+                        ),
+                        "running": True,
+                        "checking": True,
+                    },
+                )
+
             answer = run_user_turn(
                 self._session,
                 text,
                 on_tool_start=self._on_tool_start,
                 on_tool_end=self._on_tool_end,
                 cancel_check=self.is_cancelled,
+                on_checking=_on_checking,
             )
             total = format_duration(time.perf_counter() - self._turn_t0)
             steps = [
@@ -442,6 +473,19 @@ class AppBridge:
             ]
             sources = _extract_sources(answer or "")
             append_message(self._chat_doc, "assistant", answer or "", sources)
+            check_meta = getattr(self._session, "last_check", None)
+            check_payload = None
+            if isinstance(check_meta, dict) and check_meta.get("fixed"):
+                changed = [
+                    c.get("claim") or ""
+                    for c in (check_meta.get("claims") or [])
+                    if c.get("status") == "contradicted"
+                ]
+                check_payload = {
+                    "fixed": True,
+                    "note": "Corrected after checking sources",
+                    "claims": changed,
+                }
             self._call_js(
                 "on_answer",
                 {
@@ -450,6 +494,7 @@ class AppBridge:
                     "tainted": is_tainted(),
                     "steps": steps,
                     "total": total,
+                    "check": check_payload,
                 },
             )
             self._call_js("on_history", self.list_chats())
@@ -561,3 +606,18 @@ class _JsApi:
         if not self._require_index():
             return {"ok": False, "error": "foreign page"}
         return self._bridge.open_external(str(url or ""))
+
+    def get_checker(self) -> str:
+        if not self._require_index():
+            return "off"
+        from app.prefs import get_checker_pref
+
+        return get_checker_pref()
+
+    def set_checker(self, value: str) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
+        from app.prefs import set_checker_pref
+
+        v = set_checker_pref(value)
+        return {"ok": True, "checker": v}

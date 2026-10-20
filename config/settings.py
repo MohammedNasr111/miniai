@@ -26,6 +26,9 @@ ENABLE_THINKING_DEFAULT = False  # per Stage 1 benchmarking decision
 # + synthesis timeout. on_after_tools: thinking off until a tool result is
 # in history, then on (previous default; still available via env).
 THINKING_POLICY = os.environ.get("MINIAI_THINKING_POLICY", "two_pass")
+# Stage 12a answer checker: draft -> check -> fix. Default off until measured.
+_CHECKER_RAW = os.environ.get("MINIAI_CHECKER", "off").strip().lower()
+CHECKER = _CHECKER_RAW if _CHECKER_RAW in ("off", "on") else "off"
 EMBEDDING_MODEL = "nomic-embed-text-v1-GGUF"
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")  # may be None; never print or log this
 

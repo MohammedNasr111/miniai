@@ -127,6 +127,7 @@ def run_user_turn(
     on_tool_start=None,
     on_tool_end=None,
     cancel_check=None,
+    on_checking=None,
 ) -> str:
     """Append one user message, run tools, append cleaned final answer.
 
@@ -139,6 +140,7 @@ def run_user_turn(
     pre_len = len(session.history)
     remember_urls_from_text(user_text)
     session.history.append(ChatMessage(role="user", content=user_text))
+    session.last_check = None  # type: ignore[attr-defined]
     try:
         response = run_tool_rounds(
             session.provider,
@@ -148,6 +150,8 @@ def run_user_turn(
             on_tool_start=on_tool_start,
             on_tool_end=on_tool_end,
             cancel_check=cancel_check,
+            on_checking=on_checking,
+            question=user_text,
         )
         session.history.append(
             ChatMessage(role="assistant", content=response.content or "")
@@ -155,6 +159,7 @@ def run_user_turn(
         session.turn_count += 1
         if session.transcript is not None:
             session.last_prompt_tokens = session.transcript.last_prompt_tokens
+        session.last_check = getattr(response, "check_meta", None)  # type: ignore[attr-defined]
         answer = response.content or ""
         if (
             session.last_prompt_tokens is not None

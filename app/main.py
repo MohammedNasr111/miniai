@@ -44,6 +44,10 @@ def main() -> int:
     # Only our JS / NewWindowRequested path may open browsers.
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = False
 
+    from app.prefs import apply_prefs_to_settings
+
+    apply_prefs_to_settings()
+
     bridge = AppBridge()
     set_approver(bridge.approver)
     allowed = index_uri()
