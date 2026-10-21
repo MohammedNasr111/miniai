@@ -16,6 +16,7 @@ from tools.web.fetch_tools import download, extract_text, validate_url
 from tools.web.recency import (
     build_recency_note,
     is_recency_question,
+    order_pages_newest_first,
     resolve_page_date,
     source_date_header_line,
     today_date,
@@ -116,6 +117,8 @@ def web_research(question: str, max_sources: int = 4) -> str:
             )
         )
         remember_url(final_url)
+    if is_recency_question(question) and pages:
+        pages = order_pages_newest_first(pages, today=today)
     chosen = _select(question, pages, expand_neighbors=True)
     return _render(question, pages, chosen, skipped, today=today)
 

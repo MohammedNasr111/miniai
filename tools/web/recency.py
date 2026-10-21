@@ -169,6 +169,13 @@ def format_age(page_day: date, *, today: Optional[date] = None) -> str:
     return f"about {months} {unit} before today"
 
 
+def is_older_than_6_months(
+    page_day: date, *, today: Optional[date] = None
+) -> bool:
+    today = today or today_date()
+    return (today - page_day).days > 183
+
+
 def format_page_date_label(
     page_day: Optional[date], *, today: Optional[date] = None
 ) -> str:
@@ -185,10 +192,41 @@ def source_date_header_line(
     *,
     today: Optional[date] = None,
 ) -> str:
+    today = today or today_date()
     domain = domain_of(url)
     label = format_page_date_label(page_day, today=today)
-    return f"[source {source_rank}] {domain} — page date: {label}"
+    line = f"[source {source_rank}] {domain} — page date: {label}"
+    if page_day is not None and is_older_than_6_months(page_day, today=today):
+        line += " (older than 6 months)"
+    return line
 
+
+def newest_first_sort_key(
+    page_day: Optional[date], *, today: Optional[date] = None
+) -> tuple:
+    """Sort key: recent dated (newest first), then unknown, then older dated."""
+    today = today or today_date()
+    if page_day is None:
+        return (1, 0)
+    if is_older_than_6_months(page_day, today=today):
+        return (2, -page_day.toordinal())
+    return (0, -page_day.toordinal())
+
+
+def order_pages_newest_first(
+    pages: list, *, today: Optional[date] = None
+) -> list:
+    """Return pages reordered for latest-type questions; reassign .rank 1..n."""
+    today = today or today_date()
+    ordered = sorted(
+        pages,
+        key=lambda p: newest_first_sort_key(
+            getattr(p, "page_date", None), today=today
+        ),
+    )
+    for i, page in enumerate(ordered, start=1):
+        page.rank = i
+    return ordered
 
 def build_recency_note(
     sources: list[tuple[str, Optional[date]]],

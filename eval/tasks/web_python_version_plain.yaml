@@ -13,4 +13,4 @@ answer_by_action:
   browser_open: "yes"
 setup: setup_web
 teardown: teardown_web
-grader: grade_web_python_version
+grader: grade_web_python_version_plain

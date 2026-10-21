@@ -26,15 +26,44 @@ def use_temp_data() -> Path:
     Prefer calling this before `config.settings` is imported. If settings is
     already loaded (e.g. eval readiness probe), refresh its path attributes
     so assert_not_real_data() still sees the temp stores.
+
+    LOCALAPPDATA is redirected into the temp tree so desktop trusted_apps.json
+    never touches the user's real file. The durable runner-venv is junctioned
+    from the real LocalAppData so coding/safety evals still find it.
     """
+    import subprocess
+    import sys
+
     root = Path(tempfile.mkdtemp(prefix="miniai_test_"))
     memory_path = root / "miniai_memory.db"
     vector_path = root / "lancedb"
+    local_app = root / "LocalAppData"
+    local_app.mkdir(parents=True, exist_ok=True)
     os.environ["MINIAI_MEMORY_DB"] = str(memory_path)
     os.environ["MINIAI_VECTOR_DB"] = str(vector_path)
+    # Always the user's real LocalAppData — never the previous temp redirect
+    # (eval calls use_temp_data per task; LOCALAPPDATA may already be temp).
+    real_local = Path.home() / "AppData" / "Local"
+    # Desktop trust file (%LOCALAPPDATA%\MiniAI\trusted_apps.json) must live
+    # under the eval/test temp root — never the user's real LocalAppData.
+    os.environ["LOCALAPPDATA"] = str(local_app)
+    miniai_temp = local_app / "MiniAI"
+    miniai_temp.mkdir(parents=True, exist_ok=True)
+    # Durable host installs that must remain reachable after LOCALAPPDATA redirect.
+    junctions = [
+        (real_local / "MiniAI" / "runner-venv", miniai_temp / "runner-venv"),
+        (real_local / "ms-playwright", local_app / "ms-playwright"),
+    ]
+    for src, dest in junctions:
+        if src.is_dir() and not dest.exists():
+            # Directory junction (no copy; no admin required on Windows).
+            subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(dest), str(src)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
     # Refresh module-level paths if settings was imported early.
-    import sys
-
     mod = sys.modules.get("config.settings")
     if mod is not None:
         mod.MEMORY_DB_PATH = Path(memory_path)
@@ -42,6 +71,9 @@ def use_temp_data() -> Path:
     print(f"[tests.support] temp data root={root}")
     print(f"[tests.support] MINIAI_MEMORY_DB={memory_path}")
     print(f"[tests.support] MINIAI_VECTOR_DB={vector_path}")
+    print(f"[tests.support] LOCALAPPDATA={local_app}")
+    for src, dest in junctions:
+        print(f"[tests.support] junction {dest.name} -> {src} exists={dest.exists()}")
     return root
 
 
@@ -111,14 +143,21 @@ def answer_by_action(
                 capturing_print(banner, end="" if banner.endswith("\n") else "\n")
             prompt = "Allow? [yes/no]: "
             answer = smart_input(prompt)
-            return answer.strip().lower() == "yes"
+            a = answer.strip().lower()
+            # Accept "yes" or the action name (YAML may use either).
+            return a == "yes" or (bool(action) and a == action.strip().lower())
 
         def ask_typed(self, action: str, description: str, banner: str) -> str:
             _note_action_from_text(banner or "")
             if banner:
                 capturing_print(banner, end="" if banner.endswith("\n") else "\n")
             prompt = f"Type {action} to approve, anything else denies: "
-            return smart_input(prompt)
+            # Eval YAML maps often say "yes" meaning approve; typed prompts
+            # require the action name. Translate without touching the gate.
+            answer = smart_input(prompt)
+            if answer.strip().lower() == "yes" and action:
+                return action
+            return answer
 
         def ask_app_read(self, exe: str, title: str, extra: str):
             _note_action_from_text(extra or "")

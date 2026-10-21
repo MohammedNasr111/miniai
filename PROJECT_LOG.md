@@ -672,3 +672,41 @@ All 12 agent `run_start` events: `"model": "Qwen3-30B-A3B-GGUF"`. JSON: `logs/ev
 ### Quick suite (`--model Qwen3-30B-A3B-GGUF`)
 - Safety **9/9 = 100%**. Per-ability: coding 1/1, counting 1/1, desktop **0/1**, knowledge 1/1, memory 1/1, safety 9/9, web 1/1. Baseline saved with `"model": "Qwen3-30B-A3B-GGUF"` (`eval/baseline.json`). Desktop fail only (read_ok=False); not counted as safety.
 - Offline FAILURES: test_recency 0; test_eval_model_target 0; test_checker 0; test_web_search 0; test_web_research 0; test_app_security 0; test_approver_app 0; test_fetch_url **1** (check 8 permission stdin flake, unrelated to recency).
+
+## 2026-10-22 — Stage 12b-pre2: table headers with rows; newest-first sources; desktop eval fix
+Full diffs + new file + offline stdout: `logs/review_20261022-0136_stage12bpre2.log`.
+
+### Desktop root cause (one paragraph)
+Last passing quick runs used a PowerShell-hosted WinForms `TextBox` and wrote `{"powershell.exe": true}` into whatever `trusted_apps_path()` resolved (`security/app_trust.py` → `%LOCALAPPDATA%\MiniAI\trusted_apps.json`). Stage 12b-pre’s `use_temp_data()` refresh left `LOCALAPPDATA` on the real user path, so that grant landed in the real file — but `powershell.exe` is always in `ACT_BLOCKED_EXECUTABLES`, so `desktop_begin_task` still refused (“not controllable”) and the grader saw `read_ok=False` (`logs/eval_20261021-232601.json`). Fix (test/fixture only, no gate/list changes): redirect `LOCALAPPDATA` into the eval temp root and write trust for `python.exe` there (`tests/support.py` `use_temp_data`; `eval/fixtures.py` `setup_desktop`); host the same WinForms form via pythonnet under `sys.executable` so insert sees `EditControl`; junction real `runner-venv` and `ms-playwright` into the temp LocalAppData so coding/browser safety still find host installs; eval YAML/`answer_by_action` accept typed confirmation (`desktop_begin_task` / `"yes"`→action name). Cleared the leftover real `trusted_apps.json` powershell grant. Nothing elevated; ACT_BLOCKED untouched.
+
+### Table headers + newest-first
+- `tools/filesystem/chunking.py`: pipe tables split with `(table header repeated)` + header + separator on every data-row chunk; header counts toward size; never drop rows. Shared by web_research and knowledge ingest.
+- `tools/web/recency.py` `order_pages_newest_first` + `(older than 6 months)` on dated headers; `research_tools.py` applies only for latest-type questions.
+- Offline: `scripts/test_table_chunks.py` FAILURES=0; `scripts/test_recency.py` FAILURES=0 (includes newest-first ordering).
+
+### Plain grader
+- `grade_web_python_version_plain`: whole-token major.minor (e.g. `3.15`); strict exact version still reported in reason. `web_python_version` unchanged (exact).
+
+### Measure (`--model Qwen3-30B-A3B-GGUF`, checker off, four tasks ×3)
+JSON `logs/eval_20261022-004849.json`. Every agent `run_start` model = `Qwen3-30B-A3B-GGUF`.
+
+| task | passes/3 | mean wall s | previous (12b-pre) |
+|---|---:|---:|---|
+| desktop_read_insert | 3/3 | 69.130 | was 0/1 @ 57.630 (quick) |
+| web_mitochondria | 3/3 | 251.992 | was 3/3 @ 240.299 |
+| web_python_version | 3/3 | 251.818 | was 3/3 @ 216.047 |
+| web_python_version_plain | 1/3 series (0/3 strict) | 296.504 | was 0/3 strict @ 398.752 |
+
+Plain answers per run (3 prompts; series / strict):
+- repeat 1: 3.14, 3.14, 3.14 — series FAIL / strict FAIL
+- repeat 2: 3.14, 3.14, 3.14 — series FAIL / strict FAIL
+- repeat 3: 3.15, 3.16, 3.16 — series PASS / strict FAIL
+
+### Quick suite vs `eval/baseline.json` (same model)
+`logs/eval_20261022-013559.json`. Safety **9/9 = 100%**. All abilities 1/1 including desktop (was 0/1 in baseline). No baseline drops.
+
+### test_fetch_url check 8 ×3
+All 3 PASS (`User denied: fetch_url; requests.get calls=0`). Full `test_fetch_url.py` (stdin yes/no) All checks passed.
+
+### Offline FAILURES
+test_table_chunks 0; test_recency 0; test_eval_model_target 0; test_checker 0; test_fetch_url 0.

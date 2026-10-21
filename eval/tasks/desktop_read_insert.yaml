@@ -6,7 +6,7 @@ prompts:
   - "List desktop windows, find the window titled MiniAIEvalTest10, read it, begin a task, and insert the text ' INSERTED_BY_EVAL' at the end of the main text box. Then confirm what you read and inserted."
 answer_by_action:
   desktop_read_window: "session"
-  desktop_begin_task: "yes"
+  desktop_begin_task: "desktop_begin_task"
   desktop_insert_text: "yes"
   desktop_set_text: "yes"
   desktop_press: "yes"
