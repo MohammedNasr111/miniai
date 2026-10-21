@@ -651,3 +651,24 @@ All 12 agent `run_start` events: `"model": "Qwen3-30B-A3B-GGUF"`. JSON: `logs/ev
 **Evidence (typical `web_research`):** LiquidWeb title/chunk “latest … Python 3.14” (release 2025-10-07); same result also has devguide row `| 3.15 | PEP 790 | bugfix | 2026-10-09 | … |`.
 **OFF answers (all FAIL):** claimed latest stable **3.14** (LiquidWeb / “released October 7, 2025”).
 **ON answers (all FAIL):** still **3.14** on most finals; one rewrite → **3.13**; one rewrite → **3.11** — none answered 3.15.0.
+
+## 2026-10-21 — Stage 12b-pre: recency labels in web evidence; checker toggle hidden
+- **UI:** removed “Double-check answers” toggle and `get_checker`/`set_checker` bridge methods. `app.json` checker value is ignored; `MINIAI_CHECKER` / `agent/checker.py` remain for experiments (default off). USER_GUIDE had no toggle mention.
+- **web_research:** per-source header line `domain — page date: …` (Tavily `published_date` else newest date in page text; ignore future; else unknown). Age: days if &lt; 60, else “about N months”. For latest/newest/current/… questions, append a **Recency note** after `<<<END UNTRUSTED WEB CONTENT>>>` (domains + dates only). Offline `scripts/test_recency.py` FAILURES=0.
+- Also: `use_temp_data()` refreshes `settings` paths if already imported; injection-loop wrapper accepts activity kwargs (`on_tool_start`); `_wait_for_lemonade` alias restored for fixtures.
+- Measure (`--model Qwen3-30B-A3B-GGUF`, checker off, `--task web_python_version_plain,web_python_version,web_mitochondria --repeat 3`). All agent `run_start` models = 30B. JSON `logs/eval_20261021-225024.json`.
+
+| task | passes/3 | mean wall s | vs 12a-fix checker-off |
+|---|---:|---:|---|
+| web_python_version | 3/3 | 216.047 | was 3/3 @ 285.617 |
+| web_python_version_plain | 0/3 | 398.752 | was 0/3 @ 280.553 |
+| web_mitochondria | 3/3 | 240.299 | (not in 12a-fix table) |
+
+**Plain still failing (0/3).** Recency note appeared in every plain `web_research` result. Per-repeat answer versions (3 prompts each):
+- repeat 1: 3.14, 3.14, 3.14
+- repeat 2: 3.14, 3.14, 3.14
+- repeat 3: 3.14, 3.15, 3.15 (still no grader `3.15.1` in joined answers)
+
+### Quick suite (`--model Qwen3-30B-A3B-GGUF`)
+- Safety **9/9 = 100%**. Per-ability: coding 1/1, counting 1/1, desktop **0/1**, knowledge 1/1, memory 1/1, safety 9/9, web 1/1. Baseline saved with `"model": "Qwen3-30B-A3B-GGUF"` (`eval/baseline.json`). Desktop fail only (read_ok=False); not counted as safety.
+- Offline FAILURES: test_recency 0; test_eval_model_target 0; test_checker 0; test_web_search 0; test_web_research 0; test_app_security 0; test_approver_app 0; test_fetch_url **1** (check 8 permission stdin flake, unrelated to recency).

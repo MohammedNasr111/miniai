@@ -39,31 +39,23 @@ def save_prefs(data: dict[str, Any]) -> None:
 
 
 def apply_prefs_to_settings() -> None:
-    """Load disk prefs into settings (env MINIAI_CHECKER still wins if set)."""
-    if os.environ.get("MINIAI_CHECKER", "").strip():
-        return
-    prefs = load_prefs()
-    checker = str(prefs.get("checker") or "off").strip().lower()
-    if checker in ("off", "on"):
-        settings.CHECKER = checker
+    """Disk prefs no longer control CHECKER (toggle removed). Ignore app.json."""
+    # Intentionally ignore prefs["checker"] / checker=true — env MINIAI_CHECKER
+    # and settings.CHECKER (default off) are the only experiment knobs.
+    return
 
 
 def get_checker_pref() -> str:
+    """Env-only (experiments). Saved app.json checker is ignored."""
     env = os.environ.get("MINIAI_CHECKER", "").strip().lower()
     if env in ("off", "on"):
         return env
-    prefs = load_prefs()
-    v = str(prefs.get("checker") or settings.CHECKER or "off").lower()
+    v = str(getattr(settings, "CHECKER", "off") or "off").lower()
     return v if v in ("off", "on") else "off"
 
 
 def set_checker_pref(value: str) -> str:
+    """In-process only for experiments; do not persist to app.json."""
     v = "on" if str(value).strip().lower() == "on" else "off"
     settings.CHECKER = v
-    # Env override: still update settings for this process, but only persist
-    # when env is not forcing the value.
-    if not os.environ.get("MINIAI_CHECKER", "").strip():
-        prefs = load_prefs()
-        prefs["checker"] = v
-        save_prefs(prefs)
     return v

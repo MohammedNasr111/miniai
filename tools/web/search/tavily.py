@@ -50,11 +50,15 @@ class TavilyProvider(SearchProvider):
         for item in raw_results:
             if not isinstance(item, dict):
                 raise ValueError("Web search response result was not an object")
+            published = item.get("published_date")
+            if published is None:
+                published = item.get("publishedDate")
             results.append(
                 SearchResult(
                     title=_text(item.get("title")),
                     url=_text(item.get("url")),
                     snippet=_text(item.get("content")),
+                    published_date=_text(published) or None,
                 )
             )
         return results

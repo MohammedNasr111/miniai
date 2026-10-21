@@ -1,6 +1,7 @@
 """Provider-agnostic web search results."""
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -9,6 +10,7 @@ class SearchResult(BaseModel):
     title: str
     url: str
     snippet: str
+    published_date: Optional[str] = None
 
 
 class SearchProvider(ABC):

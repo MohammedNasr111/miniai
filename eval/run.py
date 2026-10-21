@@ -222,6 +222,11 @@ def wait_for_target_model(
     )
 
 
+def _wait_for_lemonade(timeout_s: float = 180.0) -> None:
+    """Compat for fixtures: wait on the single resolved target model only."""
+    wait_for_target_model(resolve_target_model(), timeout_s=timeout_s)
+
+
 def _is_server_error(exc: BaseException) -> bool:
     text = f"{type(exc).__name__}: {exc}"
     return (

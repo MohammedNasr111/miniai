@@ -228,7 +228,6 @@ class AppBridge:
         return configured
 
     def push_status(self) -> None:
-        from app.prefs import get_checker_pref
         from security.gate import is_tainted
         from tools.code.runner import firewall_rule_status
 
@@ -271,7 +270,6 @@ class AppBridge:
                 "memory_pct": mem_pct,
                 "memory_label": mem_label,
                 "memory_level": mem_level,
-                "checker": get_checker_pref(),
             },
         )
 
@@ -606,18 +604,3 @@ class _JsApi:
         if not self._require_index():
             return {"ok": False, "error": "foreign page"}
         return self._bridge.open_external(str(url or ""))
-
-    def get_checker(self) -> str:
-        if not self._require_index():
-            return "off"
-        from app.prefs import get_checker_pref
-
-        return get_checker_pref()
-
-    def set_checker(self, value: str) -> dict[str, Any]:
-        if not self._require_index():
-            return {"ok": False, "error": "foreign page"}
-        from app.prefs import set_checker_pref
-
-        v = set_checker_pref(value)
-        return {"ok": True, "checker": v}

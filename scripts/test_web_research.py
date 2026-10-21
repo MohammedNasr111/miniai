@@ -151,7 +151,12 @@ def test_3() -> None:
         text = web_research("hostile page", max_sources=1)
     lines = text.splitlines()
     others = [line for line in lines if line not in (BEGIN_MARKER, END_MARKER)]
-    title_line = next(line for line in lines if line.startswith("[source "))
+    title_line = next(line for line in lines if "Title:" in line)
+    date_line = next(
+        line
+        for line in lines
+        if line.startswith("[source ") and "page date:" in line
+    )
     ok = (
         lines.count(BEGIN_MARKER) == 1
         and lines.count(END_MARKER) == 1
@@ -159,8 +164,9 @@ def test_3() -> None:
         and all("<<<" not in line and ">>>" not in line for line in others)
         and "\n" not in title_line
         and "Title:" in title_line
+        and "page date:" in date_line
     )
-    _check("3", ok, f"title_line={title_line!r}")
+    _check("3", ok, f"title_line={title_line!r} date_line={date_line!r}")
 
 
 def test_4() -> None:
@@ -187,7 +193,7 @@ def test_4() -> None:
         downloaded == ["http://1.1.1.1/first"]
         and "skipped: remaining results (time budget reached)" in lines
         and lines.count(BEGIN_MARKER) == 1
-        and lines[-1] == END_MARKER
+        and END_MARKER in lines
         and "No pages could be fetched." not in text
     )
     _check("4", ok, f"downloads={downloaded}")
@@ -208,11 +214,13 @@ def test_5() -> None:
     begin = lines.index(BEGIN_MARKER)
     end = lines.index(END_MARKER)
     inside = lines[begin + 1:end]
-    ok = "No pages could be fetched." in inside and lines[-1] == END_MARKER
+    ok = "No pages could be fetched." in inside and END_MARKER in lines
     _check("5", ok, f"inside_has_sentence={'No pages could be fetched.' in inside}")
 
 
 def _live(name: str, question: str, needle: str) -> str:
+    from tools.web.recency import is_recency_question
+
     started = time.perf_counter()
     text = web_research(question)
     elapsed = time.perf_counter() - started
@@ -237,7 +245,22 @@ def _live(name: str, question: str, needle: str) -> str:
     print(f"skipped={skipped}")
     print(f"wall_clock_sec={elapsed:.1f}")
     print(f"{needle}_in_chunks={needle_in_chunks}")
-    ok = lines.count(BEGIN_MARKER) == 1 and lines[-1] == END_MARKER
+    # Untrusted block must close; recency note (if any) sits after END_MARKER.
+    end_i = text.find(END_MARKER)
+    after = text[end_i + len(END_MARKER) :] if end_i >= 0 else ""
+    if is_recency_question(question):
+        ok = (
+            lines.count(BEGIN_MARKER) == 1
+            and end_i >= 0
+            and "Recency note" in after
+        )
+    else:
+        ok = (
+            lines.count(BEGIN_MARKER) == 1
+            and end_i >= 0
+            and "Recency note" not in after
+            and after.strip() == ""
+        )
     _check(name, ok, f"length={len(text)} {needle}_in_chunks={needle_in_chunks}")
     return text
 

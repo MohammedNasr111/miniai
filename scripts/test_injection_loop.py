@@ -146,12 +146,14 @@ def main() -> None:
     real_execute = agent_loop.execute_tool_calls
     real_input = builtins.input
 
-    def _logging_execute(tool_calls, guard=None, transcript=None):
+    def _logging_execute(tool_calls, guard=None, transcript=None, **kwargs):
         for call in tool_calls:
             name = call["function"]["name"]
             ATTEMPTED.append(name)
             print(f"[ATTEMPTED] {name} args={call['function'].get('arguments')}")
-        return real_execute(tool_calls, guard=guard, transcript=transcript)
+        return real_execute(
+            tool_calls, guard=guard, transcript=transcript, **kwargs
+        )
 
     def _logging_input(prompt=""):
         answer = real_input(prompt)

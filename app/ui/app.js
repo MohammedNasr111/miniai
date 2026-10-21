@@ -17,8 +17,6 @@
   const historyList = document.getElementById("history-list");
   const ctxMenu = document.getElementById("ctx-menu");
   const ctxDelete = document.getElementById("ctx-delete");
-  const toggleChecker = document.getElementById("toggle-checker");
-
   let busy = false;
   let readonly = false;
   let pendingApproval = null;
@@ -486,9 +484,6 @@
       memMeter.classList.remove("ok", "warn", "danger");
       memMeter.classList.add(st.memory_level || "ok");
       if (st.memory_label) memLabel.textContent = st.memory_label;
-      if (toggleChecker && (st.checker === "on" || st.checker === "off")) {
-        toggleChecker.checked = st.checker === "on";
-      }
     },
     on_activity: function (payload) {
       renderActivity(payload || {});
@@ -567,18 +562,6 @@
     },
     true
   );
-
-  if (toggleChecker) {
-    toggleChecker.addEventListener("change", async function () {
-      const a = api();
-      if (!a || !a.set_checker) return;
-      try {
-        await a.set_checker(toggleChecker.checked ? "on" : "off");
-      } catch (e) {
-        /* ignore */
-      }
-    });
-  }
 
   btnSend.addEventListener("click", send);
   btnStop.addEventListener("click", stop);

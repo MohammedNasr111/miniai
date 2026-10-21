@@ -23,13 +23,22 @@ REAL_VECTOR_DB = (PROJECT_ROOT / "memory" / "vector" / "lancedb").resolve()
 def use_temp_data() -> Path:
     """Create a temp dir, point both store env vars at it, return the dir.
 
-    Must run before `config.settings` (or anything that imports it) is loaded.
+    Prefer calling this before `config.settings` is imported. If settings is
+    already loaded (e.g. eval readiness probe), refresh its path attributes
+    so assert_not_real_data() still sees the temp stores.
     """
     root = Path(tempfile.mkdtemp(prefix="miniai_test_"))
     memory_path = root / "miniai_memory.db"
     vector_path = root / "lancedb"
     os.environ["MINIAI_MEMORY_DB"] = str(memory_path)
     os.environ["MINIAI_VECTOR_DB"] = str(vector_path)
+    # Refresh module-level paths if settings was imported early.
+    import sys
+
+    mod = sys.modules.get("config.settings")
+    if mod is not None:
+        mod.MEMORY_DB_PATH = Path(memory_path)
+        mod.VECTOR_DB_PATH = Path(vector_path)
     print(f"[tests.support] temp data root={root}")
     print(f"[tests.support] MINIAI_MEMORY_DB={memory_path}")
     print(f"[tests.support] MINIAI_VECTOR_DB={vector_path}")

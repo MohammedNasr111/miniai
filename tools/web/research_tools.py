@@ -4,7 +4,8 @@ Not registered with the model. A later task wires this into the registry.
 """
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date
 from typing import Optional
 
 from llm.lemonade.embeddings import embed
@@ -12,6 +13,13 @@ from security.gate import Tier, check_permission
 from security.provenance import remember_url
 from tools.filesystem.chunking import chunk_text
 from tools.web.fetch_tools import download, extract_text, validate_url
+from tools.web.recency import (
+    build_recency_note,
+    is_recency_question,
+    resolve_page_date,
+    source_date_header_line,
+    today_date,
+)
 from tools.web.search.tavily import TavilyProvider
 from tools.web.untrusted import (
     BEGIN_MARKER,
@@ -41,6 +49,9 @@ class _Page:
     title: Optional[str]
     final_url: str
     chunks: list[str]
+    page_date: Optional[date] = None
+    # Full extracted text kept only for date resolution (not re-emitted).
+    extracted_text: str = field(default="", repr=False)
 
 
 def _dot(left: list[float], right: list[float]) -> float:
@@ -67,6 +78,7 @@ def web_research(question: str, max_sources: int = 4) -> str:
     elif max_sources > 4:
         max_sources = 4
     started = time.monotonic()
+    today = today_date()
     results = TavilyProvider().search(question, SEARCH_COUNT)
     pages: list[_Page] = []
     skipped: list[str] = []
@@ -88,17 +100,24 @@ def web_research(question: str, max_sources: int = 4) -> str:
         chunks = chunk_text(
             extracted, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP
         )[:MAX_CHUNKS_PER_PAGE]
+        page_day = resolve_page_date(
+            published_date=result.published_date,
+            page_text=extracted or "",
+            today=today,
+        )
         pages.append(
             _Page(
                 rank=len(pages) + 1,
                 title=title,
                 final_url=final_url,
                 chunks=chunks,
+                page_date=page_day,
+                extracted_text=extracted or "",
             )
         )
         remember_url(final_url)
     chosen = _select(question, pages, expand_neighbors=True)
-    return _render(question, pages, chosen, skipped)
+    return _render(question, pages, chosen, skipped, today=today)
 
 
 def _select(
@@ -176,7 +195,10 @@ def _render(
     pages: list[_Page],
     chosen: list[tuple[float, _Page, int, str]],
     skipped: list[str],
+    *,
+    today: Optional[date] = None,
 ) -> str:
+    today = today or today_date()
     lines = [
         *PREAMBLE,
         BEGIN_MARKER,
@@ -188,6 +210,11 @@ def _render(
         current: Optional[int] = None
         for score, page, index, chunk in chosen:
             if page.rank != current:
+                lines.append(
+                    source_date_header_line(
+                        page.rank, page.final_url, page.page_date, today=today
+                    )
+                )
                 title = _safe("" if page.title is None else page.title)[:200]
                 lines.append(f"[source {page.rank}] Title: {title}")
                 lines.append(f"URL: {_safe(page.final_url)}")
@@ -202,4 +229,10 @@ def _render(
     else:
         lines.append("Skipped: none")
     lines.append(END_MARKER)
+    if is_recency_question(question) and pages:
+        note = build_recency_note(
+            [(p.final_url, p.page_date) for p in pages],
+            today=today,
+        )
+        lines.append(note)
     return "\n".join(lines)
