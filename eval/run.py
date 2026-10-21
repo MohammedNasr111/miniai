@@ -1,7 +1,8 @@
 """Run MiniAI evaluation tasks.
 
 Usage:
-    python -m eval.run --suite quick|full [--repeat N] [--save-baseline]
+    python -m eval.run --suite quick|full [--repeat N] [--model NAME]
+        [--ability a,b] [--task id1,id2] [--save-baseline]
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ import argparse
 import importlib
 import json
 import os
+import re
+import subprocess
 import sys
 import time
 import traceback
@@ -59,8 +62,34 @@ def _resolve_callable(dotted: str) -> Callable:
     return getattr(mod, attr)
 
 
+def resolve_target_model(
+    cli_model: Optional[str] = None,
+    env: Optional[dict[str, str]] = None,
+    settings_model: Optional[str] = None,
+) -> str:
+    """Single target model: --model, else MINIAI_MODEL, else settings.LEMONADE_MODEL."""
+    env = env if env is not None else os.environ
+    if cli_model and str(cli_model).strip():
+        return str(cli_model).strip()
+    env_model = (env.get("MINIAI_MODEL") or "").strip()
+    if env_model:
+        return env_model
+    if settings_model is None:
+        from config import settings
+
+        settings_model = settings.LEMONADE_MODEL
+    model = (settings_model or "").strip()
+    if not model:
+        raise RuntimeError(
+            "No target model: pass --model, set MINIAI_MODEL, or settings.LEMONADE_MODEL"
+        )
+    return model
+
+
 def _load_tasks(
-    suite: str, abilities: Optional[set[str]] = None
+    suite: str,
+    abilities: Optional[set[str]] = None,
+    task_ids: Optional[set[str]] = None,
 ) -> list[dict[str, Any]]:
     tasks: list[dict[str, Any]] = []
     for path in sorted(TASKS_DIR.glob("*.yaml")):
@@ -71,6 +100,8 @@ def _load_tasks(
         if suite == "quick" and task_suite != "quick":
             continue
         if abilities is not None and data.get("ability") not in abilities:
+            continue
+        if task_ids is not None and data.get("id") not in task_ids:
             continue
         tasks.append(data)
     # Safety first (must pass), then offline, then live (coding last — heavy).
@@ -108,54 +139,87 @@ def _count_transcript_stats(path: Optional[Path]) -> tuple[int, int]:
     return calls, tokens
 
 
-def _wait_for_lemonade(timeout_s: float = 180.0) -> None:
-    """Block until Lemonade answers a tiny chat (handles watchdog reloads)."""
+def capture_lemonade_status() -> dict[str, Any]:
+    """Run `lemonade status` and parse model / ctx when present."""
+    try:
+        proc = subprocess.run(
+            ["lemonade", "status"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+        text = (proc.stdout or "") + (proc.stderr or "")
+    except Exception as exc:
+        return {"raw": "", "error": f"{type(exc).__name__}: {exc}", "ctx": None, "model": None}
+
+    info: dict[str, Any] = {"raw": text, "error": None, "ctx": None, "model": None}
+    if "no models loaded" in text.lower():
+        return info
+    # lemonade status table: Model | Type | Device | Recipe | Ctx | Status | Checkpoint
+    for line in text.splitlines():
+        m = re.match(
+            r"^(Qwen3[\w.\-]+)\s+\S+\s+\S+\s+\S+\s+(\d+)\s+\S+",
+            line.strip(),
+        )
+        if m:
+            info["model"] = m.group(1)
+            info["ctx"] = int(m.group(2))
+            break
+    if info["ctx"] is None:
+        for line in text.splitlines():
+            if re.search(r"\bctx\b", line, re.I):
+                m = re.search(r"(\d{3,5})", line)
+                if m:
+                    info["ctx"] = int(m.group(1))
+    return info
+
+
+def wait_for_target_model(
+    model: str,
+    timeout_s: float = 180.0,
+    *,
+    post_fn: Optional[Callable[..., Any]] = None,
+    base_url: Optional[str] = None,
+) -> None:
+    """Block until the *single* target model answers. Never tries another model."""
     import requests
 
     from config import settings
     from scripts.agent_loop import _require_lemonade
 
-    _require_lemonade()
-    base = settings.LEMONADE_BASE_URL.rstrip("/")
-    # BASE_URL already includes /api/v1
+    if post_fn is None:
+        _require_lemonade()
+        post_fn = requests.post
+    base = (base_url or settings.LEMONADE_BASE_URL).rstrip("/")
     url = f"{base}/chat/completions"
-    # Prefer explicitly configured model; fall back to a lighter loaded GGUF.
-    candidates = []
-    for m in (
-        os.environ.get("MINIAI_MODEL") or "",
-        settings.LEMONADE_MODEL,
-        "Qwen3-14B-GGUF",
-        "Qwen3-30B-A3B-GGUF",
-    ):
-        if m and m not in candidates:
-            candidates.append(m)
     deadline = time.time() + timeout_s
     last_err = ""
     while time.time() < deadline:
-        for model in candidates:
-            try:
-                r = requests.post(
-                    url,
-                    json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": "Reply OK"}],
-                        "max_tokens": 8,
-                    },
-                    timeout=90,
-                )
-                if r.status_code == 200:
-                    os.environ["MINIAI_MODEL"] = model
-                    # Refresh settings module attribute if already imported.
-                    settings.LEMONADE_MODEL = model
-                    return
-                last_err = f"{model}: {r.status_code} {r.text[:160]}"
-                if "model_load_error" in (r.text or ""):
-                    continue
-            except requests.RequestException as exc:
-                last_err = f"{model}: {exc}"
-                continue
+        try:
+            r = post_fn(
+                url,
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Reply OK"}],
+                    "max_tokens": 8,
+                },
+                timeout=90,
+            )
+            if getattr(r, "status_code", None) == 200:
+                os.environ["MINIAI_MODEL"] = model
+                settings.LEMONADE_MODEL = model
+                return
+            body = getattr(r, "text", "") or ""
+            last_err = f"{r.status_code} {body[:160]}"
+        except Exception as exc:
+            last_err = str(exc)
         time.sleep(5)
-    raise RuntimeError(f"Lemonade not ready after {timeout_s}s: {last_err}")
+    raise RuntimeError(
+        f"Target model {model} failed to load: {last_err}. "
+        "Use --model to choose another explicitly."
+    )
 
 
 def _is_server_error(exc: BaseException) -> bool:
@@ -170,7 +234,7 @@ def _is_server_error(exc: BaseException) -> bool:
     )
 
 
-def _run_live_task(task: dict[str, Any], ctx: EvalContext) -> None:
+def _run_live_task(task: dict[str, Any], ctx: EvalContext, model: str) -> None:
     import requests
 
     from tests.support import answer_by_action
@@ -199,7 +263,7 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext) -> None:
         if attempt > 0:
             ctx.infra_retries += 1
             time.sleep(5)
-        _wait_for_lemonade()
+        wait_for_target_model(model)
         reset_session()
         close_session()
         provider = LemonadeProvider()
@@ -235,7 +299,7 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext) -> None:
         raise last_exc
 
 
-def _run_one(task: dict[str, Any]) -> dict[str, Any]:
+def _run_one(task: dict[str, Any], model: str) -> dict[str, Any]:
     from tests.support import use_temp_data
 
     task_id = task["id"]
@@ -263,7 +327,7 @@ def _run_one(task: dict[str, Any]) -> dict[str, Any]:
     try:
         setup(ctx)
         if mode == "live":
-            _run_live_task(task, ctx)
+            _run_live_task(task, ctx, model)
         elif mode == "offline":
             started = time.perf_counter()
             # Offline graders do their own work; still record wall later.
@@ -337,12 +401,22 @@ def _safety_headline(results: list[dict[str, Any]]) -> str:
     return "FAIL"
 
 
-def _compare_baseline(
-    rates: dict[str, dict[str, Any]], baseline: Optional[dict]
-) -> list[str]:
-    flags: list[str] = []
+def compare_baseline(
+    rates: dict[str, dict[str, Any]],
+    baseline: Optional[dict],
+    run_model: str,
+) -> tuple[list[str], Optional[str]]:
+    """Return (drops, mismatch_message). On model mismatch, drops are empty."""
     if not baseline:
-        return flags
+        return [], None
+    base_model = baseline.get("model")
+    if not base_model or str(base_model) != str(run_model):
+        msg = (
+            f"BASELINE MODEL MISMATCH (baseline={base_model!s}, run={run_model}) "
+            "— comparison not valid"
+        )
+        return [], msg
+    flags: list[str] = []
     base_rates = baseline.get("ability_rates") or {}
     for ability, info in rates.items():
         prev = base_rates.get(ability)
@@ -352,22 +426,26 @@ def _compare_baseline(
             flags.append(
                 f"{ability}: {info['rate']:.0%} < baseline {float(prev['rate']):.0%}"
             )
-    return flags
+    return flags, None
 
 
-def _write_report(
+def write_report(
     *,
     suite: str,
+    model: str,
     results: list[dict[str, Any]],
     rates: dict[str, dict[str, Any]],
     safety: str,
     drops: list[str],
     stamp: str,
     json_path: Path,
-) -> None:
+    baseline_mismatch: Optional[str] = None,
+    report_path: Optional[Path] = None,
+) -> str:
     lines = [
         f"# Eval report ({suite}) - {stamp}",
         "",
+        f"- Model: **{model}**",
         f"- Results JSON: `{json_path}`",
         f"- Safety headline: **{safety}**",
         f"- Tasks: {sum(1 for r in results if r['pass'])}/{len(results)} passed",
@@ -405,13 +483,18 @@ def _write_report(
             lines.append(
                 f"- `{r['id']}`: retried after server error: {n}"
             )
-    if drops:
-        lines.extend(["", "## Baseline drops", ""])
+    lines.extend(["", "## Baseline drops", ""])
+    if baseline_mismatch:
+        lines.append(f"- {baseline_mismatch}")
+    elif drops:
         for d in drops:
             lines.append(f"- {d}")
     else:
-        lines.extend(["", "## Baseline drops", "", "- (none)", ""])
-    LAST_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        lines.append("- (none)")
+    text = "\n".join(lines) + "\n"
+    path = report_path or LAST_REPORT_PATH
+    path.write_text(text, encoding="utf-8")
+    return text
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -424,6 +507,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Comma-separated ability filter (e.g. web,knowledge)",
     )
     parser.add_argument(
+        "--task",
+        default=None,
+        help="Comma-separated task id filter (e.g. web_python_version,web_python_version_plain)",
+    )
+    parser.add_argument(
         "--save-baseline",
         action="store_true",
         help="Write eval/baseline.json from this run",
@@ -431,26 +519,48 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--model",
         default=None,
-        help="Override MINIAI_MODEL for this run (e.g. Qwen3-14B-GGUF)",
+        help="Exact model to use (no fallback). Default: MINIAI_MODEL or settings.",
     )
     args = parser.parse_args(argv)
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-    # Prefer a loaded model: if the configured default fails to load, fall back.
-    if args.model:
-        os.environ["MINIAI_MODEL"] = args.model
-    else:
-        # Ensure config picks up env before provider imports elsewhere.
-        os.environ.setdefault("MINIAI_MODEL", os.environ.get("MINIAI_MODEL", ""))
+    model = resolve_target_model(args.model)
+    print(f"MODEL: {model}", flush=True)
+    os.environ["MINIAI_MODEL"] = model
+    from config import settings
+
+    settings.LEMONADE_MODEL = model
+
+    server_status = capture_lemonade_status()
+    ctx_val = server_status.get("ctx")
+    if isinstance(ctx_val, int) and ctx_val < 16384:
+        print(
+            f"WARNING: loaded ctx is {ctx_val} (< 16384). "
+            "Consider: lemonade load <model> --ctx-size 16384 --save-options",
+            flush=True,
+        )
+
+    # Fail fast if the target model cannot answer a tiny chat.
+    try:
+        wait_for_target_model(model)
+    except RuntimeError as exc:
+        print(str(exc), flush=True)
+        return 1
 
     abilities = None
     if args.ability:
         abilities = {a.strip() for a in args.ability.split(",") if a.strip()}
-    tasks = _load_tasks(args.suite, abilities=abilities)
+    task_ids = None
+    if args.task:
+        task_ids = {a.strip() for a in args.task.split(",") if a.strip()}
+    tasks = _load_tasks(args.suite, abilities=abilities, task_ids=task_ids)
     if not tasks:
-        print(f"No tasks found for suite={args.suite} ability={args.ability!r}")
+        print(
+            f"No tasks found for suite={args.suite} ability={args.ability!r} "
+            f"task={args.task!r}"
+        )
         return 1
 
     all_results: list[dict[str, Any]] = []
@@ -459,7 +569,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(f"\n=== repeat {rep + 1}/{args.repeat} ===")
         for task in tasks:
             print(f"\n--- task {task['id']} ({task['ability']}) ---")
-            result = _run_one(task)
+            result = _run_one(task, model)
             status = "PASS" if result["pass"] else "FAIL"
             print(f"{status}: {result['id']} - {result['reason']}")
             all_results.append(result)
@@ -486,30 +596,37 @@ def main(argv: Optional[list[str]] = None) -> int:
     baseline = None
     if BASELINE_PATH.is_file():
         baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
-    drops = _compare_baseline(rates, baseline)
+    drops, baseline_mismatch = compare_baseline(rates, baseline, model)
+    if baseline_mismatch:
+        print(baseline_mismatch, flush=True)
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     json_path = LOGS_DIR / f"eval_{stamp}.json"
     payload = {
         "stamp": stamp,
+        "model": model,
+        "server_status": server_status,
         "suite": args.suite,
         "repeat": args.repeat,
         "safety": safety,
         "ability_rates": rates,
         "baseline_drops": drops,
+        "baseline_model_mismatch": baseline_mismatch,
         "results": summary_results,
         "raw_runs": all_results,
     }
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    _write_report(
+    write_report(
         suite=args.suite,
+        model=model,
         results=summary_results,
         rates=rates,
         safety=safety,
         drops=drops,
         stamp=stamp,
         json_path=json_path,
+        baseline_mismatch=baseline_mismatch,
     )
 
     if args.save_baseline:
@@ -524,6 +641,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                     {
                         "stamp": stamp,
                         "suite": args.suite,
+                        "model": model,
                         "ability_rates": rates,
                         "safety": safety,
                         "tasks": {
@@ -541,7 +659,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"\nSafety: {safety}")
     print(f"JSON: {json_path}")
     print(f"Report: {LAST_REPORT_PATH}")
-    if drops:
+    if baseline_mismatch:
+        print(baseline_mismatch)
+    elif drops:
         print("Baseline drops:")
         for d in drops:
             print(f"  - {d}")

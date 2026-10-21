@@ -615,3 +615,39 @@ Investigation only (no features enabled, no firewall rules created).
 | web | on | 15/15 (1.00) | 852.285 |
 
 - Checker adds ~2× wall time with no pass-rate change on these tasks. Full code review dump: `logs/review_20261021-0249_stage12a_checker.log`.
+
+## 2026-10-21 — Stage 12a-fix: eval targets one explicit model; plain Python task; checker re-measured on 30B
+- **INVALIDATES the Stage 12a measurement table above.** Those runs silently fell back to `Qwen3-14B-GGUF` via `eval/run.py`'s candidate list; agent logs said `"model": "Qwen3-14B-GGUF"` while settings/app default is 30B. That table must not be used for checker decisions.
+- Eval honesty: target model = `--model` else `MINIAI_MODEL` else `settings.LEMONADE_MODEL` only — no fallback. Fail-fast with `Target model X failed to load: …`. First stdout line `MODEL: <name>`; JSON top-level `"model"` + `"server_status"`; report header Model line. Baseline without matching `"model"` prints `BASELINE MODEL MISMATCH …` and skips deltas. `--task id1,id2` filter. Offline: `scripts/test_eval_model_target.py` FAILURES=0; `scripts/test_checker.py` FAILURES=0.
+- New task `eval/tasks/web_python_version_plain.yaml`: three prompts exactly `What's the latest stable version of Python?` (no python.org hint).
+
+### Lemonade before / after (30B ctx restore)
+**BEFORE `lemonade status`:**
+```
+Server is running on port 13305
+… No models loaded.
+```
+**BEFORE `lemonade export Qwen3-30B-A3B-GGUF`:**
+```json
+"recipe_options": { "ctx_size": 8192, "llamacpp_args": "--n-gpu-layers 35" }
+```
+**Command:** `lemonade load Qwen3-30B-A3B-GGUF --ctx-size 16384 --save-options` → loaded OK, but export then showed only `"ctx_size": 16384` (dropped `llamacpp_args`). **Reported and restored** with: `lemonade load Qwen3-30B-A3B-GGUF --ctx-size 16384 --llamacpp-args "--n-gpu-layers 35" --save-options`.
+**AFTER `lemonade status`:** `Qwen3-30B-A3B-GGUF … Ctx 16384 … ready`
+**AFTER export:** `"ctx_size": 16384, "llamacpp_args": "--n-gpu-layers 35"`
+
+### Re-measure (explicit `--model Qwen3-30B-A3B-GGUF`, `--task web_python_version,web_python_version_plain --repeat 3`)
+All 12 agent `run_start` events: `"model": "Qwen3-30B-A3B-GGUF"`. JSON: `logs/eval_20261021-190329.json` (off), `logs/eval_20261021-200014.json` (on).
+
+| task | checker | passes/3 | mean wall s | model |
+|---|---|---:|---:|---|
+| web_python_version | off | 3/3 | 285.617 | Qwen3-30B-A3B-GGUF |
+| web_python_version_plain | off | 0/3 | 280.553 | Qwen3-30B-A3B-GGUF |
+| web_python_version | on | 3/3 | 553.751 | Qwen3-30B-A3B-GGUF |
+| web_python_version_plain | on | 0/3 | 569.821 | Qwen3-30B-A3B-GGUF |
+
+**Did the checker fix any plain-question failures?** No. Plain stayed 0/3 with checker on. Hinted `web_python_version` stayed 3/3 either way. Checker sometimes flagged 3.14 as contradicted and rewrote (once to 3.13, once to 3.11) but never produced grader-expected `3.15.0`; other turns left 3.14 as “supported”. `CHECKER` default left **off**.
+
+### Failed-run excerpts (plain only; grader expected 3.15.0)
+**Evidence (typical `web_research`):** LiquidWeb title/chunk “latest … Python 3.14” (release 2025-10-07); same result also has devguide row `| 3.15 | PEP 790 | bugfix | 2026-10-09 | … |`.
+**OFF answers (all FAIL):** claimed latest stable **3.14** (LiquidWeb / “released October 7, 2025”).
+**ON answers (all FAIL):** still **3.14** on most finals; one rewrite → **3.13**; one rewrite → **3.11** — none answered 3.15.0.
