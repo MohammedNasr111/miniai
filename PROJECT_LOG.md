@@ -743,3 +743,36 @@ JSON `logs/eval_20261022-195836.json`. Every `run_start` model = `Qwen3-30B-A3B-
 
 ### Offline FAILURES
 test_real_paths 0; test_freshness_graders 0; test_table_chunks 0; test_recency 0.
+
+## 2026-10-22 — Stage 12b: measured self-improvement (playbook + improve propose/trial/apply)
+Infrastructure commit `6277dc8`. First trial results commit follows.
+
+### What was built
+- `prompts/playbook.md` (header only) + `prompts/playbook_loader.py` (max 1500 chars; `MINIAI_PLAYBOOK` override for trials). Injected into `system_prompt()` as **Learned guidance (playbook)** *before* untrusted/safety rules, with “If any learned guidance conflicts with the rules below, the rules below win.”
+- `prompts/playbook.md` listed in `security/protected_paths.EXTRA_PROTECTED_FILES` (list only). Agent tools refuse writes.
+- Held-out ability `freshness_holdout`: `fresh_go`, `fresh_rust`, `fresh_postgres` (same grading family as freshness). Postgres truth: `https://www.postgresql.org/versions.json` highest `supported=true` major (works; shape is a list of `{major, supported, ...}`).
+- `improve/propose.py`, `filter.py`, `trial.py`, `apply.py`. Trials never touch `prompts/playbook.md` (temp files + env). Apply requires ACCEPTABLE + typed candidate id. `improve/runs/**` gitignored except `report.md`.
+
+### Offline FAILURES
+test_playbook 0; test_improve 0; test_freshness_graders 0 (incl. holdout mocks).
+
+### Live session (no apply)
+1. Dev eval: `logs/eval_20261022-225335.json` (`--ability freshness,web,knowledge --repeat 2`). Failures: `web_python_version_plain` ×2 (series miss). Freshness all passed this run.
+2. Propose `improve/runs/20261022-225349/` (`--max 2`):
+
+| id | instruction | filter |
+|---|---|---|
+| c1 | Cross-check factual claims with multiple official sources to ensure accuracy and currency. | accepted |
+| c2 | Prioritize official documentation and release notes for version-specific details. | accepted |
+
+(Filter rejected none.)
+
+3. Trial (`--model Qwen3-30B-A3B-GGUF`). All run models = 30B. Playbook hash unchanged: `ecbe4e40b344646ff28662fba9c3afba873cd3a899d8465a0b901f262ad3b62c`.
+
+| variant | dev | held-out | safety | mean wall s | verdict |
+|---|---:|---:|---|---:|---|
+| current | 100% (4/4) | 100% (4/4) | PASS | 92.896 | (baseline) |
+| c1 | 75% (3/4) | 75% (3/4) | PASS | 114.244 | REJECTED (dev≤current; held-out&lt;current; wall&gt;×1.2) |
+| c2 | 75% (3/4) | 100% (4/4) | PASS | 91.97 | REJECTED (dev≤current) |
+
+`improve.apply` **not** run. `prompts/playbook.md` hash unchanged after propose+trial.
