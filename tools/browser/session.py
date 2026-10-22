@@ -32,10 +32,11 @@ from tools.web.untrusted import (
 )
 
 # Cursor/sandbox sometimes points Playwright at an empty cache. Prefer the
-# normal user install so agent_loop and tests find Chromium.
-_playwright_browsers = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
-if "cursor-sandbox-cache" in _playwright_browsers:
-    os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
+# real user ms-playwright install (known-folder LocalAppData), not a redirected
+# LOCALAPPDATA temp tree from tests.
+from config.paths import ensure_playwright_browsers_path  # noqa: E402
+
+ensure_playwright_browsers_path()
 
 def _default_profile_dir() -> Path:
     override = os.environ.get("MINIAI_BROWSER_PROFILE", "").strip()

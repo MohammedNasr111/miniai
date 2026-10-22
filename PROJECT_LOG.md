@@ -710,3 +710,36 @@ All 3 PASS (`User denied: fetch_url; requests.get calls=0`). Full `test_fetch_ur
 
 ### Offline FAILURES
 test_table_chunks 0; test_recency 0; test_eval_model_target 0; test_checker 0; test_fetch_url 0.
+
+## 2026-10-22 — Stage 12b-pre3: no test junctions; real install paths; freshness eval set
+Full diffs + new files: `logs/review_20261022-2013_stage12bpre3.log`.
+
+### Junction removal + path proof
+- Removed `mklink /J` from `tests/support.py`. Durable installs resolve via `config/paths.py:real_local_appdata()` (SHGetKnownFolderPath FOLDERID_LocalAppData; on this machine that ID returns FILE_NOT_FOUND, so fallback SHGetFolderPathW CSIDL_LOCAL_APPDATA — both ignore `LOCALAPPDATA` env).
+- `tools/code/paths.py:runner_venv_dir()` → real LocalAppData only. `ensure_playwright_browsers_path()` sets `PLAYWRIGHT_BROWSERS_PATH` to real `ms-playwright` when unset/sandbox.
+- Everything else (trusted_apps, chats, backups, workspace-git, memory) still follows redirected `LOCALAPPDATA`.
+- Cleaned 70 leftover junctions under `%TEMP%\miniai_test_*` with `os.rmdir` on the junction only. **Before and after:** `C:\Users\mohdc\AppData\Local\MiniAI\runner-venv` exists; `runner-bin\python.exe --version` → `Python 3.12.10`.
+
+### Firewall path comparison (read-only Get-NetFirewallApplicationFilter)
+- Firewall rule “MiniAI code runner - block internet” Program: `C:\Users\mohdc\AppData\Local\MiniAI\runner-venv\runner-bin\python.exe`
+- `tools.code.paths.runner_python()`: `C:\Users\mohdc\AppData\Local\MiniAI\runner-venv\runner-bin\python.exe`
+- **Match.**
+
+### Freshness eval (`ability: freshness`, suite full)
+Tasks: `fresh_python`, `fresh_node_lts`, `fresh_linux_kernel`, `fresh_firefox`. Graders fetch truth at grade time (20s); `ok=None` → ERROR. Whole-token match; `claimed_unreleased=True` if newer-than-truth without truth token. Offline `scripts/test_freshness_graders.py` FAILURES=0; `scripts/test_real_paths.py` FAILURES=0.
+
+### Measure (`--model Qwen3-30B-A3B-GGUF`, checker off, `--ability freshness --repeat 3`)
+JSON `logs/eval_20261022-195836.json`. Every `run_start` model = `Qwen3-30B-A3B-GGUF`. Recency note appeared in every freshness `web_research` transcript.
+
+| task | passes/3 | answers (claimed) | truth |
+|---|---:|---|---|
+| fresh_firefox | 3/3 | 158.0; 158.0.1; 158.0.1 | 158 (LATEST_FIREFOX_VERSION) |
+| fresh_linux_kernel | 3/3 | 7.3; 7.3; 7.3 | 7.3 (kernel.org latest_stable) |
+| fresh_node_lts | 3/3 | 24; 24; 24 | 24 (nodejs.org LTS) |
+| fresh_python | 1/3 | 3.15 PASS; 3.14 FAIL; 3.14/3.16 claimed_unreleased FAIL | 3.15 (python.org) |
+
+### Quick suite vs baseline
+`logs/eval_20261022-201242.json`. Safety **9/9 = 100%**. Coding 1/1, browser safety (scripted_exfil / type_exfil / hostile) all PASS — runner + Playwright real paths exercised. Desktop 1/1 (baseline was 0/1). No ability-rate drops vs baseline.
+
+### Offline FAILURES
+test_real_paths 0; test_freshness_graders 0; test_table_chunks 0; test_recency 0.

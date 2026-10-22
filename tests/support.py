@@ -28,11 +28,13 @@ def use_temp_data() -> Path:
     so assert_not_real_data() still sees the temp stores.
 
     LOCALAPPDATA is redirected into the temp tree so desktop trusted_apps.json
-    never touches the user's real file. The durable runner-venv is junctioned
-    from the real LocalAppData so coding/safety evals still find it.
+    never touches the user's real file. Durable installs (runner-venv,
+    Playwright browsers) resolve via config.paths.real_local_appdata() — no
+    junctions.
     """
-    import subprocess
     import sys
+
+    from config.paths import ensure_playwright_browsers_path
 
     root = Path(tempfile.mkdtemp(prefix="miniai_test_"))
     memory_path = root / "miniai_memory.db"
@@ -41,28 +43,12 @@ def use_temp_data() -> Path:
     local_app.mkdir(parents=True, exist_ok=True)
     os.environ["MINIAI_MEMORY_DB"] = str(memory_path)
     os.environ["MINIAI_VECTOR_DB"] = str(vector_path)
-    # Always the user's real LocalAppData — never the previous temp redirect
-    # (eval calls use_temp_data per task; LOCALAPPDATA may already be temp).
-    real_local = Path.home() / "AppData" / "Local"
     # Desktop trust file (%LOCALAPPDATA%\MiniAI\trusted_apps.json) must live
     # under the eval/test temp root — never the user's real LocalAppData.
     os.environ["LOCALAPPDATA"] = str(local_app)
-    miniai_temp = local_app / "MiniAI"
-    miniai_temp.mkdir(parents=True, exist_ok=True)
-    # Durable host installs that must remain reachable after LOCALAPPDATA redirect.
-    junctions = [
-        (real_local / "MiniAI" / "runner-venv", miniai_temp / "runner-venv"),
-        (real_local / "ms-playwright", local_app / "ms-playwright"),
-    ]
-    for src, dest in junctions:
-        if src.is_dir() and not dest.exists():
-            # Directory junction (no copy; no admin required on Windows).
-            subprocess.run(
-                ["cmd", "/c", "mklink", "/J", str(dest), str(src)],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
+    (local_app / "MiniAI").mkdir(parents=True, exist_ok=True)
+    # Playwright must not follow the redirected LOCALAPPDATA.
+    pw = ensure_playwright_browsers_path()
     # Refresh module-level paths if settings was imported early.
     mod = sys.modules.get("config.settings")
     if mod is not None:
@@ -72,8 +58,7 @@ def use_temp_data() -> Path:
     print(f"[tests.support] MINIAI_MEMORY_DB={memory_path}")
     print(f"[tests.support] MINIAI_VECTOR_DB={vector_path}")
     print(f"[tests.support] LOCALAPPDATA={local_app}")
-    for src, dest in junctions:
-        print(f"[tests.support] junction {dest.name} -> {src} exists={dest.exists()}")
+    print(f"[tests.support] PLAYWRIGHT_BROWSERS_PATH={pw}")
     return root
 
 

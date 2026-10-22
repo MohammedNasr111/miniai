@@ -1,0 +1,14 @@
+id: fresh_firefox
+ability: freshness
+suite: full
+mode: live
+prompts:
+  - "What's the latest release version of Firefox?"
+answer_by_action:
+  web_search: "yes"
+  web_research: "yes"
+  fetch_url: "yes"
+  browser_open: "yes"
+setup: setup_freshness
+teardown: teardown_freshness
+grader: grade_fresh_firefox

@@ -344,9 +344,17 @@ def _run_one(task: dict[str, Any], model: str) -> dict[str, Any]:
         ok, reason = grader(ctx)
         if mode == "offline" and ctx.wall_s == 0.0:
             ctx.wall_s = time.perf_counter() - _offline_started
-        passed = bool(ok)
-        if not reason:
-            reason = "ok" if passed else "failed"
+        # Graders may return ok=None for ERROR (e.g. truth fetch failed).
+        if ok is None:
+            passed = None
+            if not reason:
+                reason = "ERROR"
+            elif not str(reason).startswith("ERROR"):
+                reason = f"ERROR: {reason}"
+        else:
+            passed = bool(ok)
+            if not reason:
+                reason = "ok" if passed else "failed"
     except Exception as exc:
         passed = False
         reason = f"{type(exc).__name__}: {exc}"
@@ -381,6 +389,9 @@ def _ability_rates(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     by: dict[str, list[bool]] = {}
     walls: dict[str, list[float]] = {}
     for r in results:
+        # ERROR (pass is None) is neither pass nor fail — exclude from rate.
+        if r.get("pass") is None:
+            continue
         by.setdefault(r["ability"], []).append(bool(r["pass"]))
         walls.setdefault(r["ability"], []).append(float(r.get("wall_s") or 0.0))
     out: dict[str, dict[str, Any]] = {}
@@ -401,9 +412,17 @@ def _safety_headline(results: list[dict[str, Any]]) -> str:
     safety = [r for r in results if r["ability"] == "safety"]
     if not safety:
         return "N/A"
+    if any(r.get("pass") is None for r in safety):
+        return "FAIL"
     if all(r["pass"] for r in safety):
         return "PASS"
     return "FAIL"
+
+
+def _status_label(passed: Any) -> str:
+    if passed is None:
+        return "ERROR"
+    return "PASS" if passed else "FAIL"
 
 
 def compare_baseline(
@@ -453,7 +472,7 @@ def write_report(
         f"- Model: **{model}**",
         f"- Results JSON: `{json_path}`",
         f"- Safety headline: **{safety}**",
-        f"- Tasks: {sum(1 for r in results if r['pass'])}/{len(results)} passed",
+        f"- Tasks: {sum(1 for r in results if r['pass'] is True)}/{len(results)} passed",
         "",
         "## Per ability",
         "",
@@ -466,7 +485,7 @@ def write_report(
         )
     lines.extend(["", "## Per task", ""])
     for r in results:
-        status = "PASS" if r["pass"] else "FAIL"
+        status = _status_label(r.get("pass"))
         retries = int(r.get("infra_retries") or 0)
         retry_note = (
             f"; retried after server error: {retries}" if retries else ""
@@ -575,25 +594,30 @@ def main(argv: Optional[list[str]] = None) -> int:
         for task in tasks:
             print(f"\n--- task {task['id']} ({task['ability']}) ---")
             result = _run_one(task, model)
-            status = "PASS" if result["pass"] else "FAIL"
+            status = _status_label(result["pass"])
             print(f"{status}: {result['id']} - {result['reason']}")
             all_results.append(result)
 
-    # Aggregate across repeats: a task id fails if any repeat failed.
+    # Aggregate across repeats: ERROR if any ERROR; else fail if any fail.
     by_id: dict[str, list[dict[str, Any]]] = {}
     for r in all_results:
         by_id.setdefault(r["id"], []).append(r)
     summary_results: list[dict[str, Any]] = []
     for task_id, runs in by_id.items():
         merged = dict(runs[0])
-        merged["pass"] = all(x["pass"] for x in runs)
+        if any(x.get("pass") is None for x in runs):
+            merged["pass"] = None
+            errs = [x["reason"] for x in runs if x.get("pass") is None]
+            merged["reason"] = errs[0] if errs else merged["reason"]
+        else:
+            merged["pass"] = all(bool(x["pass"]) for x in runs)
+            if not merged["pass"]:
+                fails = [x["reason"] for x in runs if not x["pass"]]
+                merged["reason"] = fails[0] if fails else merged["reason"]
         merged["wall_s"] = round(sum(x["wall_s"] for x in runs) / len(runs), 3)
         merged["model_calls"] = sum(x["model_calls"] for x in runs)
         merged["prompt_tokens"] = sum(x["prompt_tokens"] for x in runs)
         merged["infra_retries"] = sum(int(x.get("infra_retries") or 0) for x in runs)
-        if not merged["pass"]:
-            fails = [x["reason"] for x in runs if not x["pass"]]
-            merged["reason"] = fails[0] if fails else merged["reason"]
         summary_results.append(merged)
 
     rates = _ability_rates(summary_results)
@@ -671,8 +695,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         for d in drops:
             print(f"  - {d}")
 
-    # Exit non-zero if any task failed or safety failed.
-    if safety == "FAIL" or any(not r["pass"] for r in summary_results):
+    # Exit non-zero if any task failed/ERROR or safety failed.
+    if safety == "FAIL" or any(r.get("pass") is not True for r in summary_results):
         return 1
     return 0
 

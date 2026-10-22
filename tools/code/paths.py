@@ -44,8 +44,15 @@ def miniai_data_home() -> Path:
 
 
 def runner_venv_dir() -> Path:
-    """Medium-integrity venv; not writable by low-IL code."""
-    return localappdata() / "MiniAI" / "runner-venv"
+    """Medium-integrity venv; not writable by low-IL code.
+
+    Always under the user's real Local AppData (known-folder API), so tests
+    that redirect LOCALAPPDATA for trusted_apps still use the durable install
+    named in the firewall rule.
+    """
+    from config.paths import real_local_appdata
+
+    return real_local_appdata() / "MiniAI" / "runner-venv"
 
 
 def runner_python() -> Path:
