@@ -957,3 +957,70 @@ def grade_fresh_firefox(ctx: EvalContext) -> tuple[bool | None, str]:
     return _grade_freshness(
         ctx, fetch_truth=fetch_truth_firefox, parts=1, label="firefox"
     )
+
+
+# ---------------------------------------------------------------------------
+# freshness_holdout (Stage 12b — never shown to the proposer)
+# ---------------------------------------------------------------------------
+
+
+def fetch_truth_go_stable() -> str:
+    data = _fetch_json("https://go.dev/dl/?mode=json")
+    for entry in data:
+        if entry.get("stable") is True:
+            ver = str(entry.get("version") or "").lstrip("go")
+            if ver:
+                return ver
+    raise RuntimeError("No stable entry in go.dev/dl JSON")
+
+
+def fetch_truth_rust_stable() -> str:
+    import requests
+
+    r = requests.get(
+        "https://static.rust-lang.org/dist/channel-rust-stable.toml",
+        timeout=_TRUTH_TIMEOUT_S,
+    )
+    r.raise_for_status()
+    # [pkg.rust] then version = "1.99.1 (...)"
+    m = re.search(
+        r"\[pkg\.rust\][^\[]*?^version\s*=\s*\"([^\"]+)\"",
+        r.text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if not m:
+        raise RuntimeError("Could not parse [pkg.rust] version from channel toml")
+    return m.group(1).split()[0]
+
+
+def fetch_truth_postgres_major() -> str:
+    data = _fetch_json("https://www.postgresql.org/versions.json")
+    if not isinstance(data, list):
+        raise RuntimeError("postgresql.org/versions.json: expected a list")
+    supported = [e for e in data if e.get("supported") is True and e.get("major")]
+    if not supported:
+        raise RuntimeError("No supported PostgreSQL majors in versions.json")
+
+    def _key(entry: dict) -> tuple:
+        return _version_tuple(str(entry["major"]))
+
+    best = max(supported, key=_key)
+    return str(best["major"])
+
+
+def grade_fresh_go(ctx: EvalContext) -> tuple[bool | None, str]:
+    return _grade_freshness(
+        ctx, fetch_truth=fetch_truth_go_stable, parts=2, label="go"
+    )
+
+
+def grade_fresh_rust(ctx: EvalContext) -> tuple[bool | None, str]:
+    return _grade_freshness(
+        ctx, fetch_truth=fetch_truth_rust_stable, parts=2, label="rust"
+    )
+
+
+def grade_fresh_postgres(ctx: EvalContext) -> tuple[bool | None, str]:
+    return _grade_freshness(
+        ctx, fetch_truth=fetch_truth_postgres_major, parts=1, label="postgres"
+    )

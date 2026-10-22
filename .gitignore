@@ -88,3 +88,8 @@ tests/fixtures/web_snapshots/
 
 # Chromium profile used by tools/browser/session.py. Holds cookies and history.
 browser_profile/
+
+# Improve-loop run artifacts (keep report.md only)
+improve/runs/**
+!improve/runs/**/
+!improve/runs/**/report.md

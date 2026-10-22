@@ -13,9 +13,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from eval.fixtures import (  # noqa: E402
     grade_fresh_firefox,
+    grade_fresh_go,
     grade_fresh_linux_kernel,
     grade_fresh_node_lts,
+    grade_fresh_postgres,
     grade_fresh_python,
+    grade_fresh_rust,
     grade_freshness_version,
 )
 
@@ -100,6 +103,9 @@ def test_task_graders_mocked() -> None:
             2,
         ),
         (grade_fresh_firefox, "fetch_truth_firefox", "144.0.1", "Firefox 144", 1),
+        (grade_fresh_go, "fetch_truth_go_stable", "1.27.3", "Go 1.27", 2),
+        (grade_fresh_rust, "fetch_truth_rust_stable", "1.99.1", "Rust 1.99", 2),
+        (grade_fresh_postgres, "fetch_truth_postgres_major", "18", "PostgreSQL 18", 1),
     ]
     for grader, fetch_name, truth, answer, _parts in cases:
         ctx = SimpleNamespace(answers=[answer], state={})
