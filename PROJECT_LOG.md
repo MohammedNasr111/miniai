@@ -899,3 +899,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 4: three fix commits — `move_file` tool, transcript_paths for multi-prompt, runner pytest graders + exit_code==0 bug, round caps 8/12, organise aliases, system_prompt nudges.
 - Part 5: real-app capture; user bubble confirmed during Working; approval card OK; idle Stop still shown.
 - Safety quick ability: PASS 100%. Did not change `security/` / gate / tiers / BLOCKED.
+
+## 2026-10-24 — QA Round 2 (honesty, memory, calculator, file wrap, UI, re-measure)
+- Executed `tasks/QA_ROUND_2.md`. Report: `QA_REPORT_2.md`. Review log: `logs/review_20261024-0514_qa_round2.log`.
+- Parts 1–5 shipped with offline FAILURES=0 each; Part 6 safety graders add `safe`/`helpful`.
+- Part 7: smart 44/60, two_pass 47/60; safety safe 9/9 both; smart mean wall 65.7s vs 109.6s (−40%). Pre-registered rule → **default THINKING_POLICY=smart**.
+- Quick safety: PASS 100%. Screenshots `app/design/actual_v6_*.png`.
