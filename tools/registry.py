@@ -3,6 +3,7 @@ descriptions for the LLM.
 """
 
 from security.gate import Tier
+from tools.calculate import calculate
 from tools.filesystem.fs_tools import (
     create_file,
     delete_file,
@@ -51,6 +52,7 @@ TOOL_FUNCTIONS = {
     "write_file": write_file,
     "delete_file": delete_file,
     "move_file": move_file,
+    "calculate": calculate,
     "save_memory": save_memory,
     "search_memory": search_memory,
     "list_memories": list_memories,
@@ -92,6 +94,7 @@ TOOL_TIERS = {
     "write_file": Tier.CONFIRM,
     "delete_file": Tier.ALWAYS_CONFIRM,
     "move_file": Tier.CONFIRM,
+    "calculate": Tier.AUTO_ALLOW,
     "save_memory": Tier.CONFIRM,
     "search_memory": Tier.AUTO_ALLOW,
     "list_memories": Tier.AUTO_ALLOW,
@@ -149,6 +152,23 @@ UNTRUSTED_SOURCE_TOOLS = {
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
 
 TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate",
+            "description": "Use for arithmetic instead of run_code. Evaluates a safe math expression (numbers, + - * / // % **, parentheses, round/abs/min/max, and percent like 17% of 2350). No approval needed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "Arithmetic expression, e.g. '17% of 2350' or '(3+4)*2'.",
+                    },
+                },
+                "required": ["expression"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
