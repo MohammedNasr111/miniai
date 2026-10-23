@@ -819,3 +819,7 @@ Both candidates beat current by +1 on total dev runs (and fixed `fresh_python`) 
 - URL: https://github.com/MohammedNasr111/miniai
 - Visibility: PRIVATE (verified `gh repo view miniai --json visibility,url`)
 - First push HEAD: `e62dfd9fd9e9aad223275ce1de0b005f320f61e4`
+
+## 2026-10-23 — Workflow: push after every requested commit
+
+Updated `.cursor/rules/miniai-workflow.mdc`: after every commit a task asks for, also run `git push` and report the pushed commit hash; never force-push; on push failure, report the error and stop.

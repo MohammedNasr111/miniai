@@ -7,6 +7,9 @@ alwaysApply: true
 - If your own tooling surfaces a clarifying question, STOP and report it
   back for an answer - do not pick a default and continue.
 - Never commit unless the task explicitly says to commit.
+- After every commit a task asks for, also run `git push`, and report the
+  pushed commit hash. Never force-push. If a push fails, report the error
+  and stop.
 - In every report, paste the FULL contents of every new file and the FULL
   diff of every changed code file. Never summarize, abbreviate or elide
   code or test output with '...' or 'see workspace'.
