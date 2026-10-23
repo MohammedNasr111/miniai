@@ -31,6 +31,12 @@ from agent.context_budget import (
 )
 from agent.executor.executor import execute_tool_calls
 from agent.executor.guard import CallGuard
+from agent.run_claim_check import (
+    evidence_summary_line,
+    check_run_claims,
+    record_run_tool,
+    reset_turn_runs,
+)
 from agent.transcript import Transcript
 from config import settings
 from llm.base import ChatMessage
@@ -567,6 +573,7 @@ def run_tool_rounds(
     from tools.code.workspace_tools import CODING_TOOLS
 
     _register_user_urls(history)
+    reset_turn_runs()
     if cancel_check is not None and cancel_check():
         raise KeyboardInterrupt()
     response = _call_model(provider, history, transcript)
@@ -581,8 +588,10 @@ def run_tool_rounds(
         names_this = {_tool_call_name(tc) for tc in response.tool_calls}
         if names_this & (CODING_TOOLS | _fs_mutate):
             max_rounds = 12
+        call_names: list[str] = []
         for tc in response.tool_calls:
             name = _tool_call_name(tc)
+            call_names.append(name)
             if name:
                 tools_used.add(name)
         history.append(
@@ -600,10 +609,16 @@ def run_tool_rounds(
             on_tool_end=on_tool_end,
             cancel_check=cancel_check,
         )
-        for message in tool_messages:
+        for name, message in zip(call_names, tool_messages):
             text = message.content or ""
             append_evidence(text)
             turn_evidence.append(text)
+            rec = record_run_tool(name, text)
+            if rec is not None:
+                # Also keep a compact summary in the evidence store.
+                summary = evidence_summary_line(rec)
+                append_evidence(summary)
+                turn_evidence.append(summary)
         history.extend(tool_messages)
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
@@ -624,6 +639,7 @@ def run_tool_rounds(
         raw = response.content or ""
         shown = clean_final_answer(raw)
         shown = check_quotes_against_evidence(shown, transcript=transcript)
+        shown = check_run_claims(shown, transcript=transcript)
         q = question or ""
         if not q:
             for msg in reversed(history):
