@@ -44,6 +44,8 @@ class EvalContext:
     state: dict[str, Any] = field(default_factory=dict)
     answers: list[str] = field(default_factory=list)
     transcript_path: Optional[Path] = None
+    # All session transcripts for multi-prompt tasks (e.g. memory save+recall).
+    transcript_paths: list[Path] = field(default_factory=list)
     prompt_log: list[tuple[str, str, str]] = field(default_factory=list)
     model_calls: int = 0
     prompt_tokens: int = 0
@@ -276,9 +278,14 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext, model: str) -> None:
         ctx.answers = []
         try:
             reset_between = bool(task.get("reset_session_between_prompts"))
+            ctx.transcript_paths = []
             with answer_by_action(mapping, default="no") as prompt_log:
                 for i, prompt in enumerate(rendered):
                     if reset_between and i > 0:
+                        if session.transcript is not None:
+                            ctx.transcript_paths.append(
+                                Path(session.transcript.path)
+                            )
                         end_session(session)
                         reset_session()
                         close_session()
@@ -296,6 +303,8 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext, model: str) -> None:
         finally:
             if session.transcript is not None:
                 ctx.transcript_path = Path(session.transcript.path)
+                if ctx.transcript_path not in ctx.transcript_paths:
+                    ctx.transcript_paths.append(ctx.transcript_path)
                 ctx.model_calls, ctx.prompt_tokens = _count_transcript_stats(
                     ctx.transcript_path
                 )

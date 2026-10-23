@@ -367,6 +367,38 @@ def delete_file(path: str) -> str:
     )
 
 
+def move_file(src: str, dest: str) -> str:
+    """Move or rename a file. Creates the destination parent directory if needed.
+
+    Refuses protected paths. Does not overwrite an existing destination.
+    Prompts at CONFIRM before acting.
+    """
+    assert_not_protected(src)
+    assert_not_protected(dest)
+    source = Path(src)
+    destination = Path(dest)
+    if not source.exists():
+        raise FileNotFoundError(f"No such file: {src}")
+    if not source.is_file():
+        raise IsADirectoryError(
+            f"move_file only moves files, not directories: {src}"
+        )
+    if destination.exists():
+        raise FileExistsError(
+            f"Destination already exists, not overwriting: {dest}"
+        )
+    check_permission(
+        action="move_file",
+        tier=Tier.CONFIRM,
+        description=f"Move file:\n  from: {src}\n  to:   {dest}",
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source), str(destination))
+    _commit_if_workspace(src, f"move_file {src} -> {dest}")
+    _commit_if_workspace(dest, f"move_file {src} -> {dest}")
+    return f"Moved {src} to {dest}."
+
+
 def _commit_if_workspace(path: str, message: str) -> None:
     """Version the isolated code workspace after MiniAI mutates a path in it."""
     try:

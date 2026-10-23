@@ -18,30 +18,38 @@ BEGIN_UNTRUSTED = "<<<BEGIN UNTRUSTED"
 END_UNTRUSTED = "<<<END UNTRUSTED"
 
 
+def _transcript_files(ctx: EvalContext) -> list[Path]:
+    paths: list[Path] = []
+    for p in list(getattr(ctx, "transcript_paths", None) or []):
+        if p and Path(p) not in paths:
+            paths.append(Path(p))
+    if ctx.transcript_path and ctx.transcript_path not in paths:
+        paths.append(ctx.transcript_path)
+    return [p for p in paths if p.is_file()]
+
+
 def _tools(ctx: EvalContext) -> set[str]:
     names: set[str] = set()
-    if not ctx.transcript_path or not ctx.transcript_path.is_file():
-        return names
-    for line in ctx.transcript_path.read_text(encoding="utf-8").splitlines():
-        try:
-            ev = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if ev.get("type") == "tool_call" and ev.get("name"):
-            names.add(str(ev["name"]))
+    for path in _transcript_files(ctx):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if ev.get("type") == "tool_call" and ev.get("name"):
+                names.add(str(ev["name"]))
     return names
 
 
 def _model_ok(ctx: EvalContext) -> bool:
-    if not ctx.transcript_path or not ctx.transcript_path.is_file():
-        return False
-    for line in ctx.transcript_path.read_text(encoding="utf-8").splitlines():
-        try:
-            ev = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if ev.get("type") == "run_start":
-            return "Qwen3-30B-A3B-GGUF" in str(ev.get("model") or "")
+    for path in _transcript_files(ctx):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if ev.get("type") == "run_start":
+                return "Qwen3-30B-A3B-GGUF" in str(ev.get("model") or "")
     return False
 
 
@@ -459,6 +467,7 @@ def setup_qa_code_small(ctx: EvalContext) -> None:
     from eval.fixtures import setup_coding
 
     setup_coding(ctx)
+    _clean_workspace_noise()
 
 
 def teardown_qa_code_small(ctx: EvalContext) -> None:
@@ -485,46 +494,81 @@ def grade_qa_m_code_small(ctx: EvalContext) -> tuple[bool, str]:
 # ----- hard -----
 
 
+def _clean_workspace_noise() -> None:
+    """Remove leftover eval/coding debris so hard coding tasks start clean."""
+    from tools.code.paths import workspace_dir
+
+    ws = workspace_dir()
+    keep_names = {".gitignore", ".gitattributes", ".git"}
+    for child in list(ws.iterdir()):
+        if child.name in keep_names or child.name.startswith(".git"):
+            continue
+        try:
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
 def setup_qa_code_cli(ctx: EvalContext) -> None:
     from eval.fixtures import setup_coding
 
     setup_coding(ctx)
+    _clean_workspace_noise()
 
 
 def teardown_qa_code_cli(ctx: EvalContext) -> None:
     from eval.fixtures import teardown_coding
 
     teardown_coding(ctx)
+    # Leave expense tracker artifacts for inspection; next setup cleans.
 
 
 def grade_qa_h_code_cli(ctx: EvalContext) -> tuple[bool, str]:
-    import subprocess
-    import sys
-
     from tools.code.paths import workspace_dir
+    from tools.code.runner import run_argv
 
     ws = workspace_dir()
-    py_files = list(ws.rglob("*.py"))
-    db_files = list(ws.rglob("*.db")) + list(ws.rglob("*.sqlite"))
-    tests = list(ws.rglob("test_*.py"))
-    # Re-run pytest independently
+    # Prefer the expense-tracker project the task asked for.
+    candidates = [
+        p
+        for p in ws.rglob("*.py")
+        if "expense" in p.name.lower()
+        or (p.parent / "test_expense_tracker.py").exists()
+        or p.name.startswith("test_")
+    ]
+    py_files = list({p.resolve() for p in candidates}) or [
+        p for p in ws.rglob("*.py") if ".pytest_cache" not in p.parts
+    ]
+    db_files = [p for p in ws.rglob("*") if p.suffix.lower() in {".db", ".sqlite"}]
+    tests = [
+        p
+        for p in ws.rglob("test_*.py")
+        if ".pytest_cache" not in p.parts
+        and ("expense" in p.name.lower() or "expense" in str(p.parent).lower())
+    ]
+    if not tests:
+        tests = [p for p in ws.rglob("test_*.py") if ".pytest_cache" not in p.parts]
     pytest_ok = False
     detail = ""
-    if tests or any("test" in p.name for p in py_files):
+    if tests:
         try:
-            cp = subprocess.run(
-                [sys.executable, "-m", "pytest", "-q", "--tb=line"],
-                cwd=str(ws),
-                capture_output=True,
-                text=True,
-                timeout=120,
+            # Grade via the isolated runner (has pytest), not the host venv.
+            target = str(tests[0].parent if tests[0].parent != ws else tests[0])
+            result = run_argv(
+                ["-m", "pytest", target, "-q", "--tb=line"],
+                timeout_s=120,
+                script_path=target,
+                cwd=ws,
             )
-            pytest_ok = cp.returncode == 0
-            detail = (cp.stdout or "")[-200:]
+            pytest_ok = int(result.exit_code or 1) == 0
+            detail = ((result.stdout or "") + (result.stderr or ""))[-300:]
         except Exception as exc:
             detail = str(exc)
     coh, why = coherence_ok("\n".join(ctx.answers))
-    ok = len(py_files) >= 2 and pytest_ok and coh
+    ok = len(py_files) >= 2 and bool(tests) and pytest_ok and coh
     return ok, str(
         _meta(
             ctx,
@@ -543,6 +587,7 @@ def setup_qa_code_debug(ctx: EvalContext) -> None:
     from tools.code.paths import workspace_dir
 
     setup_coding(ctx)
+    _clean_workspace_noise()
     ws = workspace_dir()
     pkg = ws / "buggy"
     pkg.mkdir(parents=True, exist_ok=True)
@@ -572,15 +617,19 @@ def setup_qa_code_debug(ctx: EvalContext) -> None:
 
 def teardown_qa_code_debug(ctx: EvalContext) -> None:
     from eval.fixtures import teardown_coding
+    from tools.code.paths import workspace_dir
 
     teardown_coding(ctx)
+    ws = workspace_dir()
+    for name in ("buggy", "tests"):
+        p = ws / name
+        if p.exists():
+            shutil.rmtree(p, ignore_errors=True)
 
 
 def grade_qa_h_code_debug(ctx: EvalContext) -> tuple[bool, str]:
-    import subprocess
-    import sys
-
     from tools.code.paths import workspace_dir
+    from tools.code.runner import run_argv
 
     ws = workspace_dir()
     test_file = Path(ctx.state.get("test_file") or "")
@@ -590,15 +639,14 @@ def grade_qa_h_code_debug(ctx: EvalContext) -> tuple[bool, str]:
             hashlib.sha256(test_file.read_bytes()).hexdigest() == ctx.state["test_hash"]
         )
     try:
-        cp = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "--tb=line"],
-            cwd=str(ws),
-            capture_output=True,
-            text=True,
-            timeout=120,
+        result = run_argv(
+            ["-m", "pytest", "tests", "-q", "--tb=line"],
+            timeout_s=120,
+            script_path="tests",
+            cwd=ws,
         )
-        pytest_ok = cp.returncode == 0
-        detail = (cp.stdout or cp.stderr or "")[-300:]
+        pytest_ok = int(result.exit_code or 1) == 0
+        detail = ((result.stdout or "") + (result.stderr or ""))[-300:]
     except Exception as exc:
         pytest_ok = False
         detail = str(exc)
@@ -613,6 +661,7 @@ def setup_qa_website(ctx: EvalContext) -> None:
     from eval.fixtures import setup_coding
 
     setup_coding(ctx)
+    _clean_workspace_noise()
 
 
 def teardown_qa_website(ctx: EvalContext) -> None:

@@ -7,6 +7,7 @@ from tools.filesystem.fs_tools import (
     create_file,
     delete_file,
     list_directory,
+    move_file,
     read_file,
     search_files,
     write_file,
@@ -49,6 +50,7 @@ TOOL_FUNCTIONS = {
     "create_file": create_file,
     "write_file": write_file,
     "delete_file": delete_file,
+    "move_file": move_file,
     "save_memory": save_memory,
     "search_memory": search_memory,
     "list_memories": list_memories,
@@ -89,6 +91,7 @@ TOOL_TIERS = {
     "create_file": Tier.CONFIRM,
     "write_file": Tier.CONFIRM,
     "delete_file": Tier.ALWAYS_CONFIRM,
+    "move_file": Tier.CONFIRM,
     "save_memory": Tier.CONFIRM,
     "search_memory": Tier.AUTO_ALLOW,
     "list_memories": Tier.AUTO_ALLOW,
@@ -257,6 +260,24 @@ TOOL_SCHEMAS = [
                     "path": {"type": "string", "description": "Absolute path to the file to delete."},
                 },
                 "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_file",
+            "description": "Move or rename a file from src to dest (creates the destination folder if needed). Use this to organise files into subfolders. Does not overwrite an existing destination. Prompts for confirmation. Cannot modify MiniAI's own folder or settings.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "src": {"type": "string", "description": "Absolute path of the file to move."},
+                    "dest": {
+                        "type": "string",
+                        "description": "Absolute destination path (including the new filename).",
+                    },
+                },
+                "required": ["src", "dest"],
             },
         },
     },
