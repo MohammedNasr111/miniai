@@ -369,7 +369,8 @@ class AppBridge:
 
     def new_chat(self) -> dict[str, Any]:
         from scripts.chat import end_session, new_session
-        from security.gate import reset_session
+        from security.gate import is_tainted, reset_session
+        from tools.browser.browser_tools import close_session
 
         self.stop_turn()
         if self._session is not None:
@@ -377,7 +378,9 @@ class AppBridge:
                 end_session(self._session)
             except Exception:
                 pass
+        # Fresh agent session: clear taint so the chip matches is_tainted().
         reset_session()
+        close_session()
         if self._provider is not None:
             self._session = new_session(self._provider)
         else:
@@ -385,7 +388,15 @@ class AppBridge:
         self._chat_doc = None
         self._busy = False
         self._cancel.clear()
-        return {"ok": True, "history": self.list_chats()}
+        try:
+            self.push_status()
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "history": self.list_chats(),
+            "tainted": is_tainted(),
+        }
 
     def list_chats(self) -> list[dict[str, Any]]:
         from app.chats import list_chats_grouped

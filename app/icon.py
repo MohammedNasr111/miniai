@@ -38,12 +38,30 @@ def ico_path() -> Path:
     return fallback if fallback.is_file() else ICO_PATH
 
 
+def _load_icon(path: Path, cx: int, cy: int) -> int:
+    user32 = ctypes.windll.user32
+    IMAGE_ICON = 1
+    LR_LOADFROMFILE = 0x0010
+    return int(
+        user32.LoadImageW(
+            None,
+            str(path),
+            IMAGE_ICON,
+            int(cx),
+            int(cy),
+            LR_LOADFROMFILE,
+        )
+        or 0
+    )
+
+
 def apply_window_icon(window: Any, path: Optional[Path] = None) -> bool:
-    """Set the WinForms / native window icon from the .ico file."""
+    """Set title-bar icons: Form.Icon plus WM_SETICON SMALL (16) and BIG (32)."""
     icon_file = Path(path) if path else ico_path()
     if not icon_file.is_file():
         logger.warning("icon file missing: %s", icon_file)
         return False
+    ok = False
     # Prefer pywebview native Form.Icon when available.
     try:
         native = getattr(window, "native", None)
@@ -57,41 +75,37 @@ def apply_window_icon(window: Any, path: Optional[Path] = None) -> bool:
 
                 form.Icon = WinIcon(str(icon_file))
                 logger.info("set form.Icon from %s", icon_file)
-                return True
+                ok = True
             except Exception as exc:
                 logger.info("WinForms Icon set failed: %s", exc)
     except Exception as exc:
         logger.info("native form icon path failed: %s", exc)
 
-    # Fallback: SendMessage WM_SETICON on HWND.
+    # Always also set WM_SETICON for both sizes (title bar often uses SMALL).
     try:
         from app.dark_titlebar import _hwnd_for
 
         hwnd = _hwnd_for(window)
         if not hwnd:
-            return False
+            return ok
         user32 = ctypes.windll.user32
-        IMAGE_ICON = 1
-        LR_LOADFROMFILE = 0x0010
-        LR_DEFAULTSIZE = 0x0040
         WM_SETICON = 0x0080
         ICON_SMALL = 0
         ICON_BIG = 1
-        hicon = user32.LoadImageW(
-            None,
-            str(icon_file),
-            IMAGE_ICON,
-            0,
-            0,
-            LR_LOADFROMFILE | LR_DEFAULTSIZE,
-        )
-        if not hicon:
-            logger.warning("LoadImageW failed for %s", icon_file)
-            return False
-        user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
-        user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
-        logger.info("WM_SETICON applied for %s", icon_file)
-        return True
+        h_small = _load_icon(icon_file, 16, 16)
+        h_big = _load_icon(icon_file, 32, 32)
+        if not h_small and not h_big:
+            # Fall back to default-size extract
+            h_big = _load_icon(icon_file, 0, 0)
+            h_small = h_big
+        if h_small:
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, h_small)
+            ok = True
+        if h_big:
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, h_big)
+            ok = True
+        logger.info("WM_SETICON small/big applied for %s", icon_file)
+        return ok
     except Exception as exc:
         logger.warning("WM_SETICON failed: %s", exc)
-        return False
+        return ok

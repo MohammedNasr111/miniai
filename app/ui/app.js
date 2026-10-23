@@ -6,9 +6,10 @@
   const scroll = document.getElementById("scroll");
   const composer = document.getElementById("composer");
   const btnSend = document.getElementById("btn-send");
-  const btnStop = document.getElementById("btn-stop");
   const btnNew = document.getElementById("btn-new-chat");
   const chipTaint = document.getElementById("chip-taint");
+  const icoSend = btnSend ? btnSend.querySelector(".ico-send") : null;
+  const icoStop = btnSend ? btnSend.querySelector(".ico-stop") : null;
   const chipRunner = document.getElementById("chip-runner");
   const modelStatus = document.getElementById("model-status");
   const memMeter = document.getElementById("mem-meter");
@@ -132,18 +133,22 @@
 
   function setTurnControls(running) {
     busy = !!running;
+    if (!btnSend) return;
     if (busy) {
-      btnSend.disabled = true;
-      btnStop.disabled = false;
-      btnStop.removeAttribute("aria-disabled");
-      btnStop.title = "Stop";
-      btnStop.classList.remove("is-idle");
+      // Single control becomes Stop while a turn is running.
+      btnSend.disabled = false;
+      btnSend.classList.add("is-stop");
+      btnSend.title = "Stop";
+      btnSend.setAttribute("aria-label", "Stop");
+      if (icoSend) icoSend.hidden = true;
+      if (icoStop) icoStop.hidden = false;
     } else {
       btnSend.disabled = false;
-      btnStop.disabled = true;
-      btnStop.setAttribute("aria-disabled", "true");
-      btnStop.removeAttribute("title");
-      btnStop.classList.add("is-idle");
+      btnSend.classList.remove("is-stop");
+      btnSend.title = "Send";
+      btnSend.setAttribute("aria-label", "Send");
+      if (icoSend) icoSend.hidden = false;
+      if (icoStop) icoStop.hidden = true;
     }
   }
 
@@ -479,7 +484,8 @@
 
   async function doNewChat() {
     const a = api();
-    if (a && a.new_chat) await a.new_chat();
+    let res = null;
+    if (a && a.new_chat) res = await a.new_chat();
     readonly = false;
     activeChatId = null;
     setTurnControls(false);
@@ -487,20 +493,27 @@
     clearApproval();
     thread.innerHTML = "";
     chatTitle.textContent = "New chat";
-    setTainted(false);
+    // Chip must mirror gate.is_tainted() exactly after session reset.
+    const tainted =
+      res && typeof res.tainted === "boolean" ? res.tainted : false;
+    setTainted(tainted);
     composer.focus();
     if (a && a.list_chats) renderHistory(await a.list_chats());
   }
 
   async function stop() {
-    if (btnStop.disabled) return;
+    if (!busy) return;
     const a = api();
     if (a && a.stop_turn) await a.stop_turn();
   }
 
   async function send() {
+    if (busy) {
+      await stop();
+      return;
+    }
     let text = composer.value.trim();
-    if (!text || busy) return;
+    if (!text) return;
     if (readonly) {
       await doNewChat();
     }
@@ -605,6 +618,7 @@
   };
 
   setTurnControls(false);
+  setTainted(false);
 
   // Navigation lock: never follow links inside the webview.
   document.addEventListener(
@@ -626,7 +640,6 @@
   );
 
   btnSend.addEventListener("click", send);
-  btnStop.addEventListener("click", stop);
   btnNew.addEventListener("click", doNewChat);
   composer.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.shiftKey) {
