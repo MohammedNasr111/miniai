@@ -17,7 +17,12 @@ if str(PROJECT_ROOT) not in sys.path:
 from improve.apply import apply
 from improve.filter import filter_candidate
 from improve.propose import propose
-from improve.trial import verdict_for
+from improve.trial import (
+    build_dev_task_ids,
+    interleaved_schedule,
+    score_raw_runs,
+    verdict_for,
+)
 from prompts.playbook_loader import DEFAULT_PLAYBOOK
 
 FAILURES = 0
@@ -57,39 +62,125 @@ def test_filter_categories() -> None:
             _check(f"filter_reject_{kind}", (not ok), f"{reason} :: {instr}")
 
 
+def test_score_raw_runs() -> None:
+    raw = [
+        {"id": "a", "pass": True, "wall_s": 10},
+        {"id": "a", "pass": False, "wall_s": 12},
+        {"id": "a", "pass": True, "wall_s": 11},
+        {"id": "b", "pass": None, "wall_s": 9, "reason": "ERROR: truth"},
+        {"id": "b", "pass": True, "wall_s": 8},
+    ]
+    s = score_raw_runs(raw)
+    _check("per_run_passed", s["passed"] == 3, s)
+    _check("per_run_total_excludes_error", s["total"] == 4, s)
+    _check("per_run_error_count", s["error_count"] == 1, s)
+    _check(
+        "per_task_breakdown",
+        s["by_task"]["a"]["passed"] == 2
+        and s["by_task"]["a"]["failed"] == 1
+        and s["by_task"]["b"]["errors"] == 1
+        and s["by_task"]["b"]["passed"] == 1,
+        s["by_task"],
+    )
+
+
+def test_dev_set_includes_source_failures() -> None:
+    proposal = {
+        "failures": [
+            {"task_id": "web_python_version_plain"},
+            {"task_id": "web_python_version_plain"},
+        ],
+        "source_eval": "",
+    }
+    ids = build_dev_task_ids(proposal)
+    _check(
+        "dev_includes_plain",
+        "web_python_version_plain" in ids,
+        ids,
+    )
+    _check(
+        "dev_includes_freshness",
+        all(
+            t in ids
+            for t in (
+                "fresh_python",
+                "fresh_firefox",
+                "fresh_node_lts",
+                "fresh_linux_kernel",
+            )
+        ),
+        ids,
+    )
+
+
+def test_interleaving_order() -> None:
+    sched = interleaved_schedule(["current", "c1", "c2"], 3)
+    expected = [
+        (0, "current"),
+        (0, "c1"),
+        (0, "c2"),
+        (1, "current"),
+        (1, "c1"),
+        (1, "c2"),
+        (2, "current"),
+        (2, "c1"),
+        (2, "c2"),
+    ]
+    _check("interleave_order", sched == expected, sched)
+
+
 def test_verdict_rules() -> None:
     current = {
-        "dev": {"pass_rate": 0.5, "mean_wall_s": 100.0},
-        "heldout": {"pass_rate": 0.8, "mean_wall_s": 100.0},
+        "dev": {"passed": 10, "total": 15, "mean_wall_s": 100.0},
+        "heldout": {"passed": 8, "total": 8, "mean_wall_s": 100.0},
         "safety": {"safety": "PASS", "mean_wall_s": 50.0},
     }
+    # Need >= 12 dev passes (10+2), heldout >= 7
     good = {
-        "dev": {"pass_rate": 0.75, "mean_wall_s": 100.0},
-        "heldout": {"pass_rate": 0.8, "mean_wall_s": 100.0},
+        "dev": {"passed": 12, "total": 15, "mean_wall_s": 100.0},
+        "heldout": {"passed": 8, "total": 8, "mean_wall_s": 100.0},
         "safety": {"safety": "PASS", "mean_wall_s": 50.0},
     }
     v, reasons = verdict_for(current, good)
-    _check("verdict_acceptable", v == "ACCEPTABLE" and not reasons, str(reasons))
+    _check("verdict_acceptable", v == "ACCEPTABLE" and not reasons, f"{v} {reasons}")
 
-    worse_dev = dict(good)
-    worse_dev["dev"] = {"pass_rate": 0.5, "mean_wall_s": 100.0}
-    v, reasons = verdict_for(current, worse_dev)
-    _check("verdict_dev", v == "REJECTED" and any("dev" in r for r in reasons), reasons)
+    almost = dict(good)
+    almost["dev"] = {"passed": 11, "total": 15, "mean_wall_s": 100.0}
+    v, reasons = verdict_for(current, almost)
+    _check(
+        "verdict_dev_margin",
+        v == "REJECTED" and any("dev passes" in r for r in reasons),
+        reasons,
+    )
 
-    worse_hold = dict(good)
-    worse_hold["heldout"] = {"pass_rate": 0.7, "mean_wall_s": 100.0}
-    v, reasons = verdict_for(current, worse_hold)
-    _check("verdict_heldout", v == "REJECTED" and any("held-out" in r for r in reasons), reasons)
+    hold_drop1 = dict(good)
+    hold_drop1["heldout"] = {"passed": 7, "total": 8, "mean_wall_s": 100.0}
+    v, reasons = verdict_for(current, hold_drop1)
+    _check(
+        "verdict_heldout_minus1_review",
+        v == "ACCEPTABLE (held-out -1, review)",
+        f"{v} {reasons}",
+    )
+
+    hold_drop2 = dict(good)
+    hold_drop2["heldout"] = {"passed": 6, "total": 8, "mean_wall_s": 100.0}
+    v, reasons = verdict_for(current, hold_drop2)
+    _check(
+        "verdict_heldout_drop2",
+        v == "REJECTED" and any("held-out" in r for r in reasons),
+        reasons,
+    )
 
     worse_safe = dict(good)
     worse_safe["safety"] = {"safety": "FAIL", "mean_wall_s": 50.0}
     v, reasons = verdict_for(current, worse_safe)
     _check("verdict_safety", v == "REJECTED" and any("safety" in r for r in reasons), reasons)
 
-    slow = dict(good)
-    slow["dev"] = {"pass_rate": 0.75, "mean_wall_s": 200.0}
-    slow["heldout"] = {"pass_rate": 0.8, "mean_wall_s": 200.0}
-    slow["safety"] = {"safety": "PASS", "mean_wall_s": 200.0}
+    slow = {
+        "dev": {"passed": 12, "total": 15, "mean_wall_s": 200.0},
+        "heldout": {"passed": 8, "total": 8, "mean_wall_s": 200.0},
+        "safety": {"safety": "PASS", "mean_wall_s": 200.0},
+    }
     v, reasons = verdict_for(current, slow)
     _check("verdict_wall", v == "REJECTED" and any("wall" in r for r in reasons), reasons)
 
@@ -180,6 +271,9 @@ def test_propose_with_mock_model() -> None:
 
 def main() -> int:
     test_filter_categories()
+    test_score_raw_runs()
+    test_dev_set_includes_source_failures()
+    test_interleaving_order()
     test_verdict_rules()
     test_apply_refuses()
     test_propose_with_mock_model()

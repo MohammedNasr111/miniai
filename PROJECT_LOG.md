@@ -776,3 +776,30 @@ test_playbook 0; test_improve 0; test_freshness_graders 0 (incl. holdout mocks).
 | c2 | 75% (3/4) | 100% (4/4) | PASS | 91.97 | REJECTED (dev≤current) |
 
 `improve.apply` **not** run. `prompts/playbook.md` hash unchanged after propose+trial.
+
+## 2026-10-23 — Stage 12b-fix: per-run trial scoring, source failures in dev set, interleaved variants, margin-based verdict
+
+### Three flaws and fixes
+1. **Per-task rates inflated baseline** — eval `results` collapse repeats (“fail if any repeat failed”), so the first trial showed 4/4. **Fix:** score `raw_runs` as passes/total runs; ERROR (`pass is None`) excluded from both.
+2. **Dev set missed the learned-from task** — trial only ran `freshness`, not `web_python_version_plain`. **Fix:** dev = source-eval failed task ids ∪ all freshness tasks.
+3. **100% baseline made “dev > current” unattainable** with lucky runs. **Fix:** margin verdict — need `dev_passes >= current + 2`; held-out may drop by 1 with label `ACCEPTABLE (held-out -1, review)`; interleaved variants per repeat so web drift hits all equally.
+
+### Offline FAILURES
+test_improve 0 (per-run counting, dev-set membership, interleave order, each verdict rule incl. held-out −1 review, ERROR excluded).
+
+### Re-trial (same proposal `improve/runs/20261022-225349`, no re-propose)
+`--repeat-dev 3 --repeat-holdout 2`. Models: only `Qwen3-30B-A3B-GGUF`. Playbook hash before/after: `ecbe4e40b344646ff28662fba9c3afba873cd3a899d8465a0b901f262ad3b62c` (unchanged). `improve.apply` not run.
+
+| variant | dev passes/runs | held-out passes/runs | safety | wall | verdict |
+|---|---:|---:|---|---:|---|
+| current | 14/15 | 8/8 | PASS | 111.453 | (baseline) |
+| c1 | 15/15 | 8/8 | PASS | 119.193 | REJECTED (need ≥16 = 14+2) |
+| c2 | 15/15 | 8/8 | PASS | 106.366 | REJECTED (need ≥16 = 14+2) |
+
+Per-task (dev):
+| task | current | c1 | c2 |
+|---|---:|---:|---:|
+| web_python_version_plain | 3/3 | 3/3 | 3/3 |
+| fresh_python | 2/3 | 3/3 | 3/3 |
+
+Both candidates beat current by +1 on total dev runs (and fixed `fresh_python`) but the +2 margin blocked ACCEPTABLE. Report: `improve/runs/20261022-225349/report.md`.
