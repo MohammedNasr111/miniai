@@ -554,8 +554,9 @@ def run_tool_rounds(
     the cleaned text, which is what a caller appends if the conversation
     continues. The raw text is written only to the transcript.
 
-    Default round cap is 5. If any coding tool (ws_*, run_*, install_package,
-    workspace_*) is used this turn, the cap becomes 10.
+    Default round cap is 8. If any coding tool (ws_*, run_*, install_package,
+    workspace_*) or file-mutating tool (create/write/move/delete) is used
+    this turn, the cap becomes 12.
 
     Optional on_tool_start / on_tool_end / cancel_check support the app UI
     (live activity + Stop). cancel_check raising KeyboardInterrupt rolls
@@ -570,14 +571,16 @@ def run_tool_rounds(
         raise KeyboardInterrupt()
     response = _call_model(provider, history, transcript)
     rounds = 0
-    max_rounds = 5
+    max_rounds = 8
+    _fs_mutate = {"create_file", "write_file", "move_file", "delete_file"}
     turn_evidence: list[str] = []
     tools_used: set[str] = set()
     while response.tool_calls and rounds < max_rounds:
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
-        if any(_tool_call_name(tc) in CODING_TOOLS for tc in response.tool_calls):
-            max_rounds = 10
+        names_this = {_tool_call_name(tc) for tc in response.tool_calls}
+        if names_this & (CODING_TOOLS | _fs_mutate):
+            max_rounds = 12
         for tc in response.tool_calls:
             name = _tool_call_name(tc)
             if name:
@@ -680,6 +683,9 @@ def system_prompt() -> str:
         "Absolute paths the user gives (including Temp folders) are valid for "
         "list_directory, read_file, create_file, write_file, move_file, and "
         "delete_file; you do not need the MiniAI coding workspace for those. "
+        "Paths under the MiniAI coding workspace (LocalLow/MiniAI/workspace) "
+        "ARE the coding workspace — use ws_list, ws_read, ws_write, ws_edit, "
+        "run_file, and run_tests there; never claim you cannot access it. "
         "To organise files by type, create type subfolders and move_file each "
         "file into the matching folder. "
         "For bulk-delete requests, call delete_file so the user is prompted; "

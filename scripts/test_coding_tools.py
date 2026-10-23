@@ -255,15 +255,15 @@ def main() -> int:
         ex.return_value = [
             ChatMessage(role="tool", content="ok", tool_call_id="c1")
         ]
-        # coding tool -> cap 10
+        # coding tool -> cap 12
         hist = [ChatMessage(role="user", content="code")]
         guard = MagicMock()
-        r = run_tool_rounds(_fake_provider("ws_list", 12), hist, guard)
-        coding_cap = "Stopped after 10 tool rounds" in (r.content or "")
-        # non-coding -> cap 5
+        r = run_tool_rounds(_fake_provider("ws_list", 14), hist, guard)
+        coding_cap = "Stopped after 12 tool rounds" in (r.content or "")
+        # non-coding -> cap 8
         hist2 = [ChatMessage(role="user", content="web")]
-        r2 = run_tool_rounds(_fake_provider("list_directory", 12), hist2, guard)
-        normal_cap = "Stopped after 5 tool rounds" in (r2.content or "")
+        r2 = run_tool_rounds(_fake_provider("list_directory", 14), hist2, guard)
+        normal_cap = "Stopped after 8 tool rounds" in (r2.content or "")
     ok7 = coding_cap and normal_cap and "ws_write" in CODING_TOOLS
     _check("7", ok7, f"coding_cap={coding_cap} normal_cap={normal_cap}")
 

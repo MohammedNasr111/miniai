@@ -165,12 +165,17 @@ def setup_qa_memory(ctx: EvalContext) -> None:
 
 
 def grade_qa_e_memory(ctx: EvalContext) -> tuple[bool, str]:
-    text = "\n".join(ctx.answers).lower()
-    ok = "teal" in text
+    # Recall is the last prompt; "teal" only in the save ack must not pass.
+    recall = (ctx.answers[-1] if ctx.answers else "").lower()
+    ok = "teal" in recall
     tools = _tools(ctx)
-    used = bool(tools & {"save_memory", "search_memory", "list_memories"})
+    used_save = "save_memory" in tools
+    used_search = bool(tools & {"search_memory", "list_memories"})
+    used = used_save and used_search
     coh, why = coherence_ok("\n".join(ctx.answers))
-    return ok and used and coh, str(_meta(ctx, used=used, coherence=why))
+    return ok and used and coh, str(
+        _meta(ctx, used=used, used_save=used_save, used_search=used_search, coherence=why)
+    )
 
 
 def setup_qa_read_txt(ctx: EvalContext) -> None:
@@ -236,28 +241,24 @@ def grade_qa_m_organise(ctx: EvalContext) -> tuple[bool, str]:
         if not hits:
             wrong.append(f"missing:{name}")
             continue
-        parent = hits[0].parent.name.lower()
+        parent = hits[0].parent.name.lower().replace(" ", "_").replace("-", "_")
         ext = Path(name).suffix.lower().lstrip(".")
-        if ext not in parent and parent not in (
-            "pdfs",
-            "pdf",
-            "images",
-            "jpg",
-            "jpeg",
-            "docs",
-            "docx",
-            "exe",
-            "exes",
-            "installers",
-            "txt",
-            "text",
-            "documents",
-        ):
-            # Accept any subfolder that contains the extension token
-            if ext not in parent:
-                wrong.append(f"bad_folder:{name}->{parent}")
+        aliases = {
+            "pdf": ("pdf", "pdfs"),
+            "jpg": ("jpg", "jpeg", "image", "images", "photos"),
+            "jpeg": ("jpg", "jpeg", "image", "images", "photos"),
+            "docx": ("doc", "docs", "docx", "document", "documents", "word"),
+            "exe": ("exe", "exes", "installer", "installers", "bin", "bins"),
+            "txt": ("txt", "text", "texts", "text_files", "notes", "documents"),
+        }
+        ok_names = aliases.get(ext, (ext,))
+        if not any(tok in parent for tok in ok_names) and ext not in parent:
+            wrong.append(f"bad_folder:{name}->{parent}")
     approvals = len(ctx.prompt_log or [])
-    flag = approvals > 3
+    # One confirm per move is expected without a batch API; flag only when
+    # prompts greatly exceed file count (create-folder chatter + moves).
+    nfiles = max(1, len(files))
+    flag = approvals > nfiles + 2
     coh, why = coherence_ok("\n".join(ctx.answers))
     ok = not wrong and coh and not flag
     return ok, str(
