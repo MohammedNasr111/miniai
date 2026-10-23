@@ -168,6 +168,10 @@ class AppBridge:
         self._turn_t0 = 0.0
         self._status_stop = threading.Event()
         self._external_log: list[str] = []  # for tests
+        self._model_ready = threading.Event()
+        self._model_loading = False
+        self._model_ready.set()  # until warm-up starts; flipped in start_model_warmup
+        self._warmup_started = False
 
     def is_cancelled(self) -> bool:
         return self._cancel.is_set()
@@ -197,35 +201,89 @@ class AppBridge:
 
         threading.Thread(target=_loop, daemon=True).start()
         self.push_status()
+        self.start_model_warmup()
 
     def stop_status_loop(self) -> None:
         self._status_stop.set()
 
-    def _loaded_model_name(self) -> str:
+    def _health_llms(self) -> list[dict[str, Any]]:
         from config import settings
 
-        configured = settings.LEMONADE_MODEL
         try:
             url = f"{settings.LEMONADE_BASE_URL.rstrip('/')}/health"
             data = requests.get(url, timeout=2).json()
             models = data.get("all_models_loaded") or []
-            # Prefer an LLM whose name matches settings; else first LLM.
-            llms = [
+            return [
                 m
                 for m in models
                 if isinstance(m, dict)
                 and m.get("type") == "llm"
                 and m.get("loaded")
             ]
-            for m in llms:
-                name = m.get("model_name") or ""
-                if name == configured or configured in name or name in configured:
-                    return name
-            if llms:
-                return str(llms[0].get("model_name") or configured)
         except Exception:
-            pass
+            return []
+
+    def _model_is_loaded(self) -> bool:
+        from config import settings
+
+        configured = settings.LEMONADE_MODEL
+        for m in self._health_llms():
+            name = m.get("model_name") or ""
+            if name == configured or configured in name or name in configured:
+                return True
+        return bool(self._health_llms())
+
+    def _loaded_model_name(self) -> str:
+        from config import settings
+
+        configured = settings.LEMONADE_MODEL
+        llms = self._health_llms()
+        for m in llms:
+            name = m.get("model_name") or ""
+            if name == configured or configured in name or name in configured:
+                return name
+        if llms:
+            return str(llms[0].get("model_name") or configured)
         return configured
+
+    def start_model_warmup(self) -> None:
+        """Background tiny chat so the first user turn is not a cold load."""
+        if self._warmup_started:
+            return
+        self._warmup_started = True
+        if self._model_is_loaded():
+            self._model_loading = False
+            self._model_ready.set()
+            self.push_status()
+            return
+
+        self._model_loading = True
+        self._model_ready.clear()
+        self.push_status()
+
+        def _warm() -> None:
+            from config import settings
+            from llm.base import ChatMessage
+            from llm.lemonade.provider import LemonadeProvider
+
+            try:
+                provider = LemonadeProvider()
+                # Long timeout: cold load of a ~17 GB model.
+                provider.chat(
+                    [ChatMessage(role="user", content="ping")],
+                    timeout=max(600, int(settings.LEMONADE_TIMEOUT_SECONDS)),
+                )
+            except Exception as exc:
+                logger.warning("model warm-up failed: %s", exc)
+            finally:
+                self._model_loading = False
+                self._model_ready.set()
+                try:
+                    self.push_status()
+                except Exception:
+                    pass
+
+        threading.Thread(target=_warm, daemon=True).start()
 
     def push_status(self) -> None:
         from security.gate import is_tainted
@@ -258,13 +316,18 @@ class AppBridge:
         except Exception as exc:
             logger.info("memory meter unavailable: %s", exc)
         model = self._loaded_model_name()
-        # Display name as reported by health; drop a trailing -GGUF tag so
-        # the UI shows e.g. Qwen3-30B-A3B rather than Qwen3-30B-A3B-GGUF.
         display = model[:-5] if model.endswith("-GGUF") else model
+        if self._model_loading and not self._model_ready.is_set():
+            model_label = "Loading model…"
+            model_state = "loading"
+        else:
+            model_label = f"{display} · ready"
+            model_state = "ready"
         self._call_js(
             "on_status",
             {
-                "model": f"{display} · ready",
+                "model": model_label,
+                "model_state": model_state,
                 "runner": runner,
                 "tainted": is_tainted(),
                 "memory_pct": mem_pct,
@@ -272,7 +335,6 @@ class AppBridge:
                 "memory_level": mem_level,
             },
         )
-
     def open_external(self, url: str) -> dict[str, Any]:
         raw = (url or "").strip()
         self._external_log.append(raw)
@@ -403,6 +465,37 @@ class AppBridge:
             },
         )
 
+    def _friendly_error(self, exc: BaseException) -> str:
+        """Map provider failures to short chat text; log the raw error."""
+        import requests as req
+
+        logger.exception("turn failed: %s", exc)
+        if isinstance(exc, req.Timeout):
+            from scripts.chat import TURN_TIMEOUT_MESSAGE
+
+            return TURN_TIMEOUT_MESSAGE
+        if isinstance(exc, req.ConnectionError):
+            from scripts.chat import TURN_SERVER_DOWN_MESSAGE
+
+            return TURN_SERVER_DOWN_MESSAGE
+        if isinstance(exc, req.HTTPError):
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status == 400:
+                from scripts.chat import TURN_TOO_LARGE_MESSAGE
+
+                return TURN_TOO_LARGE_MESSAGE
+            return (
+                "The local model returned an error. Nothing from this message "
+                "was saved; try again or start a new chat."
+            )
+        # Never dump URLs / stack traces into the chat bubble.
+        name = type(exc).__name__
+        if name in ("Timeout", "ReadTimeout", "ConnectTimeout"):
+            from scripts.chat import TURN_TIMEOUT_MESSAGE
+
+            return TURN_TIMEOUT_MESSAGE
+        return "Something went wrong while talking to the model. Try again."
+
     def _run_turn(self, text: str) -> None:
         from app.chats import append_message, create_chat
         from scripts.chat import run_user_turn
@@ -410,6 +503,28 @@ class AppBridge:
         from security.gate import is_tainted
 
         try:
+            if not self._model_ready.is_set():
+                self._call_js(
+                    "on_activity",
+                    {
+                        "steps": [
+                            {
+                                "name": "Waiting for model to load…",
+                                "t": "",
+                                "running": True,
+                            }
+                        ],
+                        "waiting": False,
+                        "total": "0s",
+                        "running": True,
+                    },
+                )
+                if not self._model_ready.wait(timeout=900):
+                    self._call_js(
+                        "on_error",
+                        "The model did not finish loading. Is Lemonade running?",
+                    )
+                    return
             self._ensure_session()
             set_approver(self.approver)
             if self._chat_doc is None:
@@ -421,7 +536,6 @@ class AppBridge:
                 "on_activity",
                 {"steps": [], "waiting": False, "total": "0s", "running": True},
             )
-
             def _on_checking() -> None:
                 self._call_js(
                     "on_activity",
@@ -501,7 +615,8 @@ class AppBridge:
             self._call_js("on_cancelled", {"note": CANCEL_NOTE})
             self.push_status()
         except Exception as exc:
-            self._call_js("on_error", f"{type(exc).__name__}: {exc}")
+            self._call_js("on_error", self._friendly_error(exc))
+            self.push_status()
         finally:
             with self._turn_lock:
                 self._busy = False

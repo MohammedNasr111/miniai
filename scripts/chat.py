@@ -38,6 +38,13 @@ TURN_TIMEOUT_MESSAGE = (
     "was saved to the conversation; any actions you already approved were not "
     "undone. You can ask again."
 )
+TURN_TOO_LARGE_MESSAGE = (
+    "The request was too large for the model. I trimmed what I could; "
+    "try a narrower question."
+)
+TURN_SERVER_DOWN_MESSAGE = (
+    "The local model server isn't responding — is Lemonade running?"
+)
 
 
 @dataclass
@@ -174,7 +181,7 @@ def run_user_turn(
         del session.history[pre_len:]
         assert _assistant_tool_calls_matched(session.history)
         raise
-    except (requests.Timeout, requests.ConnectionError) as exc:
+    except requests.Timeout as exc:
         del session.history[pre_len:]
         assert _assistant_tool_calls_matched(session.history)
         if session.transcript is not None:
@@ -184,6 +191,34 @@ def run_user_turn(
                 message=str(exc),
             )
         return TURN_TIMEOUT_MESSAGE
+    except requests.ConnectionError as exc:
+        del session.history[pre_len:]
+        assert _assistant_tool_calls_matched(session.history)
+        if session.transcript is not None:
+            session.transcript.write(
+                "turn_error",
+                error=type(exc).__name__,
+                message=str(exc),
+            )
+        return TURN_SERVER_DOWN_MESSAGE
+    except requests.HTTPError as exc:
+        del session.history[pre_len:]
+        assert _assistant_tool_calls_matched(session.history)
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if session.transcript is not None:
+            session.transcript.write(
+                "turn_error",
+                error=type(exc).__name__,
+                message=str(exc),
+                status_code=status,
+            )
+        if status == 400:
+            return TURN_TOO_LARGE_MESSAGE
+        # Other HTTP errors: friendly, no raw URL/stack.
+        return (
+            "The local model returned an error. Nothing from this message "
+            "was saved; try again or start a new chat."
+        )
 
 
 def handle_command(session: ChatSession, line: str, provider: Any) -> tuple[ChatSession, bool]:

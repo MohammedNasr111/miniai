@@ -35,11 +35,22 @@ def main() -> int:
     from app.dark_titlebar import apply_dark_titlebar
     from app.nav_lock import attach_native_nav_lock
     from app.webview_approver import AppBridge
+    from config.temp_cleanup import cleanup_stale_miniai_temps
     from security.approver import set_approver
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
+
+    try:
+        cleaned = cleanup_stale_miniai_temps()
+        logger.info(
+            "temp cleanup removed=%s freed_bytes=%s",
+            cleaned.get("removed"),
+            cleaned.get("freed_bytes"),
+        )
+    except Exception as exc:
+        logger.warning("temp cleanup failed: %s", exc)
 
     # Only our JS / NewWindowRequested path may open browsers.
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = False

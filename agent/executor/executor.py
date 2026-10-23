@@ -174,6 +174,9 @@ def execute_tool_calls(
                     content = result
                 else:
                     content = json.dumps(result)
+                from agent.context_budget import cap_tool_result_text
+
+                content = cap_tool_result_text(content)
             except PermissionDenied as exc:
                 message = str(exc)
                 if not message.endswith("."):

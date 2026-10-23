@@ -17,8 +17,9 @@ from __future__ import annotations
 import ctypes
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Optional
 
 from send2trash import send2trash
 
@@ -28,6 +29,30 @@ from security.protected_paths import assert_not_protected
 # Win32 GetDriveTypeW: only fixed local volumes are safe for Recycle Bin.
 DRIVE_FIXED = 3
 MAX_RECYCLE_BYTES = 500 * 1024 * 1024
+READ_FILE_TEXT_CAP = 40_000
+BINARY_PROBE_BYTES = 8192
+
+# Extension → short label for refuse messages. Special cases handled separately.
+_BINARY_EXT_LABELS: dict[str, str] = {
+    ".zip": "ZIP archive",
+    ".7z": "7z archive",
+    ".rar": "RAR archive",
+    ".exe": "Windows executable",
+    ".dll": "Windows library",
+    ".msi": "Windows installer",
+    ".iso": "disk image",
+    ".img": "disk image",
+    ".png": "PNG image",
+    ".jpg": "JPEG image",
+    ".jpeg": "JPEG image",
+    ".gif": "GIF image",
+    ".webp": "WebP image",
+    ".mp3": "MP3 audio",
+    ".mp4": "MP4 video",
+    ".mov": "QuickTime video",
+}
+_OFFICE_EXTS = {".docx", ".xlsx", ".pptx"}
+_PDF_EXT = ".pdf"
 
 
 class UnsafeDeleteError(ValueError):
@@ -74,13 +99,93 @@ def assert_safe_for_recycle_bin(path: Path) -> None:
         )
 
 
-def list_directory(path: str) -> list[str]:
+def human_size(num_bytes: int) -> str:
+    """Human-readable size, e.g. '640 KB' or '4.2 MB'."""
+    n = float(max(0, int(num_bytes)))
+    units = [("GB", 1024**3), ("MB", 1024**2), ("KB", 1024), ("B", 1)]
+    for label, scale in units:
+        if n >= scale or label == "B":
+            if label == "B":
+                return f"{int(n)} B"
+            val = n / scale
+            if val >= 100 or abs(val - round(val)) < 0.05:
+                return f"{int(round(val))} {label}"
+            return f"{val:.1f} {label}"
+    return f"{int(n)} B"
+
+
+def list_directory(
+    path: str,
+    sort_by: str = "name",
+    descending: Optional[bool] = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """List directory entries with name, type, size, and modified time.
+
+    sort_by: "name" | "size" | "modified" (default name).
+    descending: default False for name, True for size/modified (largest/newest first).
+    limit: default 200, max 1000.
+    """
     check_permission(
         action="list_directory",
         tier=Tier.AUTO_ALLOW,
         description=f"List contents of: {path}",
     )
-    return os.listdir(path)
+    sort_key = (sort_by or "name").strip().lower()
+    if sort_key not in ("name", "size", "modified"):
+        sort_key = "name"
+    if descending is None:
+        descending = sort_key in ("size", "modified")
+    try:
+        lim = int(limit)
+    except (TypeError, ValueError):
+        lim = 200
+    lim = max(1, min(lim, 1000))
+
+    root = Path(path)
+    entries: list[dict[str, Any]] = []
+    for name in os.listdir(path):
+        full = root / name
+        try:
+            st = full.lstat()
+        except OSError:
+            continue
+        if full.is_dir():
+            entry_type = "dir"
+            size_bytes: Optional[int] = None
+            size_h: Optional[str] = None
+        else:
+            entry_type = "file"
+            size_bytes = int(st.st_size)
+            size_h = human_size(size_bytes)
+        try:
+            modified = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+        except (OverflowError, OSError, ValueError):
+            modified = ""
+        entries.append(
+            {
+                "name": name,
+                "type": entry_type,
+                "size_bytes": size_bytes,
+                "size": size_h,
+                "modified": modified,
+            }
+        )
+
+    def _sort_val(e: dict[str, Any]):
+        if sort_key == "size":
+            # Dirs sort as -1 so they group; files by bytes.
+            return e["size_bytes"] if e["size_bytes"] is not None else -1
+        if sort_key == "modified":
+            return e.get("modified") or ""
+        return (e.get("name") or "").lower()
+
+    entries.sort(key=_sort_val, reverse=bool(descending))
+    if len(entries) > lim:
+        entries = entries[:lim]
+    return entries
 
 
 def search_files(root: str, pattern: str) -> list[str]:
@@ -97,14 +202,63 @@ def search_files(root: str, pattern: str) -> list[str]:
     return matches
 
 
+def _binary_refuse_message(path: Path, label: str, size_bytes: int) -> str:
+    return (
+        f"{path.name} is a binary file ({label}, {human_size(size_bytes)}); "
+        "its size is in list_directory."
+    )
+
+
 def read_file(path: str) -> str:
     check_permission(
         action="read_file",
         tier=Tier.AUTO_ALLOW,
         description=f"Read file: {path}",
     )
-    return Path(path).read_text(encoding="utf-8", errors="replace")
+    target = Path(path)
+    if not target.is_file():
+        raise FileNotFoundError(f"Not a file: {path}")
+    try:
+        size_bytes = int(target.stat().st_size)
+    except OSError as exc:
+        raise FileNotFoundError(f"Cannot stat file: {path}") from exc
 
+    ext = target.suffix.lower()
+    if ext == _PDF_EXT:
+        return (
+            f"{target.name} is a PDF ({human_size(size_bytes)}). "
+            "Use the knowledge tool for PDFs; read_file cannot return PDF text."
+        )
+    if ext in _OFFICE_EXTS:
+        kind = {".docx": "Word", ".xlsx": "Excel", ".pptx": "PowerPoint"}[ext]
+        return (
+            f"{target.name} is a {kind} document ({human_size(size_bytes)}); "
+            "Office formats are not supported as text. "
+            "Its size is in list_directory."
+        )
+    if ext in _BINARY_EXT_LABELS:
+        return _binary_refuse_message(target, _BINARY_EXT_LABELS[ext], size_bytes)
+
+    # NUL-byte probe (first 8 KB) catches unlabeled binaries.
+    try:
+        with target.open("rb") as fh:
+            head = fh.read(BINARY_PROBE_BYTES)
+    except OSError as exc:
+        raise RuntimeError(f"Cannot read {path}: {exc}") from exc
+    if b"\x00" in head:
+        return _binary_refuse_message(target, "binary", size_bytes)
+
+    try:
+        text = target.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise RuntimeError(f"Cannot read {path}: {exc}") from exc
+    if len(text) > READ_FILE_TEXT_CAP:
+        shown = text[:READ_FILE_TEXT_CAP]
+        return (
+            f"{shown}\n\n[truncated: showing first {READ_FILE_TEXT_CAP} of "
+            f"{len(text)} chars]"
+        )
+    return text
 
 def _backups_dir() -> Path:
     local = os.environ.get("LOCALAPPDATA")

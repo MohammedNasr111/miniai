@@ -59,6 +59,18 @@ def use_temp_data() -> Path:
     print(f"[tests.support] MINIAI_VECTOR_DB={vector_path}")
     print(f"[tests.support] LOCALAPPDATA={local_app}")
     print(f"[tests.support] PLAYWRIGHT_BROWSERS_PATH={pw}")
+
+    import atexit
+
+    def _cleanup_stale() -> None:
+        try:
+            from config.temp_cleanup import cleanup_stale_miniai_temps
+
+            cleanup_stale_miniai_temps()
+        except Exception:
+            pass
+
+    atexit.register(_cleanup_stale)
     return root
 
 

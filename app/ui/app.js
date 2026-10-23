@@ -41,12 +41,13 @@
       .replace(/'/g, "&#39;");
   }
 
-  /** Safe markdown subset: bold, italics, inline code, lists, links. Escape everything else. */
+  /** Safe markdown subset: bold, italics, inline code, nested lists, https links. */
   function renderMarkdown(src) {
     const text = String(src || "");
     const lines = text.split(/\r?\n/);
     const out = [];
-    let inList = false;
+    // Stack: {type, indent, openLi}
+    const stack = [];
 
     function inline(s) {
       let t = escapeHtml(s);
@@ -71,26 +72,79 @@
       return t;
     }
 
+    function closeTo(indent) {
+      while (stack.length && stack[stack.length - 1].indent > indent) {
+        const frame = stack.pop();
+        if (frame.openLi) out.push("</li>");
+        out.push("</" + frame.type + ">");
+      }
+    }
+
+    function closeAll() {
+      while (stack.length) {
+        const frame = stack.pop();
+        if (frame.openLi) out.push("</li>");
+        out.push("</" + frame.type + ">");
+      }
+    }
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const m = /^(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
-      if (m) {
-        if (!inList) {
-          out.push("<ul>");
-          inList = true;
+      const indentMatch = /^([ \t]*)([-*]|\d+\.)\s+(.*)$/.exec(line);
+      if (indentMatch) {
+        const rawIndent = indentMatch[1].replace(/\t/g, "  ");
+        const level = Math.floor(rawIndent.length / 2);
+        const marker = indentMatch[2];
+        const body = indentMatch[3];
+        const listType = /^\d+\.$/.test(marker) ? "ol" : "ul";
+        closeTo(level);
+        let top = stack[stack.length - 1];
+        if (!top || top.indent < level) {
+          // Nest inside the still-open parent <li>.
+          out.push("<" + listType + ">");
+          stack.push({ type: listType, indent: level, openLi: false });
+          top = stack[stack.length - 1];
+        } else if (top.indent === level && top.type !== listType) {
+          if (top.openLi) out.push("</li>");
+          out.push("</" + top.type + ">");
+          stack.pop();
+          out.push("<" + listType + ">");
+          stack.push({ type: listType, indent: level, openLi: false });
+          top = stack[stack.length - 1];
+        } else if (top.indent === level && top.openLi) {
+          out.push("</li>");
+          top.openLi = false;
         }
-        out.push("<li>" + inline(m[1]) + "</li>");
+        out.push("<li>" + inline(body));
+        stack[stack.length - 1].openLi = true;
         continue;
       }
-      if (inList) {
-        out.push("</ul>");
-        inList = false;
+      if (line.trim() === "") {
+        closeAll();
+        continue;
       }
-      if (line.trim() === "") continue;
+      closeAll();
       out.push("<p>" + inline(line) + "</p>");
     }
-    if (inList) out.push("</ul>");
+    closeAll();
     return out.join("") || "<p></p>";
+  }
+
+  function setTurnControls(running) {
+    busy = !!running;
+    if (busy) {
+      btnSend.disabled = true;
+      btnStop.disabled = false;
+      btnStop.removeAttribute("aria-disabled");
+      btnStop.title = "Stop";
+      btnStop.classList.remove("is-idle");
+    } else {
+      btnSend.disabled = false;
+      btnStop.disabled = true;
+      btnStop.setAttribute("aria-disabled", "true");
+      btnStop.removeAttribute("title");
+      btnStop.classList.add("is-idle");
+    }
   }
 
   function scrollBottom() {
@@ -405,8 +459,7 @@
     if (!res || !res.ok) return;
     readonly = true;
     activeChatId = id;
-    busy = false;
-    btnSend.disabled = false;
+    setTurnControls(false);
     activityEl = null;
     clearApproval();
     thread.innerHTML = "";
@@ -429,8 +482,7 @@
     if (a && a.new_chat) await a.new_chat();
     readonly = false;
     activeChatId = null;
-    busy = false;
-    btnSend.disabled = false;
+    setTurnControls(false);
     activityEl = null;
     clearApproval();
     thread.innerHTML = "";
@@ -441,6 +493,7 @@
   }
 
   async function stop() {
+    if (btnStop.disabled) return;
     const a = api();
     if (a && a.stop_turn) await a.stop_turn();
   }
@@ -451,8 +504,7 @@
     if (readonly) {
       await doNewChat();
     }
-    busy = true;
-    btnSend.disabled = true;
+    setTurnControls(true);
     composer.value = "";
     addUser(text);
     if (chatTitle.textContent === "New chat") {
@@ -466,15 +518,23 @@
       if (!a) throw new Error("Python bridge not ready");
       await a.send_message(text);
     } catch (e) {
-      showAnswer("Error: " + (e && e.message ? e.message : String(e)));
-      busy = false;
-      btnSend.disabled = false;
+      showSystemNote(
+        e && e.message ? String(e.message) : "Something went wrong."
+      );
+      setTurnControls(false);
     }
   }
 
   window.miniai = {
     on_status: function (st) {
       if (st.model) modelStatus.textContent = st.model;
+      const dot = document.getElementById("model-dot");
+      if (dot) {
+        dot.classList.toggle("loading", st.model_state === "loading");
+      }
+      if (modelStatus) {
+        modelStatus.classList.toggle("loading", st.model_state === "loading");
+      }
       if (st.runner) chipRunner.textContent = st.runner;
       if (typeof st.tainted === "boolean") setTainted(st.tainted);
       if (st.memory_pct != null) {
@@ -487,9 +547,11 @@
     },
     on_activity: function (payload) {
       renderActivity(payload || {});
+      if (payload && payload.running) setTurnControls(true);
     },
     on_approval: function (req) {
       showApprovalCard(req || {});
+      setTurnControls(true);
     },
     on_answer: function (payload) {
       showAnswer(
@@ -502,8 +564,7 @@
         (payload && payload.check) || null
       );
       if (typeof payload.tainted === "boolean") setTainted(payload.tainted);
-      busy = false;
-      btnSend.disabled = false;
+      setTurnControls(false);
       composer.focus();
     },
     on_cancelled: function (payload) {
@@ -517,8 +578,7 @@
           total: "",
         });
       }
-      busy = false;
-      btnSend.disabled = false;
+      setTurnControls(false);
       composer.focus();
     },
     on_error: function (msg) {
@@ -530,8 +590,7 @@
         total: "",
       });
       showSystemNote(String(msg || "Error"));
-      busy = false;
-      btnSend.disabled = false;
+      setTurnControls(false);
       composer.focus();
     },
     on_history: function (groups) {
@@ -542,7 +601,10 @@
       d.innerHTML = renderMarkdown(text);
       return d.innerHTML;
     },
+    _set_turn_controls: setTurnControls,
   };
+
+  setTurnControls(false);
 
   // Navigation lock: never follow links inside the webview.
   document.addEventListener(

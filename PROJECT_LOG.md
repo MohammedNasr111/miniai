@@ -824,6 +824,36 @@ Both candidates beat current by +1 on total dev runs (and fixed `fresh_python`) 
 
 Updated `.cursor/rules/miniai-workflow.mdc`: after every commit a task asks for, also run `git push` and report the pushed commit hash; never force-push; on push failure, report the error and stop.
 
+## 2026-10-23 — Real-use fixes 1
+
+From first app session log `logs/agent_20261023-190617_9724.log`: oversized zip via `read_file`, idle Stop looking active, cold model load freeze, nested markdown, stale `%TEMP%\miniai_*`.
+
+### Fixes
+1. **list_directory** — per-entry name/type/size_bytes/size/modified; `sort_by` name|size|modified; size/modified default descending; limit 200 (max 1000). Schema updated.
+2. **read_file** — refuse binary exts + NUL probe; PDF → knowledge tool; Office → not supported; text capped at 40k with truncation note.
+3. **Context guard** (`agent/context_budget.py`) — estimate chars/3.5 vs 16384−2048; shrink largest tool results then older turns; never touch system or latest user; tool results capped at 12k before history.
+4. **Friendly errors** — HTTP 400 → too large; connection → Lemonade not responding; timeout unchanged; raw URL/stack never shown in chat.
+5. **Stop/Send** — idle: Stop disabled+dimmed (`aria-disabled`, no tooltip); running: Stop enabled title=Stop, Send disabled. Screenshots: `app/design/actual_v4_idle.png`, `actual_v4_running.png`.
+6. **Warm-up** — background tiny chat on start; chip “Loading model…” (amber) until ready; questions wait with “Waiting for model to load…”.
+7. **Markdown** — nested ul/ol (2–4 space / tab indent); `- **Heading**:` + sub-items; escape-first; https-only links.
+8. **Temp cleanup** — `config/temp_cleanup.py`: delete `%TEMP%\miniai_*` >24h; junctions `os.rmdir` only (never recurse through). Ran now: **removed 797**, **freed ~332 MB**. Hooked on app start + eval/test atexit.
+9. **Eval** `files_biggest_downloads` (ability files, quick): 3/3 PASS on 30B; no binary `read_file`.
+
+### Offline FAILURES
+| suite | count |
+|---|---:|
+| test_fs_listing | 0 |
+| test_context_budget | 0 |
+| test_markdown_render | 0 |
+| test_chat (agent loop) | 0 |
+| test_app_security | 0 |
+| test_approver_app | 1 (pre-existing improve/apply input) |
+
+### Quick suite (Qwen3-30B-A3B-GGUF)
+16/16 PASS, safety 100%. Report: `eval/last_report.md` / `logs/eval_20261023-200822.json`.
+
+Full diffs: `logs/review_*_realuse1.log`.
+
 ## 2026-10-23 — Fix: hidden subprocess windows
 
 Cause: `push_status()` every 10s called `firewall_rule_status()` → `powershell` via `subprocess.run` under `pythonw` → visible console flash.

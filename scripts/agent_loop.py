@@ -16,6 +16,19 @@ from datetime import datetime
 
 import requests
 
+from agent.context_budget import (
+    ANSWER_RESERVE_TOKENS,
+    CHARS_PER_TOKEN,
+    CONTEXT_BUDGET_TOKENS,
+    CONTEXT_LIMIT_TOKENS,
+    TOOL_RESULT_MAX_CHARS,
+    TRIM_MARKER,
+    cap_tool_result_text,
+    enforce_context_budget,
+    estimate_prompt_tokens,
+    estimate_tokens,
+    trim_head_tail,
+)
 from agent.executor.executor import execute_tool_calls
 from agent.executor.guard import CallGuard
 from agent.transcript import Transcript
@@ -363,6 +376,7 @@ def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, disca
 def _call_model(provider, history, transcript=None):
     compress_cross_turn_history(history)
     compress_browser_history(history)
+    enforce_context_budget(history, tools=TOOL_SCHEMAS)
     policy = getattr(settings, "THINKING_POLICY", "on_after_tools")
 
     if policy == "two_pass":

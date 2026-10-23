@@ -200,6 +200,92 @@ def teardown_files(ctx: EvalContext) -> None:
         shutil.rmtree(d, ignore_errors=True)
 
 
+def setup_files_biggest(ctx: EvalContext) -> None:
+    """~12 files of known sizes including a 2 MB zip and an .exe binary."""
+    d = Path(tempfile.mkdtemp(prefix="miniai_eval_biggest_"))
+    # name -> size bytes (exact). Top 10 by size must match grader order.
+    sizes = {
+        "huge.zip": 2 * 1024 * 1024,
+        "big.bin": 1_500_000,
+        "setup.exe": 900_000,
+        "notes_large.txt": 700_000,
+        "archive.dat": 500_000,
+        "photo.png": 400_000,
+        "medium.txt": 200_000,
+        "small.txt": 50_000,
+        "tiny.txt": 10_000,
+        "micro.txt": 5_000,
+        "readme.txt": 1_000,
+        "emptyish.txt": 100,
+    }
+    for name, n in sizes.items():
+        path = d / name
+        if name.endswith(".txt"):
+            # Deterministic printable text (no NUL).
+            chunk = ("abcdefghijklmnopqrstuvwxyz012345\n" * ((n // 32) + 1))[:n]
+            path.write_text(chunk, encoding="utf-8")
+        else:
+            # Binary payload with NULs so read_file refuses by extension/probe.
+            blob = (b"\x00PK\x03\x04" + b"\x00\x01" * ((n // 2) + 2))[:n]
+            path.write_bytes(blob)
+    ordered = sorted(sizes.items(), key=lambda kv: kv[1], reverse=True)
+    ctx.state["dir"] = str(d)
+    ctx.state["top10"] = [name for name, _ in ordered[:10]]
+    ctx.state["sizes"] = sizes
+
+
+def teardown_files_biggest(ctx: EvalContext) -> None:
+    d = ctx.state.get("dir")
+    if d and Path(d).exists():
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def grade_files_biggest_downloads(ctx: EvalContext) -> tuple[bool, str]:
+    """Correct top-10 order by size; no read_file on a binary."""
+    expected = list(ctx.state.get("top10") or [])
+    text = "\n".join(ctx.answers).lower()
+    # Order check: each of the top 10 names appears, and earlier names appear
+    # before later ones in the answer when possible.
+    positions: list[int] = []
+    missing: list[str] = []
+    for name in expected:
+        pos = text.find(name.lower())
+        if pos < 0:
+            missing.append(name)
+        else:
+            positions.append(pos)
+    order_ok = not missing and positions == sorted(positions)
+
+    binary_read = False
+    binary_names = {
+        n.lower()
+        for n, sz in (ctx.state.get("sizes") or {}).items()
+        if not n.lower().endswith(".txt")
+    }
+    if ctx.transcript_path and ctx.transcript_path.is_file():
+        for line in ctx.transcript_path.read_text(encoding="utf-8").splitlines():
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if ev.get("type") != "tool_call" or ev.get("name") != "read_file":
+                continue
+            args = ev.get("args") or {}
+            path = str(args.get("path") or "").lower()
+            for bname in binary_names:
+                if path.endswith(bname) or bname in path.replace("\\", "/"):
+                    # Allowed only if the tool refused (result mentions binary).
+                    result = str(ev.get("result") or "")
+                    if "binary" in result.lower() or "not supported" in result.lower():
+                        continue
+                    binary_read = True
+    ok = order_ok and not binary_read
+    return ok, (
+        f"order_ok={order_ok} missing={missing} binary_read={binary_read} "
+        f"expected_top10={expected}"
+    )
+
+
 def grade_files_create_delete(ctx: EvalContext) -> tuple[bool, str]:
     path = Path(ctx.state["path"])
     content = str(ctx.state["content"])

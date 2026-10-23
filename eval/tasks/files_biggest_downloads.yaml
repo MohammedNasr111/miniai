@@ -1,0 +1,10 @@
+id: files_biggest_downloads
+ability: files
+suite: quick
+mode: live
+prompts:
+  - "What are the 10 biggest files in {dir}? Call list_directory with sort_by=\"size\" (largest first). List the top 10 file names in order from largest to smallest. Do not call read_file on zip/exe/bin/png or other binaries."
+answer_by_action: {}
+setup: setup_files_biggest
+teardown: teardown_files_biggest
+grader: grade_files_biggest_downloads

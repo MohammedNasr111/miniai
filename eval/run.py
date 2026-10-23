@@ -361,6 +361,12 @@ def _run_one(task: dict[str, Any], model: str) -> dict[str, Any]:
         err_tb = traceback.format_exc()
     finally:
         try:
+            from config.temp_cleanup import cleanup_stale_miniai_temps
+
+            cleanup_stale_miniai_temps()
+        except Exception:
+            pass
+        try:
             teardown(ctx)
         except Exception as te:
             if passed:

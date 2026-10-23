@@ -150,11 +150,33 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "list_directory",
-            "description": "List the files and folders directly inside a given directory path.",
+            "description": (
+                "List files and folders directly inside a directory. Each entry "
+                "includes name, type (file|dir), size in bytes plus a human size "
+                "like '4.2 MB' (dirs have null size), and modified time (UTC). "
+                "Use sort_by='size' and descending=true to find the largest files. "
+                "Do not call read_file just to learn a file's size."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Absolute path to the directory."},
+                    "sort_by": {
+                        "type": "string",
+                        "description": "Sort key: name (default), size, or modified.",
+                        "enum": ["name", "size", "modified"],
+                    },
+                    "descending": {
+                        "type": "boolean",
+                        "description": (
+                            "Sort descending. Defaults to true when sort_by is "
+                            "size or modified (largest/newest first), false for name."
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max entries to return (default 200, max 1000).",
+                    },
                 },
                 "required": ["path"],
             },
@@ -179,7 +201,12 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read and return the full text contents of a file.",
+            "description": (
+                "Read the text contents of a file. Refuses binary files "
+                "(zip/exe/images/etc., Office docs, PDFs, or any file with NUL "
+                "bytes); for those, use list_directory for size or the knowledge "
+                "tool for PDFs. Text longer than 40,000 characters is truncated."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
