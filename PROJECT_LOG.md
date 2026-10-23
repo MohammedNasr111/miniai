@@ -803,3 +803,19 @@ Per-task (dev):
 | fresh_python | 2/3 | 3/3 | 3/3 |
 
 Both candidates beat current by +1 on total dev runs (and fixed `fresh_python`) but the +2 margin blocked ACCEPTABLE. Report: `improve/runs/20261022-225349/report.md`.
+
+## 2026-10-23 — Backup: private GitHub backup (first push)
+
+### Secret checks (values never printed)
+- `.gitignore` covers `.env`, `browser_profile/`, `*.db` (+ journal/wal/shm), LanceDB paths (`*.lance/`, `.lancedb/`, `lancedb/`), `improve/runs/**` with exception for `report.md`. `logs/` covered as `logs/*.log` (not the whole tree).
+- Intentionally tracked from that set: `improve/runs/20261022-225349/report.md`, `logs/.gitkeep`. No `.env`, browser profile, or DB files tracked.
+- Full-history scan (`git log -p --all`): `tvly-` 13 hits / 9 unique (commit+path); `api_key` 0; `Authorization:` 3/2; `Bearer ` 1/1; `password=` 0; exact `TAVILY_API_KEY` value from `.env` 0. All `tvly-` tokens classified as fake test placeholders (`equals_env=False`); no live secret in history → proceed.
+
+### Size
+`git count-objects -vH`: size-pack ~861 KiB. Largest tracked ~170 KB (`PROJECT_LOG.md`). None over 50 MB.
+
+### Remote
+- Created private repo via `gh repo create miniai --private --source . --remote origin --push`
+- URL: https://github.com/MohammedNasr111/miniai
+- Visibility: PRIVATE (verified `gh repo view miniai --json visibility,url`)
+- First push HEAD: `e62dfd9fd9e9aad223275ce1de0b005f320f61e4`
