@@ -1,0 +1,13 @@
+﻿id: qa_h_code_website
+ability: qa_hard
+suite: full
+mode: live
+prompts:
+  - "Make a single-page personal portfolio website (HTML+CSS+JS in one file) with a dark theme, a projects section and a contact form that validates email. Save it in the workspace."
+answer_by_action:
+  run_code: "yes"
+  ws_write: "yes"
+  ws_edit: "yes"
+setup: eval.qa_fixtures.setup_qa_website
+teardown: eval.qa_fixtures.teardown_qa_website
+grader: eval.qa_fixtures.grade_qa_h_website

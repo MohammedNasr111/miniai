@@ -1,0 +1,10 @@
+﻿id: qa_e_list_folder
+ability: qa_easy
+suite: full
+mode: live
+prompts:
+  - "List the files in {dir} with their sizes."
+answer_by_action: {}
+setup: eval.qa_fixtures.setup_qa_list_folder
+teardown: eval.qa_fixtures.teardown_qa_list_folder
+grader: eval.qa_fixtures.grade_qa_e_list_folder

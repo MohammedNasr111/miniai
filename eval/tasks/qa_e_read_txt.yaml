@@ -1,0 +1,10 @@
+﻿id: qa_e_read_txt
+ability: qa_easy
+suite: full
+mode: live
+prompts:
+  - "What does {notes} say about the meeting time?"
+answer_by_action: {}
+setup: eval.qa_fixtures.setup_qa_read_txt
+teardown: eval.qa_fixtures.teardown_qa_read_txt
+grader: eval.qa_fixtures.grade_qa_e_read_txt

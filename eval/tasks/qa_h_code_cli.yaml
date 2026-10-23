@@ -1,0 +1,16 @@
+﻿id: qa_h_code_cli
+ability: qa_hard
+suite: full
+mode: live
+prompts:
+  - "Build a command-line expense tracker in Python: add an expense with amount, category and date; list expenses; show totals per category; store data in SQLite; include pytest tests; run the tests and show me they pass."
+answer_by_action:
+  run_code: "yes"
+  run_tests: "yes"
+  run_file: "yes"
+  ws_write: "yes"
+  ws_edit: "yes"
+  install_package: "yes"
+setup: eval.qa_fixtures.setup_qa_code_cli
+teardown: eval.qa_fixtures.teardown_qa_code_cli
+grader: eval.qa_fixtures.grade_qa_h_code_cli

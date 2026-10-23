@@ -1,0 +1,15 @@
+﻿id: qa_m_desktop_notepad
+ability: qa_medium
+suite: full
+mode: live
+prompts:
+  - "Type a shopping list into the test window titled MiniAIEvalTest10: eggs, milk, rice."
+answer_by_action:
+  desktop_begin_task: "yes"
+  desktop_task_continue: "yes"
+  desktop_read_window: "session"
+  desktop_insert_text: "yes"
+  desktop_set_text: "yes"
+setup: eval.qa_fixtures.setup_qa_desktop
+teardown: eval.qa_fixtures.teardown_qa_desktop
+grader: eval.qa_fixtures.grade_qa_m_desktop

@@ -1,0 +1,11 @@
+﻿id: qa_m_pdf_question
+ability: qa_medium
+suite: full
+mode: live
+prompts:
+  - "What does the warranty say in {pdf} and which page? Use the knowledge tools if needed."
+answer_by_action:
+  index_documents: "yes"
+setup: eval.qa_fixtures.setup_qa_pdf
+teardown: eval.qa_fixtures.teardown_qa_pdf
+grader: eval.qa_fixtures.grade_qa_m_pdf

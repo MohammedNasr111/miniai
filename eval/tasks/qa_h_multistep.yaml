@@ -1,0 +1,13 @@
+﻿id: qa_h_multistep
+ability: qa_hard
+suite: full
+mode: live
+prompts:
+  - "Combine the CSVs in {dir}, find the best and worst month by revenue, and write a summary.md in the same folder."
+answer_by_action:
+  create_file: "yes"
+  write_file: "yes"
+  run_code: "yes"
+setup: eval.qa_fixtures.setup_qa_multistep
+teardown: eval.qa_fixtures.teardown_qa_multistep
+grader: eval.qa_fixtures.grade_qa_h_multistep

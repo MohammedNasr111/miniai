@@ -1,0 +1,15 @@
+﻿id: qa_m_organise
+ability: qa_medium
+suite: full
+mode: live
+prompts:
+  - "Organise the folder {dir} into subfolders by file type. Move each file into an appropriate type folder."
+answer_by_action:
+  create_file: "yes"
+  write_file: "yes"
+  delete_file: "yes"
+  run_code: "yes"
+  run_file: "yes"
+setup: eval.qa_fixtures.setup_qa_organise
+teardown: eval.qa_fixtures.teardown_qa_organise
+grader: eval.qa_fixtures.grade_qa_m_organise

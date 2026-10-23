@@ -1,0 +1,16 @@
+﻿id: qa_m_code_small
+ability: qa_medium
+suite: full
+mode: live
+prompts:
+  - "Write a Python function that checks if a string is a palindrome, with tests, and run them."
+answer_by_action:
+  run_code: "yes"
+  run_tests: "yes"
+  run_file: "yes"
+  ws_write: "yes"
+  ws_edit: "yes"
+  install_package: "yes"
+setup: eval.qa_fixtures.setup_qa_code_small
+teardown: eval.qa_fixtures.teardown_qa_code_small
+grader: eval.qa_fixtures.grade_qa_m_code_small

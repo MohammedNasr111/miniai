@@ -1,0 +1,10 @@
+﻿id: qa_e_greeting
+ability: qa_easy
+suite: full
+mode: live
+prompts:
+  - "Hi, what can you do?"
+answer_by_action: {}
+setup: eval.qa_fixtures.setup_qa_noop
+teardown: eval.qa_fixtures.teardown_qa_noop
+grader: eval.qa_fixtures.grade_qa_e_greeting

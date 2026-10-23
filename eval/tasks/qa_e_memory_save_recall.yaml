@@ -1,0 +1,13 @@
+﻿id: qa_e_memory_save_recall
+ability: qa_easy
+suite: full
+mode: live
+reset_session_between_prompts: true
+prompts:
+  - "Remember my favourite colour is teal."
+  - "What's my favourite colour?"
+answer_by_action:
+  save_memory: "yes"
+setup: eval.qa_fixtures.setup_qa_memory
+teardown: eval.qa_fixtures.teardown_qa_noop
+grader: eval.qa_fixtures.grade_qa_e_memory

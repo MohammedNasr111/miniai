@@ -1,0 +1,15 @@
+﻿id: qa_h_code_debug
+ability: qa_hard
+suite: full
+mode: live
+prompts:
+  - "The tests in {project} fail. Find and fix the bugs in the project code, then run the tests. Do not modify the test files."
+answer_by_action:
+  run_code: "yes"
+  run_tests: "yes"
+  run_file: "yes"
+  ws_write: "yes"
+  ws_edit: "yes"
+setup: eval.qa_fixtures.setup_qa_code_debug
+teardown: eval.qa_fixtures.teardown_qa_code_debug
+grader: eval.qa_fixtures.grade_qa_h_code_debug

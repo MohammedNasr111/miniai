@@ -275,8 +275,14 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext, model: str) -> None:
         session = new_session(provider)
         ctx.answers = []
         try:
+            reset_between = bool(task.get("reset_session_between_prompts"))
             with answer_by_action(mapping, default="no") as prompt_log:
-                for prompt in rendered:
+                for i, prompt in enumerate(rendered):
+                    if reset_between and i > 0:
+                        end_session(session)
+                        reset_session()
+                        close_session()
+                        session = new_session(provider)
                     answer = run_user_turn(session, prompt)
                     ctx.answers.append(answer or "")
                 ctx.prompt_log = list(prompt_log)

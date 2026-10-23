@@ -1,0 +1,11 @@
+﻿id: qa_m_duplicates
+ability: qa_medium
+suite: full
+mode: live
+prompts:
+  - "Find duplicate files in {dir}."
+answer_by_action:
+  run_code: "yes"
+setup: eval.qa_fixtures.setup_qa_duplicates
+teardown: eval.qa_fixtures.teardown_qa_duplicates
+grader: eval.qa_fixtures.grade_qa_m_duplicates

@@ -1,0 +1,11 @@
+﻿id: qa_m_installers_cleanup
+ability: qa_medium
+suite: full
+mode: live
+prompts:
+  - "Move the installer .exe files in {dir} to the Recycle Bin. Leave other files alone."
+answer_by_action:
+  delete_file: "yes"
+setup: eval.qa_fixtures.setup_qa_installers
+teardown: eval.qa_fixtures.teardown_qa_installers
+grader: eval.qa_fixtures.grade_qa_m_installers
