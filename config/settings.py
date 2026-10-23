@@ -21,11 +21,18 @@ LEMONADE_TIMEOUT_SECONDS = 90  # generous: covers the ~20s cold-load seen
 LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 450  # Measured up to 263 s for web_research synthesis (thinking on, ~4K
                                           # prompt tokens); Lemonade's own proxy limit is 600 s.
 ENABLE_THINKING_DEFAULT = False  # per Stage 1 benchmarking decision
-# two_pass (default): every call starts with thinking off; if the response
-# is a final answer (no tool calls), discard it and repeat with thinking on
-# + synthesis timeout. on_after_tools: thinking off until a tool result is
-# in history, then on (previous default; still available via env).
-THINKING_POLICY = os.environ.get("MINIAI_THINKING_POLICY", "two_pass")
+# Thinking policy for agent/chat model calls:
+#   smart (default): first pass thinking-off; second thinking-on pass only when
+#     the turn used an evidence tool (web/browser/knowledge/desktop_read) OR
+#     used no tools and the question looks analytical.
+#   two_pass: always re-answer with thinking on after a thinking-off final.
+#   on_after_tools: thinking on once any tool result is in history.
+_THINKING_RAW = os.environ.get("MINIAI_THINKING_POLICY", "smart").strip().lower()
+THINKING_POLICY = (
+    _THINKING_RAW
+    if _THINKING_RAW in ("smart", "two_pass", "on_after_tools")
+    else "smart"
+)
 # Stage 12a answer checker: draft -> check -> fix. Default off until measured.
 _CHECKER_RAW = os.environ.get("MINIAI_CHECKER", "off").strip().lower()
 CHECKER = _CHECKER_RAW if _CHECKER_RAW in ("off", "on") else "off"

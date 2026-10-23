@@ -373,13 +373,87 @@ def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, disca
     )
 
 
+# Tools whose results need careful synthesis → keep thinking second pass.
+EVIDENCE_TOOLS = frozenset(
+    {
+        "web_research",
+        "fetch_url",
+        "browser_open",
+        "browser_observe",
+        "browser_click",
+        "browser_type",
+        "search_knowledge",
+        "index_documents",
+        "desktop_read_window",
+    }
+)
+
+_ANALYTICAL_RE = re.compile(
+    r"\b("
+    r"why|how|explain|compare|analy[sz]e|evaluat|reason|debate|"
+    r"pros?\s+and\s+cons|trade-?off|should\s+i|what\s+if|discuss|"
+    r"summarize|summarise|recommend|critique|argue"
+    r")\b",
+    re.I,
+)
+
+
+def _tool_names_this_turn(history: list) -> set[str]:
+    """Tool names invoked since the latest user message (via assistant tool_calls)."""
+    latest_user = -1
+    for index in range(len(history) - 1, -1, -1):
+        if getattr(history[index], "role", None) == "user":
+            latest_user = index
+            break
+    names: set[str] = set()
+    for message in history[latest_user + 1 :]:
+        if getattr(message, "role", None) != "assistant":
+            continue
+        for tc in getattr(message, "tool_calls", None) or []:
+            name = _tool_call_name(tc)
+            if name:
+                names.add(name)
+    return names
+
+
+def _latest_user_text(history: list) -> str:
+    for message in reversed(history):
+        if getattr(message, "role", None) == "user":
+            return getattr(message, "content", None) or ""
+    return ""
+
+
+def _looks_analytical(question: str) -> bool:
+    text = (question or "").strip()
+    if not text:
+        return False
+    if _ANALYTICAL_RE.search(text):
+        return True
+    # Longer open questions without tools often benefit from thinking.
+    return len(text) >= 160 and "?" in text
+
+
+def should_run_thinking_second_pass(history: list) -> bool:
+    """Whether smart/two_pass should discard the thinking-off final and re-ask.
+
+    Evidence-tool turns and analytical no-tool questions → yes.
+    Local deterministic tools only → no.
+    """
+    tools = _tool_names_this_turn(history)
+    if not tools:
+        return _looks_analytical(_latest_user_text(history))
+    if tools & EVIDENCE_TOOLS:
+        return True
+    return False
+
+
 def _call_model(provider, history, transcript=None):
     compress_cross_turn_history(history)
     compress_browser_history(history)
     enforce_context_budget(history, tools=TOOL_SCHEMAS)
-    policy = getattr(settings, "THINKING_POLICY", "on_after_tools")
+    policy = getattr(settings, "THINKING_POLICY", "smart")
 
-    if policy == "two_pass":
+    if policy in ("two_pass", "smart"):
         # Always try thinking off first; grow timeout with prompt size.
         timeout_off = first_pass_timeout_seconds(history, provider.timeout)
         started = time.perf_counter()
@@ -391,6 +465,16 @@ def _call_model(provider, history, transcript=None):
         )
         elapsed = round(time.perf_counter() - started, 3)
         if response.tool_calls:
+            _log_llm_call(
+                transcript, response, False, timeout_off, elapsed, discarded=False
+            )
+            return response
+        want_second = (
+            True
+            if policy == "two_pass"
+            else should_run_thinking_second_pass(history)
+        )
+        if not want_second:
             _log_llm_call(
                 transcript, response, False, timeout_off, elapsed, discarded=False
             )
@@ -413,7 +497,7 @@ def _call_model(provider, history, transcript=None):
         )
         return response
 
-    # on_after_tools (default): thinking on once any tool result is present.
+    # on_after_tools: thinking on once any tool result is present.
     has_tool_results = any(m.role == "tool" for m in history)
     if has_tool_results:
         enable_thinking = True
