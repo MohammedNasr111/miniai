@@ -254,11 +254,13 @@ def read_file(path: str) -> str:
         raise RuntimeError(f"Cannot read {path}: {exc}") from exc
     if len(text) > READ_FILE_TEXT_CAP:
         shown = text[:READ_FILE_TEXT_CAP]
-        return (
+        text = (
             f"{shown}\n\n[truncated: showing first {READ_FILE_TEXT_CAP} of "
             f"{len(text)} chars]"
         )
-    return text
+    from tools.filesystem.untrusted_file import maybe_wrap_outside_file
+
+    return maybe_wrap_outside_file(target, text)
 
 def _backups_dir() -> Path:
     local = os.environ.get("LOCALAPPDATA")

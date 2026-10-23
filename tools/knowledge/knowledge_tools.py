@@ -74,4 +74,15 @@ def search_knowledge(query: str, top_k: int = 5) -> list[dict]:
         tier=Tier.AUTO_ALLOW,
         description=f"Search local knowledge base for: {query}",
     )
-    return _search_knowledge(query, top_k)
+    hits = _search_knowledge(query, top_k)
+    from tools.filesystem.untrusted_file import maybe_wrap_outside_file
+
+    wrapped: list[dict] = []
+    for hit in hits:
+        row = dict(hit)
+        src = row.get("source_path") or ""
+        content = row.get("content")
+        if isinstance(content, str) and src:
+            row["content"] = maybe_wrap_outside_file(src, content)
+        wrapped.append(row)
+    return wrapped
