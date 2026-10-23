@@ -17,3 +17,5 @@ PyYAML>=6.0
 # Stage 11a: desktop app (Edge WebView2 via pywebview; no HTTP server).
 pywebview==5.4
 psutil>=5.9
+Pillow>=10.0
+pywin32>=306  # desktop shortcut AppUserModel.ID + window helpers

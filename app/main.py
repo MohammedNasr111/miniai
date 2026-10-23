@@ -33,6 +33,7 @@ def main() -> int:
     import webview
 
     from app.dark_titlebar import apply_dark_titlebar
+    from app.icon import apply_window_icon, ico_path, set_app_user_model_id
     from app.nav_lock import attach_native_nav_lock
     from app.webview_approver import AppBridge
     from config.temp_cleanup import cleanup_stale_miniai_temps
@@ -41,6 +42,9 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
+
+    # Must run before any HWND / WinForms window is created.
+    set_app_user_model_id()
 
     try:
         cleaned = cleanup_stale_miniai_temps()
@@ -64,7 +68,8 @@ def main() -> int:
     allowed = index_uri()
     index_path = INDEX.resolve()
 
-    window = webview.create_window(
+    icon = str(ico_path()) if ico_path().is_file() else None
+    create_kwargs = dict(
         title="MiniAI",
         url=allowed,
         js_api=bridge.js_api,
@@ -73,6 +78,13 @@ def main() -> int:
         min_size=(900, 600),
         background_color="#0D0E11",
     )
+    if icon:
+        try:
+            window = webview.create_window(**create_kwargs, icon=icon)
+        except TypeError:
+            window = webview.create_window(**create_kwargs)
+    else:
+        window = webview.create_window(**create_kwargs)
     bridge.window = window
 
     def _on_loaded() -> None:
@@ -90,6 +102,7 @@ def main() -> int:
             except Exception as exc:
                 logger.warning("navigation lock reload failed: %s", exc)
         apply_dark_titlebar(window)
+        apply_window_icon(window)
         # Native hooks need window.native (set when the form exists).
         attach_native_nav_lock(window, index_path, bridge.open_external)
 
@@ -97,6 +110,7 @@ def main() -> int:
 
     def _on_shown() -> None:
         apply_dark_titlebar(window)
+        apply_window_icon(window)
         attach_native_nav_lock(window, index_path, bridge.open_external)
         bridge.start_status_loop()
 
@@ -107,6 +121,7 @@ def main() -> int:
 
     def _after_start() -> None:
         apply_dark_titlebar(window)
+        apply_window_icon(window)
         attach_native_nav_lock(window, index_path, bridge.open_external)
         bridge.start_status_loop()
 
