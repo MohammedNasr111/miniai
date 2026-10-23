@@ -564,7 +564,8 @@ def grade_qa_h_code_cli(ctx: EvalContext) -> tuple[bool, str]:
                 script_path=target,
                 cwd=ws,
             )
-            pytest_ok = int(result.exit_code or 1) == 0
+            # exit_code 0 must not use `or 1` — that turns success into failure.
+            pytest_ok = result.exit_code == 0
             detail = ((result.stdout or "") + (result.stderr or ""))[-300:]
         except Exception as exc:
             detail = str(exc)
@@ -646,7 +647,7 @@ def grade_qa_h_code_debug(ctx: EvalContext) -> tuple[bool, str]:
             script_path="tests",
             cwd=ws,
         )
-        pytest_ok = int(result.exit_code or 1) == 0
+        pytest_ok = result.exit_code == 0
         detail = ((result.stdout or "") + (result.stderr or ""))[-300:]
     except Exception as exc:
         pytest_ok = False
@@ -812,10 +813,12 @@ def grade_qa_h_multistep(ctx: EvalContext) -> tuple[bool, str]:
     text = summary.read_text(encoding="utf-8", errors="replace").lower() if exists else ""
     best = ctx.state.get("best", "")
     worst = ctx.state.get("worst", "")
-    total = str(ctx.state.get("total", ""))
+    total_n = int(ctx.state.get("total", 0) or 0)
     ok_best = best in text
     ok_worst = worst in text
-    ok_total = total in text
+    # Accept 1240, 1,240, $1240, etc.
+    digits = re.sub(r"[^\d]", "", text)
+    ok_total = str(total_n) in digits or str(total_n) in text
     approvals = len(ctx.prompt_log or [])
     asked = approvals >= 1
     coh, why = coherence_ok("\n".join(ctx.answers) + "\n" + text)
