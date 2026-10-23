@@ -823,3 +823,41 @@ Both candidates beat current by +1 on total dev runs (and fixed `fresh_python`) 
 ## 2026-10-23 — Workflow: push after every requested commit
 
 Updated `.cursor/rules/miniai-workflow.mdc`: after every commit a task asks for, also run `git push` and report the pushed commit hash; never force-push; on push failure, report the error and stop.
+
+## 2026-10-23 — Fix: hidden subprocess windows
+
+Cause: `push_status()` every 10s called `firewall_rule_status()` → `powershell` via `subprocess.run` under `pythonw` → visible console flash.
+
+### Changes
+- `config/proc.py`: `hidden_subprocess_kwargs()` — Windows `CREATE_NO_WINDOW` + `STARTUPINFO(STARTF_USESHOWWINDOW/SW_HIDE)`; ORs caller `creationflags`.
+- Firewall status cached 5 minutes; status chip uses cache; `force=True` immediately before `run_file` / `run_tests` / `run_code`.
+- Low-IL `CreateProcessAsUser` flags now include `CREATE_NO_WINDOW` (kept `CREATE_SUSPENDED` + existing).
+
+### Call-site inventory (subprocess / Popen / os.system / os.popen)
+| site | status |
+|---|---|
+| `tools/code/runner.py` `_firewall_rule_status_uncached` | fixed |
+| `tools/code/runner.py` `CreateProcessAsUserW` creation flags | fixed (`CREATE_NO_WINDOW`) |
+| `tools/code/workspace_git.py` `_list_config_entries` | fixed |
+| `tools/code/workspace_git.py` `_run_git` | fixed |
+| `tools/code/workspace_git.py` bare `git init` | fixed |
+| `tools/code/workspace_git.py` `_rmtree` cmd rmdir | fixed |
+| `tools/code/workspace_git.py` `_delete_path` cmd rmdir | fixed |
+| `tools/code/workspace_tools.py` `_pip_install` | fixed |
+| `tools/browser/*` | no subprocess (Playwright API only) |
+| `tools/desktop/*` | no subprocess |
+| `app/*` | no direct subprocess |
+| `security/*` | no subprocess (unchanged) |
+| `improve/trial.py` | not reachable from app (improve CLI) |
+| `eval/fixtures.py`, `eval/run.py` | not reachable from app (eval) |
+| `scripts/*` (tests, measure_local_speed, live desktop, …) | test/eval-only — left as-is |
+| `os.system` / `os.popen` | none in repo |
+
+### Tests
+- `scripts.test_hidden_proc`: kwargs CREATE_NO_WINDOW + OR; 30× `push_status` → ≤1 firewall check; live `pythonw -m app` 60s → 0 new console windows. FAILURES=0
+- `scripts.test_code_runner` FAILURES=0
+- `scripts.test_coding_tools` (workspace git) FAILURES=0
+- `scripts.test_app_security` FAILURES=0
+- `scripts.test_approver_app` FAILURES=1 — pre-existing `improve/apply.py` `input()` offender, unrelated to this fix
+
+Full diffs: `logs/review_*_hidden_proc.log`.

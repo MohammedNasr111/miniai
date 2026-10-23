@@ -51,6 +51,7 @@ SE_GROUP_INTEGRITY = 0x20
 
 CREATE_UNICODE_ENVIRONMENT = 0x00000400
 CREATE_SUSPENDED = 0x00000004
+CREATE_NO_WINDOW = 0x08000000
 NORMAL_PRIORITY_CLASS = 0x00000020
 STARTF_USESTDHANDLES = 0x00000100
 STARTF_USESHOWWINDOW = 0x00000001
@@ -316,8 +317,17 @@ def _minimal_env_block(ws: Path, exe: Path) -> ctypes.Array:
     return ctypes.create_unicode_buffer(blob)
 
 
-def firewall_rule_status() -> str:
-    """Return INSTALLED or NOT INSTALLED (read-only; no admin required)."""
+# Cache for the status chip / descriptions. Fresh check at most every 5 minutes
+# unless force=True (used immediately before run_file / run_tests / run_code).
+_FW_CACHE_VALUE: Optional[str] = None
+_FW_CACHE_MONO: float = 0.0
+_FW_CACHE_TTL_S: float = 300.0
+
+
+def _firewall_rule_status_uncached() -> str:
+    """Query the firewall rule via hidden PowerShell (read-only; no admin)."""
+    from config.proc import hidden_subprocess_kwargs
+
     try:
         r = subprocess.run(
             [
@@ -331,6 +341,7 @@ def firewall_rule_status() -> str:
             capture_output=True,
             text=True,
             timeout=30,
+            **hidden_subprocess_kwargs(),
         )
     except Exception:
         return "NOT INSTALLED"
@@ -338,6 +349,33 @@ def firewall_rule_status() -> str:
     if name == FIREWALL_RULE_NAME:
         return "INSTALLED"
     return "NOT INSTALLED"
+
+
+def firewall_rule_status(*, force: bool = False) -> str:
+    """Return INSTALLED or NOT INSTALLED.
+
+    Cached for ``_FW_CACHE_TTL_S`` (5 minutes). Pass ``force=True`` to refresh
+    immediately (pre-run permission descriptions). Empty cache always refreshes.
+    """
+    global _FW_CACHE_VALUE, _FW_CACHE_MONO
+    now = time.monotonic()
+    if (
+        not force
+        and _FW_CACHE_VALUE is not None
+        and (now - _FW_CACHE_MONO) < _FW_CACHE_TTL_S
+    ):
+        return _FW_CACHE_VALUE
+    value = _firewall_rule_status_uncached()
+    _FW_CACHE_VALUE = value
+    _FW_CACHE_MONO = now
+    return value
+
+
+def clear_firewall_status_cache() -> None:
+    """Reset the firewall status cache (tests)."""
+    global _FW_CACHE_VALUE, _FW_CACHE_MONO
+    _FW_CACHE_VALUE = None
+    _FW_CACHE_MONO = 0.0
 
 
 def _duplicate_low_token() -> HANDLE:
@@ -524,7 +562,10 @@ def launch_low_integrity(
         None,
         None,
         True,  # inherit handles (pipes)
-        CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED | NORMAL_PRIORITY_CLASS,
+        CREATE_UNICODE_ENVIRONMENT
+        | CREATE_SUSPENDED
+        | CREATE_NO_WINDOW
+        | NORMAL_PRIORITY_CLASS,
         ctypes.cast(env_block, ctypes.c_void_p),
         str(cwd),
         ctypes.byref(si),

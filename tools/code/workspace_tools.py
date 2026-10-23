@@ -125,7 +125,7 @@ def run_file(path: str, args: Optional[list[str]] = None, timeout_s: float = DEF
     if target.suffix.lower() != ".py" or not target.is_file():
         raise WorkspacePathError(f"run_file requires a .py file in the workspace: {path}")
     code = target.read_text(encoding="utf-8", errors="replace")
-    fw = firewall_rule_status()
+    fw = firewall_rule_status(force=True)
     mem_gb = PROCESS_MEMORY_LIMIT // (1024**3)
     description = (
         f"Run workspace file: {path}\n"
@@ -175,7 +175,7 @@ def _list_test_files(root: Path) -> list[Path]:
 def run_tests(path: str = "tests", timeout_s: float = DEFAULT_TIMEOUT_S) -> str:
     target = resolve_in_workspace(path, must_exist=True)
     tests = _list_test_files(target)
-    fw = firewall_rule_status()
+    fw = firewall_rule_status(force=True)
     mem_gb = PROCESS_MEMORY_LIMIT // (1024**3)
     listing = "\n".join(f"  - {p.relative_to(workspace_dir())}" for p in tests) or "  (none found)"
     description = (
@@ -217,6 +217,8 @@ def _pip_install(name: str, version: Optional[str]) -> subprocess.CompletedProce
         "--only-binary=:all:",
         spec,
     ]
+    from config.proc import hidden_subprocess_kwargs
+
     return subprocess.run(
         cmd,
         capture_output=True,
@@ -224,6 +226,7 @@ def _pip_install(name: str, version: Optional[str]) -> subprocess.CompletedProce
         encoding="utf-8",
         errors="replace",
         timeout=300,
+        **hidden_subprocess_kwargs(),
     )
 
 

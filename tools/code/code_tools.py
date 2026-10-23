@@ -47,7 +47,7 @@ def run_code(code: str) -> str:
     """Run Python in the low-integrity workspace. CONFIRM tier."""
     if not isinstance(code, str):
         raise TypeError("code must be a string")
-    fw = firewall_rule_status()
+    fw = firewall_rule_status(force=True)
     mem_gb = PROCESS_MEMORY_LIMIT // (1024**3)
     description = (
         "Run the following Python code in the isolated MiniAI workspace.\n"

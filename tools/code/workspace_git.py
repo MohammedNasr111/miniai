@@ -14,6 +14,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from config.proc import hidden_subprocess_kwargs
 from tools.code.paths import (
     ensure_workspace,
     miniai_data_home,
@@ -140,6 +141,7 @@ def _list_config_entries(gd: Path) -> list[tuple[str, str]]:
             errors="replace",
             env=_git_env(),
             timeout=30,
+            **hidden_subprocess_kwargs(),
         )
     except FileNotFoundError as exc:
         raise WorkspaceGitError("git is not installed or not on PATH.") from exc
@@ -214,6 +216,7 @@ def _run_git(
             errors="replace",
             env=_git_env(),
             timeout=120,
+            **hidden_subprocess_kwargs(),
         )
     except FileNotFoundError as exc:
         raise WorkspaceGitError("git is not installed or not on PATH.") from exc
@@ -271,6 +274,7 @@ def _init_fresh(gd: Path, ws: Path) -> None:
         errors="replace",
         env=_git_env(),
         timeout=60,
+        **hidden_subprocess_kwargs(),
     )
     if cp.returncode != 0:
         raise WorkspaceGitError(
@@ -366,6 +370,7 @@ def _rmtree(path: Path) -> None:
             ["cmd", "/c", "rmdir", "/s", "/q", str(path)],
             capture_output=True,
             timeout=60,
+            **hidden_subprocess_kwargs(),
         )
 
 
@@ -385,6 +390,7 @@ def _delete_path(path: Path) -> None:
             ["cmd", "/c", "rmdir", "/s", "/q", str(path)],
             capture_output=True,
             timeout=60,
+            **hidden_subprocess_kwargs(),
         )
 
 
