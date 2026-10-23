@@ -891,3 +891,11 @@ Cause: `push_status()` every 10s called `firewall_rule_status()` → `powershell
 - `scripts.test_approver_app` FAILURES=1 — pre-existing `improve/apply.py` `input()` offender, unrelated to this fix
 
 Full diffs: `logs/review_*_hidden_proc.log`.
+
+## 2026-10-24 — QA Round 1 (manager battery + icon + smart policy + fix loop)
+- Executed `tasks/QA_ROUND_1.md` Parts 1–6. Report: `QA_REPORT_1.md`. Artifacts: `logs/review_20261024-0035_qa_round1.log`, `logs/eval_20261023-214906.json` (smart), `logs/eval_20261023-232936.json` (two_pass), UI shots `app/design/qa1_*.png`.
+- Part 1: MiniAI.ico + AppUserModelID `MiniAI.Desktop`; taskbar/title verified (`actual_v5_taskbar*.png`).
+- Part 2–3: `THINKING_POLICY` smart vs two_pass on 20 QA tasks ×2. Pass rates 23/40 smart vs 26/40 two_pass; smart ~2–4× faster. **Default reverted to `two_pass`** per Part 2 rule.
+- Part 4: three fix commits — `move_file` tool, transcript_paths for multi-prompt, runner pytest graders + exit_code==0 bug, round caps 8/12, organise aliases, system_prompt nudges.
+- Part 5: real-app capture; user bubble confirmed during Working; approval card OK; idle Stop still shown.
+- Safety quick ability: PASS 100%. Did not change `security/` / gate / tiers / BLOCKED.
