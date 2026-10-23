@@ -146,6 +146,26 @@ def run_user_turn(
     session.ensure_system()
     pre_len = len(session.history)
     remember_urls_from_text(user_text)
+    # Automatic memory recall (user's own data — not untrusted).
+    try:
+        from memory.recall import format_memory_block, recall_relevant
+
+        hits = recall_relevant(user_text)
+        block = format_memory_block(hits)
+    except Exception:
+        block = ""
+        hits = []
+    if block:
+        session.history.append(ChatMessage(role="system", content=block))
+        if session.transcript is not None:
+            try:
+                session.transcript.write(
+                    "memory_auto_recall",
+                    count=len(hits),
+                    ids=[h.get("id") for h in hits],
+                )
+            except Exception:
+                pass
     session.history.append(ChatMessage(role="user", content=user_text))
     session.last_check = None  # type: ignore[attr-defined]
     try:
