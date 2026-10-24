@@ -147,3 +147,52 @@ def test_file_uri_resolve():
         assert resolve_fs_path(str(p)).resolve() == p.resolve()
     finally:
         p.unlink(missing_ok=True)
+
+
+def test_coding_write_claim_backed_by_ws_write_path():
+    """False-trigger repro: coding answers say created/wrote after ws_write."""
+    from agent.action_claim_check import (
+        find_unbacked_claims,
+        record_tool_outcome,
+        reset_action_claim_state,
+        should_skip_rerun_for_budget,
+        remaining_turn_budget_s,
+        TURN_WALL_BUDGET_S,
+        MIN_RERUN_REMAINING_S,
+    )
+    import agent.action_claim_check as m
+
+    reset_action_claim_state()
+    assert (
+        record_tool_outcome(
+            "ws_write", "Wrote eval_wordcount/wordcount.py (280 bytes)."
+        )
+        == "ok"
+    )
+    answer = (
+        "I created the file wordcount.py and wrote the tests. "
+        "All pytest checks passed."
+    )
+    assert find_unbacked_claims(answer) == []
+
+    # Budget gate: with almost no time left, skip re-run.
+    m._turn_started_mono = __import__("time").perf_counter() - (
+        TURN_WALL_BUDGET_S - (MIN_RERUN_REMAINING_S - 5)
+    )
+    assert should_skip_rerun_for_budget()
+    assert remaining_turn_budget_s() < MIN_RERUN_REMAINING_S
+
+
+def test_coding_query_skips_auto_recall():
+    from memory.recall import recall_relevant
+
+    rows = [
+        {"id": 1, "category": "fact", "content": "eval-memory-token-123"},
+        {"id": 2, "category": "preference", "content": "favourite colour is teal"},
+    ]
+    q = (
+        "In the workspace under the folder eval_wordcount, write a Python "
+        "function that counts the words in a string (module wordcount.py), "
+        "plus pytest tests, and run the tests with run_tests until they pass."
+    )
+    assert recall_relevant(q, rows=rows, use_embeddings=False) == []

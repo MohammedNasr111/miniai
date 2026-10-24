@@ -172,6 +172,31 @@ def _list_test_files(root: Path) -> list[Path]:
     return sorted(found)
 
 
+def _pytest_import_roots(target: Path) -> list[str]:
+    """Project dirs to put on PYTHONPATH so `from wordcount import` works."""
+    roots: list[str] = []
+    ws = workspace_dir()
+    # eval_wordcount/tests → include eval_wordcount
+    if target.is_dir() and target.name in {"tests", "test"}:
+        roots.append(str(target.parent))
+    elif target.is_file():
+        # .../tests/test_foo.py → include project root
+        if target.parent.name in {"tests", "test"}:
+            roots.append(str(target.parent.parent))
+        else:
+            roots.append(str(target.parent))
+    else:
+        roots.append(str(target))
+    # Always allow workspace-root imports too
+    roots.append(str(ws))
+    # de-dupe preserve order
+    out: list[str] = []
+    for r in roots:
+        if r and r not in out:
+            out.append(r)
+    return out
+
+
 def run_tests(path: str = "tests", timeout_s: float = DEFAULT_TIMEOUT_S) -> str:
     target = resolve_in_workspace(path, must_exist=True)
     tests = _list_test_files(target)
@@ -192,6 +217,7 @@ def run_tests(path: str = "tests", timeout_s: float = DEFAULT_TIMEOUT_S) -> str:
             timeout_s=float(timeout_s),
             script_path=str(target),
             cwd=workspace_dir(),
+            extra_pythonpath=_pytest_import_roots(target),
         )
     except LowIntegrityLaunchError as exc:
         return (

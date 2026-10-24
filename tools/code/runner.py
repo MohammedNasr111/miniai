@@ -6,6 +6,7 @@ Never falls back to a normal (medium-integrity) launch.
 from __future__ import annotations
 
 import ctypes
+import os
 import subprocess
 import threading
 import time
@@ -291,7 +292,12 @@ def _system_root() -> str:
     return root.value
 
 
-def _minimal_env_block(ws: Path, exe: Path) -> ctypes.Array:
+def _minimal_env_block(
+    ws: Path,
+    exe: Path,
+    *,
+    extra_pythonpath: Optional[list[str]] = None,
+) -> ctypes.Array:
     """Build a Unicode environment block from scratch (no secrets)."""
     systemroot = _system_root()
     tmp = str(ws / "tmp")
@@ -300,6 +306,10 @@ def _minimal_env_block(ws: Path, exe: Path) -> ctypes.Array:
     site = str(venv / "Lib" / "site-packages")
     # Copied python.exe needs PYTHONHOME for the stdlib (base install).
     pyhome = str(runner_pythonhome())
+    pyparts = [site]
+    for part in extra_pythonpath or []:
+        if part and part not in pyparts:
+            pyparts.append(part)
     pairs = [
         f"SYSTEMROOT={systemroot}",
         f"WINDIR={systemroot}",
@@ -308,7 +318,7 @@ def _minimal_env_block(ws: Path, exe: Path) -> ctypes.Array:
         f"PATH={scripts};{exe.parent};{pyhome}",
         f"VIRTUAL_ENV={venv}",
         f"PYTHONHOME={pyhome}",
-        f"PYTHONPATH={site}",
+        f"PYTHONPATH={os.pathsep.join(pyparts)}",
         "PYTHONNOUSERSITE=1",
         "PYTHONIOENCODING=utf-8",
         "PYTHONUNBUFFERED=1",
@@ -609,6 +619,7 @@ def run_argv(
     timeout_s: float = DEFAULT_TIMEOUT_S,
     script_path: str = "",
     cwd: Optional[Path] = None,
+    extra_pythonpath: Optional[list[str]] = None,
 ) -> RunResult:
     """Launch runner-bin python with argv at low integrity under a job."""
     if timeout_s <= 0:
@@ -619,7 +630,9 @@ def run_argv(
     ws = ensure_workspace()
     py = ensure_runner_python()
     work = Path(cwd) if cwd is not None else ws
-    env_block = _minimal_env_block(ws, py)
+    env_block = _minimal_env_block(
+        ws, py, extra_pythonpath=extra_pythonpath
+    )
     job = _create_job()
     started = time.perf_counter()
     timed_out = False

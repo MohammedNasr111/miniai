@@ -39,7 +39,9 @@ from agent.action_claim_check import (
     needs_action_claim_fix,
     recall_intent_unsatisfied,
     record_tool_outcome,
+    remaining_turn_budget_s,
     reset_action_claim_state,
+    should_skip_rerun_for_budget,
 )
 from agent.injection_notice import maybe_append_injection_notice
 from agent.run_claim_check import (
@@ -688,12 +690,26 @@ def run_tool_rounds(
                 if getattr(msg, "role", None) == "user":
                     q = msg.content or ""
                     break
-        # Action-claim honesty: re-run once with thinking ON if needed.
+        # Action-claim honesty: re-run once with thinking ON if needed,
+        # but only when ≥60s remains in the turn wall budget.
         needs, _unbacked, _rgap = needs_action_claim_fix(
             shown, q, get_succeeded_tools()
         )
         reran = False
-        if needs:
+        if needs and should_skip_rerun_for_budget():
+            if transcript is not None:
+                try:
+                    transcript.write(
+                        "action_claim_check",
+                        event="skip_rerun_budget",
+                        remaining_s=round(remaining_turn_budget_s(), 1),
+                        unbacked=_unbacked,
+                        remember_gap=_rgap,
+                    )
+                except Exception:
+                    pass
+            # Fall through to correction append below.
+        elif needs:
             note = (
                 RERUN_RECALL_NOTE
                 if recall_intent_unsatisfied(q, get_succeeded_tools())
@@ -708,6 +724,7 @@ def run_tool_rounds(
                         unbacked=_unbacked,
                         remember_gap=_rgap,
                         note=note,
+                        remaining_s=round(remaining_turn_budget_s(), 1),
                     )
                 except Exception:
                     pass

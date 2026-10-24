@@ -41,8 +41,8 @@ _CLAIM_SPECS: list[tuple[str, re.Pattern[str], frozenset[str]]] = [
         "created / wrote a file",
         re.compile(
             r"(?i)\b(?:i(?:'ve|\s+have)\s+(?:created|written|wrote|saved)\s+(?:the\s+)?"
-            r"(?:file|document|note|folder)|"
-            r"i\s+(?:created|wrote|saved)\s+(?:the\s+)?(?:file|document|note)|"
+            r"(?:file|document|note|folder|\S+\.\w{1,10})|"
+            r"i\s+(?:created|wrote|saved)\s+(?:the\s+)?(?:file|document|note|\S+\.\w{1,10})|"
             r"i(?:'ve|\s+have)\s+saved\s+the\s+file)\b"
         ),
         frozenset({"create_file", "write_file", "ws_write", "ws_edit"}),
@@ -91,20 +91,66 @@ CORRECTION_TMPL = (
     "\n\n⚠ Correction: I said I {claim}, but that didn't actually happen."
 )
 
+_WRITE_TOOLS = frozenset({"create_file", "write_file", "ws_write", "ws_edit"})
+_PATH_FROM_RESULT = re.compile(
+    r"(?i)\b(?:Wrote|Created|Updated|Edited)\s+([^\s(]+)"
+)
+# Soft wall-clock budget for a whole user turn (re-run needs ≥60s remaining).
+TURN_WALL_BUDGET_S = 240.0
+MIN_RERUN_REMAINING_S = 60.0
+
 # Cleared each turn in run_tool_rounds.
 _succeeded_tools: set[str] = set()
 _denied_tools: set[str] = set()
 _failed_tools: set[str] = set()
+_succeeded_paths: set[str] = set()
+_turn_started_mono: float = 0.0
 
 
 def reset_action_claim_state() -> None:
+    import time
+
+    global _turn_started_mono
     _succeeded_tools.clear()
     _denied_tools.clear()
     _failed_tools.clear()
+    _succeeded_paths.clear()
+    _turn_started_mono = time.perf_counter()
 
 
 def get_succeeded_tools() -> set[str]:
     return set(_succeeded_tools)
+
+
+def get_succeeded_paths() -> set[str]:
+    return set(_succeeded_paths)
+
+
+def remaining_turn_budget_s() -> float:
+    import time
+
+    if _turn_started_mono <= 0:
+        return TURN_WALL_BUDGET_S
+    elapsed = time.perf_counter() - _turn_started_mono
+    return max(0.0, TURN_WALL_BUDGET_S - elapsed)
+
+
+def should_skip_rerun_for_budget() -> bool:
+    """True when less than 60s remains in the turn wall budget."""
+    return remaining_turn_budget_s() < MIN_RERUN_REMAINING_S
+
+
+def _remember_paths_from_result(name: str, result_text: str) -> None:
+    if name not in _WRITE_TOOLS:
+        return
+    for m in _PATH_FROM_RESULT.finditer(result_text or ""):
+        raw = m.group(1).strip().strip("'\"")
+        if not raw:
+            continue
+        _succeeded_paths.add(raw.replace("\\", "/"))
+        base = raw.replace("\\", "/").rsplit("/", 1)[-1]
+        if base:
+            _succeeded_paths.add(base)
 
 
 def record_tool_outcome(name: str, result_text: str) -> str:
@@ -130,11 +176,39 @@ def record_tool_outcome(name: str, result_text: str) -> str:
         _failed_tools.add(name)
         return "failed"
     _succeeded_tools.add(name)
+    _remember_paths_from_result(name, text)
     return "ok"
 
 
 def user_has_remember_intent(user_text: str) -> bool:
     return bool(_REMEMBER_INTENT.search(user_text or ""))
+
+
+def _write_claim_backed(answer: str, succeeded: set[str]) -> bool:
+    """True if a write tool succeeded and (if a filename is claimed) it matches."""
+    if not (succeeded & _WRITE_TOOLS):
+        return False
+    # Filenames mentioned in the claim text (basename or relative path).
+    names = re.findall(
+        r"(?i)\b([\w./\\-]+\.\w{1,10})\b", answer or ""
+    )
+    if not names:
+        # Generic "I created the file" — any successful write tool backs it.
+        return True
+    paths = _succeeded_paths
+    if not paths:
+        # Tool succeeded but path wasn't parsed (tests / older results).
+        return True
+    for name in names:
+        norm = name.replace("\\", "/")
+        base = norm.rsplit("/", 1)[-1]
+        if norm in paths or base in paths:
+            return True
+        # Also accept if any succeeded path ends with this basename.
+        for p in paths:
+            if p.endswith("/" + base) or p == base:
+                return True
+    return False
 
 
 def find_unbacked_claims(
@@ -149,7 +223,10 @@ def find_unbacked_claims(
     for label, pattern, tools in _CLAIM_SPECS:
         if not pattern.search(text):
             continue
-        if succeeded & tools:
+        if tools & _WRITE_TOOLS:
+            if _write_claim_backed(text, succeeded):
+                continue
+        elif succeeded & tools:
             continue
         found.append({"claim": label, "tools": sorted(tools), "backed": False})
     return found

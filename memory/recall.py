@@ -148,6 +148,16 @@ def score_memories(
     return scored
 
 
+# Coding / workspace prompts must not pull unrelated memories into the
+# system prompt (Round 3 coding_wordcount: 5 injected memories then first
+# LLM call ReadTimeout at 176s).
+_CODING_QUERY = re.compile(
+    r"(?i)\b(?:ws_write|ws_edit|run_tests|run_file|pytest|wordcount|"
+    r"python\s+function|module\s+\w+\.py|coding\s+workspace|"
+    r"eval_\w+|write\s+a\s+python)\b"
+)
+
+
 def recall_relevant(
     query: str,
     *,
@@ -158,6 +168,10 @@ def recall_relevant(
 ) -> list[dict[str, Any]]:
     """Return up to top_k memories above the similarity threshold."""
     if not (query or "").strip():
+        return []
+    # Skip auto-recall on coding-task prompts — they are not memory questions
+    # and injected rows bloat the first LLM call into timeouts.
+    if _CODING_QUERY.search(query):
         return []
     if rows is None:
         rows = list_memories(limit=200)

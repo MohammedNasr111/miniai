@@ -586,11 +586,15 @@ def grade_coding_wordcount(ctx: EvalContext) -> tuple[bool, str]:
     for target in candidates:
         # Prefer a tests subfolder if present
         test_target = target / "tests" if (target / "tests").is_dir() else target
+        # Put the project folder on PYTHONPATH so `from wordcount import …` works
+        # when cwd is the workspace root (same as run_tests).
+        extra = [str(target), str(ws)]
         result = run_argv(
             ["-m", "pytest", str(test_target), "-q", "--tb=line"],
             timeout_s=90,
             script_path=str(test_target),
             cwd=ws,
+            extra_pythonpath=extra,
         )
         out = (result.stdout or "") + (result.stderr or "")
         if result.exit_code == 0 and "passed" in out.lower():

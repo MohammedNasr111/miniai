@@ -195,6 +195,15 @@ def execute_tool_calls(
                 outcome = "error"
         if guard is not None:
             guard.record(name, args, outcome)
+            # After a successful workspace edit, allow run_tests/run_file again
+            # with the same args (otherwise the model cannot re-test a fix).
+            if outcome == "ok" and name in {
+                "ws_write",
+                "ws_edit",
+                "create_file",
+                "write_file",
+            }:
+                guard.forget({"run_tests", "run_file", "run_code"})
         if outcome == "ok" and name in UNTRUSTED_SOURCE_TOOLS:
             mark_untrusted(name)
         if outcome == "ok" and _marks_page_changed(name, args):
