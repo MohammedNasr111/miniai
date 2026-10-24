@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -146,6 +147,60 @@ def run_user_turn(
     session.ensure_system()
     pre_len = len(session.history)
     remember_urls_from_text(user_text)
+    # Code-path remember-intent: save before the model answers (CONFIRM tier).
+    from agent.action_claim_check import (
+        note_pre_succeeded_tool,
+        set_auto_recall_hits,
+        user_has_recall_intent,
+    )
+
+    try:
+        from memory.intent_save import code_save_remember_intent
+
+        saved = code_save_remember_intent(user_text)
+    except Exception:
+        saved = None
+    if saved and saved.get("ok"):
+        note_pre_succeeded_tool("save_memory")
+        session.history.append(
+            ChatMessage(
+                role="system",
+                content=f"Saved to memory: {saved['fact']}",
+            )
+        )
+        if session.transcript is not None:
+            try:
+                session.transcript.tool_call(
+                    name="save_memory",
+                    args={
+                        "content": saved["fact"],
+                        "category": saved.get("category"),
+                    },
+                    result=str(saved.get("result") or ""),
+                    outcome="ok",
+                    wall_clock_seconds=0.0,
+                )
+                session.transcript.write(
+                    "memory_code_save",
+                    fact=saved["fact"],
+                    category=saved.get("category"),
+                    result=saved.get("result"),
+                )
+            except Exception:
+                pass
+        if on_tool_start is not None:
+            try:
+                on_tool_start(
+                    "save_memory",
+                    {"content": saved["fact"], "category": saved.get("category")},
+                )
+            except Exception:
+                pass
+        if on_tool_end is not None:
+            try:
+                on_tool_end("save_memory", 0.0, "ok")
+            except Exception:
+                pass
     # Automatic memory recall (user's own data — not untrusted).
     try:
         from memory.recall import format_memory_block, recall_relevant
@@ -155,6 +210,7 @@ def run_user_turn(
     except Exception:
         block = ""
         hits = []
+    set_auto_recall_hits(len(hits or []))
     if block:
         session.history.append(ChatMessage(role="system", content=block))
         if session.transcript is not None:
@@ -166,6 +222,54 @@ def run_user_turn(
                 )
             except Exception:
                 pass
+    # Recall-intent: code-call search_memory when auto-recall found nothing,
+    # and always log a search when recall-intent so graders see the tool.
+    # When hits already exist, skip forced re-runs (set_auto_recall_hits).
+    if user_has_recall_intent(user_text):
+        try:
+            from tools.memory.memory_tools import search_memory
+
+            t0 = time.perf_counter()
+            search_hits = search_memory(query=user_text)
+            elapsed = round(time.perf_counter() - t0, 3)
+            note_pre_succeeded_tool("search_memory")
+            if session.transcript is not None:
+                session.transcript.tool_call(
+                    name="search_memory",
+                    args={"query": user_text},
+                    result=str(search_hits)[:2000],
+                    outcome="ok",
+                    wall_clock_seconds=elapsed,
+                )
+            if on_tool_start is not None:
+                try:
+                    on_tool_start("search_memory", {"query": user_text})
+                except Exception:
+                    pass
+            if on_tool_end is not None:
+                try:
+                    on_tool_end("search_memory", elapsed, "ok")
+                except Exception:
+                    pass
+            if search_hits and not block:
+                # Surface search results when auto-recall was empty.
+                from memory.recall import format_memory_block as _fmt
+
+                extra = _fmt(
+                    [
+                        {
+                            "category": h.get("category") or "memory",
+                            "content": h.get("content") or "",
+                            "id": h.get("id"),
+                        }
+                        for h in (search_hits if isinstance(search_hits, list) else [])
+                    ]
+                )
+                if extra:
+                    session.history.append(ChatMessage(role="system", content=extra))
+                    set_auto_recall_hits(max(1, len(search_hits)))
+        except Exception:
+            pass
     session.history.append(ChatMessage(role="user", content=user_text))
     session.last_check = None  # type: ignore[attr-defined]
     try:

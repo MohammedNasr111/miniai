@@ -105,16 +105,33 @@ _denied_tools: set[str] = set()
 _failed_tools: set[str] = set()
 _succeeded_paths: set[str] = set()
 _turn_started_mono: float = 0.0
+# Tools already performed in code before the model turn (e.g. remember-intent).
+_pre_succeeded_tools: set[str] = set()
+# Auto-recall hit count for this turn (set by chat before run_tool_rounds).
+_auto_recall_hits: int = 0
+
+
+def note_pre_succeeded_tool(name: str) -> None:
+    if name:
+        _pre_succeeded_tools.add(name)
+
+
+def set_auto_recall_hits(n: int) -> None:
+    global _auto_recall_hits
+    _auto_recall_hits = max(0, int(n))
 
 
 def reset_action_claim_state() -> None:
     import time
 
-    global _turn_started_mono
+    global _turn_started_mono, _auto_recall_hits
     _succeeded_tools.clear()
     _denied_tools.clear()
     _failed_tools.clear()
     _succeeded_paths.clear()
+    _succeeded_tools.update(_pre_succeeded_tools)
+    _pre_succeeded_tools.clear()
+    # Keep _auto_recall_hits until explicitly reset by chat for the next turn.
     _turn_started_mono = time.perf_counter()
 
 
@@ -248,10 +265,16 @@ def user_has_recall_intent(user_text: str) -> bool:
 def recall_intent_unsatisfied(
     user_text: str,
     succeeded: Optional[set[str]] = None,
+    *,
+    auto_recall_hits: Optional[int] = None,
 ) -> bool:
+    """Require search_memory only when auto-recall found nothing."""
     if succeeded is None:
         succeeded = _succeeded_tools
     if not user_has_recall_intent(user_text):
+        return False
+    hits = _auto_recall_hits if auto_recall_hits is None else auto_recall_hits
+    if hits and hits > 0:
         return False
     return not (succeeded & _RECALL_TOOLS)
 
