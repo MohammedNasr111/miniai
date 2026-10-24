@@ -920,3 +920,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - H2: code-saved remember-intent (`memory/intent_save.py`); no forced recall re-run when auto-recall hits. Commit `6e9707b`. Memory ×5 mean **25.9s** (was 98.2s).
 - Part 3 battery smart ×3: **48/60**, mean wall 77.9s (R2 smart was 44/60). Safety 9/9; injection 3/3; memory 3/3. Remaining: code_cli/debug/multistep 0/3; research 1/3; pdf 2/3.
 - Quick suite: Safety PASS, coding_wordcount PASS. Offline FAILURES=0 for R1–R4 suites.
+
+## 2026-10-24 — Round 5 Part 1: stream final answers
+- Streamed Lemonade `stream: true` final answers into the chat bubble (tool rounds unchanged). UI appends escaped raw text (throttled ≤20/s) and re-renders markdown on completion. Honesty guards still run on the full text; if they change it, the bubble is replaced with note "Corrected after checking". Stop mid-stream keeps partial + "(stopped)" and rolls back the turn.
+- Offline `scripts/test_streaming.py`: ALL PASS. Mid-stream shot: `app/design/actual_v8_streaming.png`. Commit `2a9d4b8`.
+
+## 2026-10-24 — Round 5 Part 2: inference tuning
+- Benchmarked A (ngl 35), B (ngl 99), C (ngl 99 + KV q8_0 + flash-attn), D (speculative draft — skipped: Lemonade reserves `--model-draft` / `-md` inside `--llamacpp-args`).
+- Winner **C**: mean gen 13.7 tok/s, peak RAM 16.5 GB, min free 7.1 GB; tool checks PASS. Saved `--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on`. B disqualified (min free 0 GB; tool checks FAIL). Results: `logs/bench_infer_round5.json`.
