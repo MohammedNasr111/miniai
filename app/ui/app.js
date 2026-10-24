@@ -136,20 +136,35 @@
     if (!btnSend) return;
     if (busy) {
       // Single control becomes Stop while a turn is running.
+      // Class-driven icon swap (CSS) — set synchronously before any bridge await.
       btnSend.disabled = false;
       btnSend.classList.add("is-stop");
       btnSend.title = "Stop";
       btnSend.setAttribute("aria-label", "Stop");
-      if (icoSend) icoSend.hidden = true;
-      if (icoStop) icoStop.hidden = false;
+      if (icoSend) {
+        icoSend.setAttribute("hidden", "");
+        icoSend.hidden = true;
+      }
+      if (icoStop) {
+        icoStop.removeAttribute("hidden");
+        icoStop.hidden = false;
+      }
     } else {
       btnSend.disabled = false;
       btnSend.classList.remove("is-stop");
       btnSend.title = "Send";
       btnSend.setAttribute("aria-label", "Send");
-      if (icoSend) icoSend.hidden = false;
-      if (icoStop) icoStop.hidden = true;
+      if (icoSend) {
+        icoSend.removeAttribute("hidden");
+        icoSend.hidden = false;
+      }
+      if (icoStop) {
+        icoStop.setAttribute("hidden", "");
+        icoStop.hidden = true;
+      }
     }
+    // Force style/layout flush so Stop paints before await send_message.
+    void btnSend.offsetWidth;
   }
 
   function scrollBottom() {
@@ -526,10 +541,18 @@
     }
     activityEl = null;
     renderActivity({ steps: [], waiting: false, running: true, total: "0s" });
+    // Re-assert Stop after activity paint (must be Stop before bridge returns).
+    setTurnControls(true);
     try {
       const a = api();
       if (!a) throw new Error("Python bridge not ready");
-      await a.send_message(text);
+      // Fire-and-forget: do not block the UI thread on the bridge promise.
+      Promise.resolve(a.send_message(text)).catch(function (e) {
+        showSystemNote(
+          e && e.message ? String(e.message) : "Something went wrong."
+        );
+        setTurnControls(false);
+      });
     } catch (e) {
       showSystemNote(
         e && e.message ? String(e.message) : "Something went wrong."
