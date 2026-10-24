@@ -31,6 +31,14 @@ from agent.context_budget import (
 )
 from agent.executor.executor import execute_tool_calls
 from agent.executor.guard import CallGuard
+from agent.action_claim_check import (
+    RERUN_SYSTEM_NOTE,
+    apply_action_claim_correction,
+    get_succeeded_tools,
+    needs_action_claim_fix,
+    record_tool_outcome,
+    reset_action_claim_state,
+)
 from agent.run_claim_check import (
     evidence_summary_line,
     check_run_claims,
@@ -460,6 +468,24 @@ def should_run_thinking_second_pass(history: list) -> bool:
     return False
 
 
+def _call_model_force_thinking(provider, history, transcript=None):
+    """One chat call with thinking ON (used by action-claim re-run)."""
+    compress_cross_turn_history(history)
+    compress_browser_history(history)
+    enforce_context_budget(history, tools=TOOL_SCHEMAS)
+    timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
+    started = time.perf_counter()
+    response = provider.chat(
+        history,
+        tools=TOOL_SCHEMAS,
+        enable_thinking=True,
+        timeout=timeout_on,
+    )
+    elapsed = round(time.perf_counter() - started, 3)
+    _log_llm_call(transcript, response, True, timeout_on, elapsed)
+    return response
+
+
 def _call_model(provider, history, transcript=None):
     compress_cross_turn_history(history)
     compress_browser_history(history)
@@ -581,6 +607,7 @@ def run_tool_rounds(
 
     _register_user_urls(history)
     reset_turn_runs()
+    reset_action_claim_state()
     if cancel_check is not None and cancel_check():
         raise KeyboardInterrupt()
     response = _call_model(provider, history, transcript)
@@ -589,14 +616,16 @@ def run_tool_rounds(
     _fs_mutate = {"create_file", "write_file", "move_file", "delete_file"}
     turn_evidence: list[str] = []
     tools_used: set[str] = set()
-    while response.tool_calls and rounds < max_rounds:
+
+    def _consume_tool_round(resp, *, next_call):
+        nonlocal rounds, max_rounds
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
-        names_this = {_tool_call_name(tc) for tc in response.tool_calls}
+        names_this = {_tool_call_name(tc) for tc in resp.tool_calls}
         if names_this & (CODING_TOOLS | _fs_mutate):
             max_rounds = 12
         call_names: list[str] = []
-        for tc in response.tool_calls:
+        for tc in resp.tool_calls:
             name = _tool_call_name(tc)
             call_names.append(name)
             if name:
@@ -604,12 +633,12 @@ def run_tool_rounds(
         history.append(
             ChatMessage(
                 role="assistant",
-                content=response.content or "",
-                tool_calls=response.tool_calls,
+                content=resp.content or "",
+                tool_calls=resp.tool_calls,
             )
         )
         tool_messages = execute_tool_calls(
-            response.tool_calls,
+            resp.tool_calls,
             guard=guard,
             transcript=transcript,
             on_tool_start=on_tool_start,
@@ -620,17 +649,20 @@ def run_tool_rounds(
             text = message.content or ""
             append_evidence(text)
             turn_evidence.append(text)
+            record_tool_outcome(name, text)
             rec = record_run_tool(name, text)
             if rec is not None:
-                # Also keep a compact summary in the evidence store.
                 summary = evidence_summary_line(rec)
                 append_evidence(summary)
                 turn_evidence.append(summary)
         history.extend(tool_messages)
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
-        response = _call_model(provider, history, transcript)
         rounds += 1
+        return next_call(provider, history, transcript)
+
+    while response.tool_calls and rounds < max_rounds:
+        response = _consume_tool_round(response, next_call=_call_model)
     cap = bool(response.tool_calls)
     if transcript is not None:
         transcript.rounds = rounds
@@ -653,6 +685,43 @@ def run_tool_rounds(
                 if getattr(msg, "role", None) == "user":
                     q = msg.content or ""
                     break
+        # Action-claim honesty: re-run once with thinking ON if needed.
+        needs, _unbacked, _rgap = needs_action_claim_fix(
+            shown, q, get_succeeded_tools()
+        )
+        reran = False
+        if needs:
+            history.append(ChatMessage(role="system", content=RERUN_SYSTEM_NOTE))
+            if transcript is not None:
+                try:
+                    transcript.write(
+                        "action_claim_check",
+                        event="rerun",
+                        unbacked=_unbacked,
+                        remember_gap=_rgap,
+                    )
+                except Exception:
+                    pass
+            response = _call_model_force_thinking(provider, history, transcript)
+            extra = 0
+            while response.tool_calls and extra < 4 and rounds < max_rounds:
+                response = _consume_tool_round(
+                    response, next_call=_call_model_force_thinking
+                )
+                extra += 1
+            if not response.tool_calls:
+                raw = response.content or ""
+                shown = clean_final_answer(raw)
+                shown = check_quotes_against_evidence(shown, transcript=transcript)
+                shown = check_run_claims(shown, transcript=transcript)
+            reran = True
+        shown, claim_meta = apply_action_claim_correction(
+            shown,
+            q,
+            get_succeeded_tools(),
+            transcript=transcript,
+            reran=reran,
+        )
         shown, check_meta = maybe_check_and_fix(
             provider=provider,
             question=q,
@@ -662,6 +731,9 @@ def run_tool_rounds(
             transcript=transcript,
             on_checking=on_checking,
         )
+        if check_meta is None:
+            check_meta = {}
+        check_meta["action_claim"] = claim_meta
         response.content = shown
         if transcript is not None:
             transcript.final(raw=raw, shown=shown)
