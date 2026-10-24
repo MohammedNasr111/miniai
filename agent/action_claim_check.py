@@ -69,9 +69,22 @@ _REMEMBER_INTENT = re.compile(
     r"keep\s+in\s+mind|save\s+this|save\s+that)\b"
 )
 
+# Asking what was stored — must actually call a memory read tool this turn.
+# Do NOT match "Remember my favourite colour is …" (that is save-intent).
+_RECALL_INTENT = re.compile(
+    r"(?i)\b(?:what(?:'s|\s+is|\s+was)?\s+my\b|"
+    r"do\s+you\s+remember\b|what\s+do\s+you\s+remember\b)\b"
+)
+_RECALL_TOOLS = frozenset({"search_memory", "list_memories"})
+
 RERUN_SYSTEM_NOTE = (
     "The previous draft claimed an action that wasn't performed. "
     "Perform it with the correct tool, or say plainly that it wasn't done."
+)
+
+RERUN_RECALL_NOTE = (
+    "The user asked what you remember. Call search_memory (or list_memories) "
+    "before answering; do not rely only on earlier context."
 )
 
 CORRECTION_TMPL = (
@@ -151,16 +164,37 @@ def remember_intent_unsatisfied(
     return user_has_remember_intent(user_text) and "save_memory" not in succeeded
 
 
+def user_has_recall_intent(user_text: str) -> bool:
+    return bool(_RECALL_INTENT.search(user_text or ""))
+
+
+def recall_intent_unsatisfied(
+    user_text: str,
+    succeeded: Optional[set[str]] = None,
+) -> bool:
+    if succeeded is None:
+        succeeded = _succeeded_tools
+    if not user_has_recall_intent(user_text):
+        return False
+    return not (succeeded & _RECALL_TOOLS)
+
+
 def needs_action_claim_fix(
     answer: str,
     user_text: str,
     succeeded: Optional[set[str]] = None,
 ) -> tuple[bool, list[dict[str, Any]], bool]:
-    """Return (needs_fix, unbacked_claims, remember_gap)."""
+    """Return (needs_fix, unbacked_claims, remember_gap).
+
+    remember_gap is True for save-intent without save_memory OR recall-intent
+    without search_memory/list_memories.
+    """
     if succeeded is None:
         succeeded = _succeeded_tools
     unbacked = find_unbacked_claims(answer, succeeded)
-    remember_gap = remember_intent_unsatisfied(user_text, succeeded)
+    remember_gap = remember_intent_unsatisfied(
+        user_text, succeeded
+    ) or recall_intent_unsatisfied(user_text, succeeded)
     return bool(unbacked) or remember_gap, unbacked, remember_gap
 
 

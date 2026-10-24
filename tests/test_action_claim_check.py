@@ -119,3 +119,31 @@ def test_no_correction_when_backed():
     )
     assert not meta["fired"]
     assert "⚠ Correction:" not in shown
+
+
+def test_recall_intent_requires_search():
+    from agent.action_claim_check import recall_intent_unsatisfied, user_has_recall_intent
+
+    assert user_has_recall_intent("What's my favourite colour?")
+    assert recall_intent_unsatisfied("What's my favourite colour?", set())
+    assert not recall_intent_unsatisfied(
+        "What's my favourite colour?", {"search_memory"}
+    )
+    # Save prompt must not be treated as recall.
+    assert not user_has_recall_intent("Remember my favourite colour is teal.")
+
+
+def test_file_uri_resolve():
+    from tools.filesystem.fs_tools import resolve_fs_path
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as fh:
+        fh.write("hi")
+        p = Path(fh.name)
+    try:
+        uri = p.resolve().as_uri()
+        assert resolve_fs_path(uri).resolve() == p.resolve()
+        assert resolve_fs_path(str(p)).resolve() == p.resolve()
+    finally:
+        p.unlink(missing_ok=True)

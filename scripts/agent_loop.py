@@ -32,10 +32,12 @@ from agent.context_budget import (
 from agent.executor.executor import execute_tool_calls
 from agent.executor.guard import CallGuard
 from agent.action_claim_check import (
+    RERUN_RECALL_NOTE,
     RERUN_SYSTEM_NOTE,
     apply_action_claim_correction,
     get_succeeded_tools,
     needs_action_claim_fix,
+    recall_intent_unsatisfied,
     record_tool_outcome,
     reset_action_claim_state,
 )
@@ -692,7 +694,12 @@ def run_tool_rounds(
         )
         reran = False
         if needs:
-            history.append(ChatMessage(role="system", content=RERUN_SYSTEM_NOTE))
+            note = (
+                RERUN_RECALL_NOTE
+                if recall_intent_unsatisfied(q, get_succeeded_tools())
+                else RERUN_SYSTEM_NOTE
+            )
+            history.append(ChatMessage(role="system", content=note))
             if transcript is not None:
                 try:
                     transcript.write(
@@ -700,6 +707,7 @@ def run_tool_rounds(
                         event="rerun",
                         unbacked=_unbacked,
                         remember_gap=_rgap,
+                        note=note,
                     )
                 except Exception:
                     pass

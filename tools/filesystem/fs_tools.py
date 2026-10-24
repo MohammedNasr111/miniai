@@ -209,13 +209,31 @@ def _binary_refuse_message(path: Path, label: str, size_bytes: int) -> str:
     )
 
 
+def resolve_fs_path(path: str) -> Path:
+    """Accept normal paths and file:// URIs (common when prompts pass a page URI)."""
+    raw = (path or "").strip()
+    if raw.lower().startswith("file:"):
+        from urllib.parse import unquote, urlparse
+        from urllib.request import url2pathname
+
+        parsed = urlparse(raw)
+        # Windows: file:///C:/Users/... → /C:/Users/... → C:\Users\...
+        local = url2pathname(unquote(parsed.path or ""))
+        if parsed.netloc and not local.startswith("\\\\"):
+            # file://localhost/C:/... or file://server/share
+            if parsed.netloc.lower() not in ("", "localhost"):
+                local = "\\\\" + parsed.netloc + local
+        raw = local
+    return Path(raw)
+
+
 def read_file(path: str) -> str:
     check_permission(
         action="read_file",
         tier=Tier.AUTO_ALLOW,
         description=f"Read file: {path}",
     )
-    target = Path(path)
+    target = resolve_fs_path(path)
     if not target.is_file():
         raise FileNotFoundError(f"Not a file: {path}")
     try:
