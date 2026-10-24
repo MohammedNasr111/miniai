@@ -24,6 +24,12 @@
   let activityEl = null;
   let ctxChatId = null;
   let activeChatId = null;
+  // Streaming final-answer bubble (raw escaped text while in flight).
+  let streamEl = null;
+  let streamPending = "";
+  let streamLastPaint = 0;
+  let streamTimer = null;
+  const STREAM_MIN_MS = 50; // ≤ 20 UI updates/s
 
   function autoApproveEnabled() {
     return window.__MINIAI_AUTO_APPROVE === true;
@@ -264,6 +270,116 @@
     return body;
   }
 
+  function clearStreamTimer() {
+    if (streamTimer) {
+      clearTimeout(streamTimer);
+      streamTimer = null;
+    }
+  }
+
+  function ensureStreamEl() {
+    const body = ensureAiBody();
+    if (streamEl && streamEl.isConnected) return streamEl;
+    streamEl = document.createElement("div");
+    streamEl.className = "stream-raw";
+    body.appendChild(streamEl);
+    return streamEl;
+  }
+
+  function paintStreamRaw(text) {
+    const el = ensureStreamEl();
+    // Escaped raw text while streaming (no markdown yet).
+    el.textContent = text || "";
+    scrollBottom();
+  }
+
+  function flushStreamPaint() {
+    streamLastPaint = Date.now();
+    paintStreamRaw(streamPending);
+    streamTimer = null;
+  }
+
+  function onStreamDelta(text) {
+    streamPending = text || "";
+    const now = Date.now();
+    const elapsed = now - streamLastPaint;
+    if (elapsed >= STREAM_MIN_MS) {
+      clearStreamTimer();
+      flushStreamPaint();
+    } else if (!streamTimer) {
+      streamTimer = setTimeout(flushStreamPaint, STREAM_MIN_MS - elapsed);
+    }
+  }
+
+  function onStreamClear() {
+    clearStreamTimer();
+    streamPending = "";
+    streamLastPaint = 0;
+    if (streamEl && streamEl.parentElement) streamEl.remove();
+    streamEl = null;
+  }
+
+  function finalizeStreamMarkdown(markdown) {
+    clearStreamTimer();
+    streamPending = "";
+    streamLastPaint = 0;
+    const body = ensureAiBody();
+    if (streamEl && streamEl.isConnected) {
+      streamEl.className = "answer-md";
+      streamEl.innerHTML = renderMarkdown(markdown || "");
+      // keep streamEl as the answer holder; clear streaming handle
+      const done = streamEl;
+      streamEl = null;
+      return done;
+    }
+    const holder = document.createElement("div");
+    holder.className = "answer-md";
+    holder.innerHTML = renderMarkdown(markdown || "");
+    body.appendChild(holder);
+    return holder;
+  }
+
+  function replaceStreamWithCorrected(markdown, checkInfo) {
+    clearStreamTimer();
+    streamPending = "";
+    const body = ensureAiBody();
+    if (streamEl && streamEl.isConnected) streamEl.remove();
+    streamEl = null;
+    // Also remove a prior finalized answer-md from this bubble if present.
+    body.querySelectorAll(".answer-md").forEach(function (n) {
+      n.remove();
+    });
+    body.querySelectorAll(".check-note").forEach(function (n) {
+      n.remove();
+    });
+    const holder = document.createElement("div");
+    holder.className = "answer-md";
+    holder.innerHTML = renderMarkdown(markdown || "");
+    body.appendChild(holder);
+    appendCheckNote(body, checkInfo);
+    scrollBottom();
+  }
+
+  function appendCheckNote(body, checkInfo) {
+    if (!checkInfo || !checkInfo.fixed) return;
+    const note = document.createElement("details");
+    note.className = "check-note";
+    const sum = document.createElement("summary");
+    sum.textContent = checkInfo.note || "Corrected after checking";
+    note.appendChild(sum);
+    const claims = checkInfo.claims || [];
+    if (claims.length) {
+      const ul = document.createElement("ul");
+      claims.forEach(function (c) {
+        const li = document.createElement("li");
+        li.textContent = c;
+        ul.appendChild(li);
+      });
+      note.appendChild(ul);
+    }
+    body.appendChild(note);
+  }
+
   function showAnswer(markdown, sources, stepsPayload, checkInfo) {
     if (stepsPayload) {
       renderActivity({
@@ -275,9 +391,11 @@
     }
     const body = ensureAiBody();
     if (activityEl && activityEl.open) activityEl.open = false;
-    const holder = document.createElement("div");
-    holder.innerHTML = renderMarkdown(markdown);
-    body.appendChild(holder);
+    if (checkInfo && checkInfo.fixed) {
+      replaceStreamWithCorrected(markdown, checkInfo);
+    } else {
+      finalizeStreamMarkdown(markdown);
+    }
     if (sources && sources.length) {
       const box = document.createElement("div");
       box.className = "sources";
@@ -296,24 +414,23 @@
       });
       body.appendChild(box);
     }
-    if (checkInfo && checkInfo.fixed) {
-      const note = document.createElement("details");
-      note.className = "check-note";
-      const sum = document.createElement("summary");
-      sum.textContent = checkInfo.note || "Corrected after checking sources";
-      note.appendChild(sum);
-      const claims = checkInfo.claims || [];
-      if (claims.length) {
-        const ul = document.createElement("ul");
-        claims.forEach(function (c) {
-          const li = document.createElement("li");
-          li.textContent = c;
-          ul.appendChild(li);
-        });
-        note.appendChild(ul);
-      }
-      body.appendChild(note);
+    if (checkInfo && checkInfo.fixed && !body.querySelector(".check-note")) {
+      appendCheckNote(body, checkInfo);
     }
+    scrollBottom();
+  }
+
+  function showStoppedPartial(partial) {
+    clearStreamTimer();
+    const text = (partial || streamPending || "").trim();
+    onStreamClear();
+    if (!text) return;
+    const body = ensureAiBody();
+    if (activityEl && activityEl.open) activityEl.open = false;
+    const holder = document.createElement("div");
+    holder.className = "answer-md stopped";
+    holder.innerHTML = renderMarkdown(text + "\n\n(stopped)");
+    body.appendChild(holder);
     scrollBottom();
   }
 
@@ -540,6 +657,7 @@
         text.length > 40 ? text.slice(0, 39) + "…" : text;
     }
     activityEl = null;
+    onStreamClear();
     renderActivity({ steps: [], waiting: false, running: true, total: "0s" });
     // Re-assert Stop after activity paint (must be Stop before bridge returns).
     setTurnControls(true);
@@ -589,6 +707,13 @@
       showApprovalCard(req || {});
       setTurnControls(true);
     },
+    on_stream_delta: function (payload) {
+      onStreamDelta((payload && payload.text) || "");
+      setTurnControls(true);
+    },
+    on_stream_clear: function () {
+      onStreamClear();
+    },
     on_answer: function (payload) {
       showAnswer(
         (payload && payload.text) || "",
@@ -605,6 +730,10 @@
     },
     on_cancelled: function (payload) {
       clearApproval();
+      const partial = (payload && payload.partial) || "";
+      if (partial || streamPending) {
+        showStoppedPartial(partial);
+      }
       showSystemNote((payload && payload.note) || "Cancelled.");
       if (activityEl) {
         renderActivity({

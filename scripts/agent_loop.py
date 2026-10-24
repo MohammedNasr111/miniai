@@ -53,7 +53,7 @@ from agent.run_claim_check import (
 from agent.transcript import Transcript
 from config import settings
 from llm.base import ChatMessage
-from llm.lemonade.provider import LemonadeProvider
+from llm.lemonade.provider import LemonadeProvider, StreamCancelled
 from security.gate import reset_session
 from security.provenance import remember_urls_from_text
 from tools.browser.browser_tools import close_session
@@ -473,42 +473,116 @@ def should_run_thinking_second_pass(history: list) -> bool:
     return False
 
 
-def _call_model_force_thinking(provider, history, transcript=None):
+def _stream_or_chat(
+    provider,
+    history,
+    *,
+    enable_thinking: bool,
+    timeout: float | int,
+    on_token=None,
+    cancel_check=None,
+):
+    """One model call. Streams when on_token is set (and provider supports it)."""
+    stream_fn = getattr(provider, "chat_stream", None)
+    if on_token is not None and callable(stream_fn):
+        return stream_fn(
+            history,
+            tools=TOOL_SCHEMAS,
+            enable_thinking=enable_thinking,
+            timeout=timeout,
+            on_token=on_token,
+            cancel_check=cancel_check,
+        )
+    return provider.chat(
+        history,
+        tools=TOOL_SCHEMAS,
+        enable_thinking=enable_thinking,
+        timeout=timeout,
+    )
+
+
+def _make_token_forwarder(on_stream_delta, bucket: list[str]):
+    """Accumulate deltas and push the full so-far text to the UI callback."""
+
+    def _on_token(piece: str) -> None:
+        if not piece:
+            return
+        bucket.append(piece)
+        if on_stream_delta is not None:
+            on_stream_delta("".join(bucket))
+
+    return _on_token
+
+
+def _call_model_force_thinking(
+    provider, history, transcript=None, on_stream_delta=None, on_stream_clear=None,
+    cancel_check=None,
+):
     """One chat call with thinking ON (used by action-claim re-run)."""
     compress_cross_turn_history(history)
     compress_browser_history(history)
     enforce_context_budget(history, tools=TOOL_SCHEMAS)
     timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
+    bucket: list[str] = []
     started = time.perf_counter()
-    response = provider.chat(
-        history,
-        tools=TOOL_SCHEMAS,
-        enable_thinking=True,
-        timeout=timeout_on,
-    )
+    try:
+        response = _stream_or_chat(
+            provider,
+            history,
+            enable_thinking=True,
+            timeout=timeout_on,
+            on_token=_make_token_forwarder(on_stream_delta, bucket)
+            if on_stream_delta
+            else None,
+            cancel_check=cancel_check,
+        )
+    except StreamCancelled:
+        raise
     elapsed = round(time.perf_counter() - started, 3)
+    if response.tool_calls and on_stream_clear is not None and bucket:
+        on_stream_clear()
     _log_llm_call(transcript, response, True, timeout_on, elapsed)
     return response
 
 
-def _call_model(provider, history, transcript=None):
+def _call_model(
+    provider,
+    history,
+    transcript=None,
+    on_stream_delta=None,
+    on_stream_clear=None,
+    cancel_check=None,
+):
     compress_cross_turn_history(history)
     compress_browser_history(history)
     enforce_context_budget(history, tools=TOOL_SCHEMAS)
     policy = getattr(settings, "THINKING_POLICY", "smart")
 
+    def _forward():
+        bucket: list[str] = []
+        return bucket, (
+            _make_token_forwarder(on_stream_delta, bucket)
+            if on_stream_delta
+            else None
+        )
+
     if policy in ("two_pass", "smart"):
         # Always try thinking off first; grow timeout with prompt size.
         timeout_off = first_pass_timeout_seconds(history, provider.timeout)
+        bucket, on_tok = _forward()
         started = time.perf_counter()
-        response = provider.chat(
+        response = _stream_or_chat(
+            provider,
             history,
-            tools=TOOL_SCHEMAS,
             enable_thinking=False,
             timeout=timeout_off,
+            on_token=on_tok,
+            cancel_check=cancel_check,
         )
         elapsed = round(time.perf_counter() - started, 3)
         if response.tool_calls:
+            if on_stream_clear is not None and bucket:
+                on_stream_clear()
             _log_llm_call(
                 transcript, response, False, timeout_off, elapsed, discarded=False
             )
@@ -524,18 +598,25 @@ def _call_model(provider, history, transcript=None):
             )
             return response
         # Final answer with thinking off: discard and retry with thinking on.
+        if on_stream_clear is not None and bucket:
+            on_stream_clear()
         _log_llm_call(
             transcript, response, False, timeout_off, elapsed, discarded=True
         )
         timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
+        bucket2, on_tok2 = _forward()
         started = time.perf_counter()
-        response = provider.chat(
+        response = _stream_or_chat(
+            provider,
             history,
-            tools=TOOL_SCHEMAS,
             enable_thinking=True,
             timeout=timeout_on,
+            on_token=on_tok2,
+            cancel_check=cancel_check,
         )
         elapsed = round(time.perf_counter() - started, 3)
+        if response.tool_calls and on_stream_clear is not None and bucket2:
+            on_stream_clear()
         _log_llm_call(
             transcript, response, True, timeout_on, elapsed, discarded=False
         )
@@ -546,19 +627,22 @@ def _call_model(provider, history, transcript=None):
     if has_tool_results:
         enable_thinking = True
         timeout = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
-        started = time.perf_counter()
-        response = provider.chat(
-            history,
-            tools=TOOL_SCHEMAS,
-            enable_thinking=enable_thinking,
-            timeout=timeout,
-        )
     else:
         enable_thinking = provider.enable_thinking
         timeout = provider.timeout
-        started = time.perf_counter()
-        response = provider.chat(history, tools=TOOL_SCHEMAS)
+    bucket, on_tok = _forward()
+    started = time.perf_counter()
+    response = _stream_or_chat(
+        provider,
+        history,
+        enable_thinking=enable_thinking,
+        timeout=timeout,
+        on_token=on_tok,
+        cancel_check=cancel_check,
+    )
     elapsed = round(time.perf_counter() - started, 3)
+    if response.tool_calls and on_stream_clear is not None and bucket:
+        on_stream_clear()
     _log_llm_call(transcript, response, enable_thinking, timeout, elapsed)
     return response
 
@@ -589,6 +673,8 @@ def run_tool_rounds(
     on_tool_end=None,
     cancel_check=None,
     on_checking=None,
+    on_stream_delta=None,
+    on_stream_clear=None,
     question: str | None = None,
 ):
     """Run tool rounds until the model answers or the round cap is hit.
@@ -606,6 +692,11 @@ def run_tool_rounds(
     (live activity + Stop). cancel_check raising KeyboardInterrupt rolls
     the turn back in run_user_turn. on_checking runs while the Stage 12a
     answer checker is active (when enabled).
+
+    on_stream_delta(accumulated_text) / on_stream_clear() stream only the
+    final answer into the UI; tool-call rounds clear any tentative text.
+    Honesty guards run on the complete text; check_meta["stream_corrected"]
+    is set when the shown answer differs from what was streamed.
     """
     from agent.checker import maybe_check_and_fix
     from tools.code.workspace_tools import CODING_TOOLS
@@ -613,9 +704,49 @@ def run_tool_rounds(
     _register_user_urls(history)
     reset_turn_runs()
     reset_action_claim_state()
+    streamed_final = ""
+
+    def _delta(text: str) -> None:
+        nonlocal streamed_final
+        streamed_final = text or ""
+        if on_stream_delta is not None:
+            on_stream_delta(streamed_final)
+
+    def _clear() -> None:
+        nonlocal streamed_final
+        streamed_final = ""
+        if on_stream_clear is not None:
+            on_stream_clear()
+
+    def _model(prov, hist, tr=None):
+        return _call_model(
+            prov,
+            hist,
+            tr,
+            on_stream_delta=_delta if on_stream_delta else None,
+            on_stream_clear=_clear if on_stream_delta else None,
+            cancel_check=cancel_check,
+        )
+
+    def _model_think(prov, hist, tr=None):
+        return _call_model_force_thinking(
+            prov,
+            hist,
+            tr,
+            on_stream_delta=_delta if on_stream_delta else None,
+            on_stream_clear=_clear if on_stream_delta else None,
+            cancel_check=cancel_check,
+        )
+
     if cancel_check is not None and cancel_check():
         raise KeyboardInterrupt()
-    response = _call_model(provider, history, transcript)
+    try:
+        response = _model(provider, history, transcript)
+    except StreamCancelled as exc:
+        # Expose partial for the UI; still roll back via KeyboardInterrupt path.
+        if on_stream_delta is not None and exc.partial:
+            on_stream_delta(exc.partial)
+        raise KeyboardInterrupt() from exc
     rounds = 0
     max_rounds = 8
     _fs_mutate = {"create_file", "write_file", "move_file", "delete_file"}
@@ -664,10 +795,15 @@ def run_tool_rounds(
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
         rounds += 1
-        return next_call(provider, history, transcript)
+        try:
+            return next_call(provider, history, transcript)
+        except StreamCancelled as exc:
+            if on_stream_delta is not None and exc.partial:
+                on_stream_delta(exc.partial)
+            raise KeyboardInterrupt() from exc
 
     while response.tool_calls and rounds < max_rounds:
-        response = _consume_tool_round(response, next_call=_call_model)
+        response = _consume_tool_round(response, next_call=_model)
     cap = bool(response.tool_calls)
     if transcript is not None:
         transcript.rounds = rounds
@@ -681,6 +817,8 @@ def run_tool_rounds(
             transcript.final(raw=shown, shown=shown)
     else:
         raw = response.content or ""
+        # Snapshot what the UI already saw (pre-guard).
+        streamed_snapshot = streamed_final or raw
         shown = clean_final_answer(raw)
         shown = check_quotes_against_evidence(shown, transcript=transcript)
         shown = check_run_claims(shown, transcript=transcript)
@@ -728,15 +866,18 @@ def run_tool_rounds(
                     )
                 except Exception:
                     pass
-            response = _call_model_force_thinking(provider, history, transcript)
+            if on_stream_clear is not None:
+                _clear()
+            response = _model_think(provider, history, transcript)
             extra = 0
             while response.tool_calls and extra < 4 and rounds < max_rounds:
                 response = _consume_tool_round(
-                    response, next_call=_call_model_force_thinking
+                    response, next_call=_model_think
                 )
                 extra += 1
             if not response.tool_calls:
                 raw = response.content or ""
+                streamed_snapshot = streamed_final or raw
                 shown = clean_final_answer(raw)
                 shown = check_quotes_against_evidence(shown, transcript=transcript)
                 shown = check_run_claims(shown, transcript=transcript)
@@ -765,6 +906,12 @@ def run_tool_rounds(
             check_meta = {}
         check_meta["action_claim"] = claim_meta
         check_meta["injection_notice"] = inj_meta
+        # Guards / notices changed what was streamed → UI replaces the bubble.
+        if streamed_snapshot and shown != streamed_snapshot:
+            check_meta["stream_corrected"] = True
+            check_meta["fixed"] = True
+            if not check_meta.get("note"):
+                check_meta["note"] = "Corrected after checking"
         response.content = shown
         if transcript is not None:
             transcript.final(raw=raw, shown=shown)

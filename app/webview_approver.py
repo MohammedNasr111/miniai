@@ -575,6 +575,12 @@ class AppBridge:
                     },
                 )
 
+            def _on_stream_delta(accumulated: str) -> None:
+                self._call_js("on_stream_delta", {"text": accumulated or ""})
+
+            def _on_stream_clear() -> None:
+                self._call_js("on_stream_clear", {})
+
             answer = run_user_turn(
                 self._session,
                 text,
@@ -582,6 +588,8 @@ class AppBridge:
                 on_tool_end=self._on_tool_end,
                 cancel_check=self.is_cancelled,
                 on_checking=_on_checking,
+                on_stream_delta=_on_stream_delta,
+                on_stream_clear=_on_stream_clear,
             )
             total = format_duration(time.perf_counter() - self._turn_t0)
             steps = [
@@ -604,9 +612,14 @@ class AppBridge:
                     for c in (check_meta.get("claims") or [])
                     if c.get("status") == "contradicted"
                 ]
+                note = check_meta.get("note") or (
+                    "Corrected after checking"
+                    if check_meta.get("stream_corrected")
+                    else "Corrected after checking sources"
+                )
                 check_payload = {
                     "fixed": True,
-                    "note": "Corrected after checking sources",
+                    "note": note,
                     "claims": changed,
                 }
             self._call_js(
@@ -623,7 +636,13 @@ class AppBridge:
             self._call_js("on_history", self.list_chats())
             self.push_status()
         except KeyboardInterrupt:
-            self._call_js("on_cancelled", {"note": CANCEL_NOTE})
+            partial = ""
+            if self._session is not None:
+                partial = getattr(self._session, "last_stream_partial", "") or ""
+            self._call_js(
+                "on_cancelled",
+                {"note": CANCEL_NOTE, "partial": partial},
+            )
             self.push_status()
         except Exception as exc:
             self._call_js("on_error", self._friendly_error(exc))

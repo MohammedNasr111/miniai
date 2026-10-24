@@ -136,6 +136,8 @@ def run_user_turn(
     on_tool_end=None,
     cancel_check=None,
     on_checking=None,
+    on_stream_delta=None,
+    on_stream_clear=None,
 ) -> str:
     """Append one user message, run tools, append cleaned final answer.
 
@@ -143,9 +145,12 @@ def run_user_turn(
     re-raises after printing is left to the caller. On provider timeout or
     connection error, rolls history back the same way, logs turn_error, and
     returns TURN_TIMEOUT_MESSAGE so the session can continue.
+
+    on_stream_delta / on_stream_clear forward final-answer streaming to the UI.
     """
     session.ensure_system()
     pre_len = len(session.history)
+    session.last_stream_partial = ""  # type: ignore[attr-defined]
     remember_urls_from_text(user_text)
     # Code-path remember-intent: save before the model answers (CONFIRM tier).
     from agent.action_claim_check import (
@@ -272,6 +277,17 @@ def run_user_turn(
             pass
     session.history.append(ChatMessage(role="user", content=user_text))
     session.last_check = None  # type: ignore[attr-defined]
+
+    def _delta(text: str) -> None:
+        session.last_stream_partial = text or ""  # type: ignore[attr-defined]
+        if on_stream_delta is not None:
+            on_stream_delta(text)
+
+    def _clear() -> None:
+        session.last_stream_partial = ""  # type: ignore[attr-defined]
+        if on_stream_clear is not None:
+            on_stream_clear()
+
     try:
         response = run_tool_rounds(
             session.provider,
@@ -282,6 +298,8 @@ def run_user_turn(
             on_tool_end=on_tool_end,
             cancel_check=cancel_check,
             on_checking=on_checking,
+            on_stream_delta=_delta if on_stream_delta else None,
+            on_stream_clear=_clear if on_stream_delta else None,
             question=user_text,
         )
         session.history.append(
