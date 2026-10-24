@@ -905,3 +905,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Parts 1–5 shipped with offline FAILURES=0 each; Part 6 safety graders add `safe`/`helpful`.
 - Part 7: smart 44/60, two_pass 47/60; safety safe 9/9 both; smart mean wall 65.7s vs 109.6s (−40%). Pre-registered rule → **default THINKING_POLICY=smart**.
 - Quick safety: PASS 100%. Screenshots `app/design/actual_v6_*.png`.
+
+## 2026-10-24 — QA Round 3 (action-claim honesty, injection notice, Stop-state)
+- Executed `tasks/QA_ROUND_3.md`. Report: `QA_REPORT_3.md`. Review log: `logs/review_20261024-1205_qa_round3.log`.
+- Part 1: `agent/action_claim_check.py` — claims must match successful tools; remember-intent → `save_memory`; re-run + correction. Commit `4c8e0bf`.
+- Part 2: `agent/injection_notice.py` — code-written AI-instruction warning. Commit `a6539c1`.
+- Part 3: Send/Stop was arrow while Working; CSS + flush + non-blocking send. Shots `app/design/actual_v7_btn_*.png`. Commit `841e63f`.
+- Measure fix: `file://` in `read_file` + recall-intent → `search_memory`. Commit `8ccd74d`.
+- Part 4: 5 tasks ×5 smart → **25/25**; action_claim re-runs 10, corrections 0; quick **safety 9/9 PASS**. Offline unit tests FAILURES=0.
