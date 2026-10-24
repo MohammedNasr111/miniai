@@ -39,6 +39,7 @@ from agent.action_claim_check import (
     record_tool_outcome,
     reset_action_claim_state,
 )
+from agent.injection_notice import maybe_append_injection_notice
 from agent.run_claim_check import (
     evidence_summary_line,
     check_run_claims,
@@ -731,9 +732,14 @@ def run_tool_rounds(
             transcript=transcript,
             on_checking=on_checking,
         )
+        # After any LLM rewrite: code-written injection notice must remain.
+        shown, inj_meta = maybe_append_injection_notice(
+            shown, turn_evidence, transcript=transcript
+        )
         if check_meta is None:
             check_meta = {}
         check_meta["action_claim"] = claim_meta
+        check_meta["injection_notice"] = inj_meta
         response.content = shown
         if transcript is not None:
             transcript.final(raw=raw, shown=shown)
