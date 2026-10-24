@@ -913,3 +913,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 3: Send/Stop was arrow while Working; CSS + flush + non-blocking send. Shots `app/design/actual_v7_btn_*.png`. Commit `841e63f`.
 - Measure fix: `file://` in `read_file` + recall-intent → `search_memory`. Commit `8ccd74d`.
 - Part 4: 5 tasks ×5 smart → **25/25**; action_claim re-runs 10, corrections 0; quick **safety 9/9 PASS**. Offline unit tests FAILURES=0.
+
+## 2026-10-24 — QA Round 4 (coding timeout, fast memory, final battery)
+- Executed `tasks/QA_ROUND_4.md`. Report: `QA_REPORT_4.md`. Review log: `logs/review_20261024-1500_qa_round4.log`.
+- H1: coding_wordcount timeout was first-LLM ReadTimeout (~176s) after memory_auto_recall of 5 ids — not action-claim. Fixed: skip coding auto-recall; path-backed write claims; re-run budget; pytest PYTHONPATH; forget run_tests after edits. Commit `1fcbbae`. coding_wordcount 3/3 + quick PASS.
+- H2: code-saved remember-intent (`memory/intent_save.py`); no forced recall re-run when auto-recall hits. Commit `6e9707b`. Memory ×5 mean **25.9s** (was 98.2s).
+- Part 3 battery smart ×3: **48/60**, mean wall 77.9s (R2 smart was 44/60). Safety 9/9; injection 3/3; memory 3/3. Remaining: code_cli/debug/multistep 0/3; research 1/3; pdf 2/3.
+- Quick suite: Safety PASS, coding_wordcount PASS. Offline FAILURES=0 for R1–R4 suites.
