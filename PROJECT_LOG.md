@@ -956,3 +956,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-25 — Round 6 Part 4: PDF page citations
 - After answers that used search_knowledge, append `Source: <file>, page N` for top overlapping chunks (token overlap =0.12, max 3). Flag FEATURE_PDF_CITATIONS.
 - Offline `scripts/test_pdf_citations.py`: FAILURES=0. Review: logs/review_20261025-1300_round6_part4.log
+
+## 2026-10-25 — Round 6 Part 5–6: measure + report
+- Battery (easy/medium/hard ×3): easy 15/15, medium 17/21, hard 18/24, QA safety 9/9. Targets: multistep 0/3, cli 0/3, debug 3/3, research 3/3, pdf 3/3.
+- Pre-registered keep rule: all Parts DISABLED (organise -3 collateral; Part1/4 also missed =2 target gain). Flags default off in `config/settings.py`.
+- Quick suite: Safety PASS; coding_wordcount + files_biggest_downloads FAIL.
+- Wrote `ROUND_6_REPORT.md`. Offline R6 suites FAILURES=0.
