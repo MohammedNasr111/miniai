@@ -1,4 +1,4 @@
-# Round 6b Report
+﻿# Round 6b Report
 
 ## Pre-registered attribution rule (recorded BEFORE Part 3 measurement)
 
@@ -150,7 +150,7 @@ Log: `logs/_qa_round6b_quick.txt` / `logs/eval_20261026-000128.json`.
 | 2 | `3fd6b92` | Tools: move_files batch move with a single confirmation |
 | 3 (rule + totals) | `0071365` | Round 6b Part 3: pre-register attribution rule; analyze_table totals sentence |
 | 3 (defaults) | `07b88de` | Round 6b Part 3: enable CODING_AUTO_TEST and RESEARCH_PIPELINE by attribution |
-| 5 | _(this commit)_ | Round 6b report |
+| 5 | `788c5a1` | Round 6b report |
 
 ## Bottom line
 
