@@ -157,6 +157,35 @@ UNTRUSTED_SOURCE_TOOLS = {
 
 MEMORY_CATEGORIES = ["fact", "preference", "project", "research"]
 
+# Round-6 tools omitted from the model-facing schema when their feature flag
+# is off (so a disabled Part does not still occupy schema / distract the model).
+_FEATURE_GATED_TOOLS: dict[str, str] = {
+    "analyze_table": "FEATURE_ANALYZE_TABLE",
+    "ws_find_project": "FEATURE_CODING_AUTO_TEST",
+}
+
+
+def _feature_tool_enabled(flag_name: str) -> bool:
+    try:
+        from config import settings
+    except Exception:
+        return True
+    return bool(getattr(settings, flag_name, True))
+
+
+def active_tool_schemas(schemas: list | None = None) -> list:
+    """TOOL_SCHEMAS with feature-gated tools removed when their flag is off."""
+    src = schemas if schemas is not None else TOOL_SCHEMAS
+    out = []
+    for item in src:
+        name = (item.get("function") or {}).get("name") or ""
+        flag = _FEATURE_GATED_TOOLS.get(name)
+        if flag and not _feature_tool_enabled(flag):
+            continue
+        out.append(item)
+    return out
+
+
 TOOL_SCHEMAS = [
     {
         "type": "function",

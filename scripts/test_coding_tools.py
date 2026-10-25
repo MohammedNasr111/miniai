@@ -255,7 +255,10 @@ def main() -> int:
         ex.return_value = [
             ChatMessage(role="tool", content="ok", tool_call_id="c1")
         ]
-        # coding tool -> cap 16 (Round 6)
+        # coding tool -> cap 16 when FEATURE_CODING_AUTO_TEST on (Round 6)
+        import config.settings as _settings
+
+        _settings.FEATURE_CODING_AUTO_TEST = True
         hist = [ChatMessage(role="user", content="code")]
         guard = MagicMock()
         r = run_tool_rounds(_fake_provider("ws_list", 18), hist, guard)
