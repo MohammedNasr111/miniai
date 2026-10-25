@@ -9,6 +9,7 @@ from tools.filesystem.fs_tools import (
     delete_file,
     list_directory,
     move_file,
+    move_files,
     read_file,
     search_files,
     write_file,
@@ -54,6 +55,7 @@ TOOL_FUNCTIONS = {
     "write_file": write_file,
     "delete_file": delete_file,
     "move_file": move_file,
+    "move_files": move_files,
     "calculate": calculate,
     "analyze_table": analyze_table,
     "save_memory": save_memory,
@@ -98,6 +100,7 @@ TOOL_TIERS = {
     "write_file": Tier.CONFIRM,
     "delete_file": Tier.ALWAYS_CONFIRM,
     "move_file": Tier.CONFIRM,
+    "move_files": Tier.CONFIRM,
     "calculate": Tier.AUTO_ALLOW,
     "analyze_table": Tier.AUTO_ALLOW,
     "save_memory": Tier.CONFIRM,
@@ -397,7 +400,13 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "move_file",
-            "description": "Move or rename a file from src to dest (creates the destination folder if needed). Use this to organise files into subfolders. Does not overwrite an existing destination. Prompts for confirmation. Cannot modify MiniAI's own folder or settings.",
+            "description": (
+                "Move or rename one file from src to dest (creates the "
+                "destination folder if needed). Prefer move_files when "
+                "organising many files (one confirmation for the batch). "
+                "Does not overwrite an existing destination. Prompts for "
+                "confirmation. Cannot modify MiniAI's own folder or settings."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -408,6 +417,38 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["src", "dest"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_files",
+            "description": (
+                "Move many files in one confirmation. Prefer this over "
+                "repeated move_file when organising a folder by type. "
+                "Argument moves is a list of {src, dest} (max 200). Same "
+                "protections as move_file (no overwrite, files only, no "
+                "protected paths); all entries are validated before asking. "
+                "Reports per-file success; one failure does not stop the others."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "moves": {
+                        "type": "array",
+                        "description": "List of {src, dest} absolute paths.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "src": {"type": "string"},
+                                "dest": {"type": "string"},
+                            },
+                            "required": ["src", "dest"],
+                        },
+                    },
+                },
+                "required": ["moves"],
             },
         },
     },

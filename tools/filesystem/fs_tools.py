@@ -392,6 +392,7 @@ def move_file(src: str, dest: str) -> str:
 
     Refuses protected paths. Does not overwrite an existing destination.
     Prompts at CONFIRM before acting.
+    Prefer move_files when organising many files (one confirmation).
     """
     assert_not_protected(src)
     assert_not_protected(dest)
@@ -417,6 +418,106 @@ def move_file(src: str, dest: str) -> str:
     _commit_if_workspace(src, f"move_file {src} -> {dest}")
     _commit_if_workspace(dest, f"move_file {src} -> {dest}")
     return f"Moved {src} to {dest}."
+
+
+MAX_BATCH_MOVES = 200
+_BATCH_LIST_DISPLAY = 30
+
+
+def _validate_one_move(src: str, dest: str) -> tuple[Path, Path]:
+    """Same protections as move_file; raises before any permission prompt."""
+    assert_not_protected(src)
+    assert_not_protected(dest)
+    source = Path(src)
+    destination = Path(dest)
+    if not source.exists():
+        raise FileNotFoundError(f"No such file: {src}")
+    if not source.is_file():
+        raise IsADirectoryError(
+            f"move_files only moves files, not directories: {src}"
+        )
+    if destination.exists():
+        raise FileExistsError(
+            f"Destination already exists, not overwriting: {dest}"
+        )
+    return source, destination
+
+
+def move_files(moves: list[dict[str, str]]) -> str:
+    """Move many files with a single CONFIRM prompt.
+
+    Prefer this over repeated move_file when organising a folder by type.
+    Each item is {\"src\": ..., \"dest\": ...}. Max 200 moves. All moves are
+    validated before asking; a later failure does not undo earlier successes.
+    """
+    if not isinstance(moves, list) or not moves:
+        raise ValueError("moves must be a non-empty list of {src, dest} objects.")
+    if len(moves) > MAX_BATCH_MOVES:
+        raise ValueError(
+            f"Too many moves ({len(moves)}); max is {MAX_BATCH_MOVES}."
+        )
+
+    planned: list[tuple[str, str, Path, Path]] = []
+    for i, item in enumerate(moves):
+        if not isinstance(item, dict):
+            raise ValueError(f"moves[{i}] must be an object with src and dest.")
+        src = item.get("src")
+        dest = item.get("dest")
+        if not isinstance(src, str) or not isinstance(dest, str) or not src or not dest:
+            raise ValueError(
+                f"moves[{i}] requires non-empty string src and dest."
+            )
+        source, destination = _validate_one_move(src, dest)
+        planned.append((src, dest, source, destination))
+
+    # Detect duplicate destinations in the batch (would overwrite mid-batch).
+    seen_dest: set[str] = set()
+    for src, dest, _s, _d in planned:
+        key = str(Path(dest).resolve()) if Path(dest).parent.exists() else dest
+        key = os.path.normcase(os.path.abspath(dest))
+        if key in seen_dest:
+            raise FileExistsError(
+                f"Duplicate destination in batch, not overwriting: {dest}"
+            )
+        seen_dest.add(key)
+
+    lines = [f"Move {len(planned)} file(s):"]
+    for src, dest, _s, _d in planned[:_BATCH_LIST_DISPLAY]:
+        lines.append(f"  {src}  ->  {dest}")
+    if len(planned) > _BATCH_LIST_DISPLAY:
+        more = len(planned) - _BATCH_LIST_DISPLAY
+        lines.append(f"  … and {more} more")
+    check_permission(
+        action="move_files",
+        tier=Tier.CONFIRM,
+        description="\n".join(lines),
+    )
+
+    ok_lines: list[str] = []
+    err_lines: list[str] = []
+    for src, dest, source, destination in planned:
+        try:
+            if destination.exists():
+                raise FileExistsError(
+                    f"Destination already exists, not overwriting: {dest}"
+                )
+            if not source.exists() or not source.is_file():
+                raise FileNotFoundError(f"No such file: {src}")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(source), str(destination))
+            _commit_if_workspace(src, f"move_files {src} -> {dest}")
+            _commit_if_workspace(dest, f"move_files {src} -> {dest}")
+            ok_lines.append(f"OK: {src} -> {dest}")
+        except Exception as exc:
+            err_lines.append(f"FAIL: {src} -> {dest} ({exc})")
+
+    summary = [
+        f"Batch move finished: {len(ok_lines)} succeeded, {len(err_lines)} failed "
+        f"of {len(planned)}."
+    ]
+    summary.extend(ok_lines)
+    summary.extend(err_lines)
+    return "\n".join(summary)
 
 
 def _commit_if_workspace(path: str, message: str) -> None:

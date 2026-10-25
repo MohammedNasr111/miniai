@@ -35,7 +35,7 @@ _CLAIM_SPECS: list[tuple[str, re.Pattern[str], frozenset[str]]] = [
             r"(?i)\b(?:i(?:'ve|\s+have)\s+(?:moved|organised|organized|renamed)|"
             r"i\s+(?:moved|organised|organized|renamed))\b"
         ),
-        frozenset({"move_file"}),
+        frozenset({"move_file", "move_files"}),
     ),
     (
         "created / wrote a file",

@@ -801,7 +801,13 @@ def run_tool_rounds(
         raise KeyboardInterrupt() from exc
     rounds = 0
     max_rounds = 8
-    _fs_mutate = {"create_file", "write_file", "move_file", "delete_file"}
+    _fs_mutate = {
+        "create_file",
+        "write_file",
+        "move_file",
+        "move_files",
+        "delete_file",
+    }
     turn_evidence: list[str] = []
     if pending_research_text:
         turn_evidence.append(pending_research_text)
@@ -1144,8 +1150,9 @@ def system_prompt() -> str:
         "Paths under the MiniAI coding workspace (LocalLow/MiniAI/workspace) "
         "ARE the coding workspace — use ws_list, ws_read, ws_write, ws_edit, "
         "run_file, and run_tests there; never claim you cannot access it. "
-        "To organise files by type, create type subfolders and move_file each "
-        "file into the matching folder. "
+        "To organise files by type, create type subfolders and prefer "
+        "move_files (one confirmation) to move each file into the matching "
+        "folder; use move_file only for a single file. "
         "For bulk-delete requests, call delete_file so the user is prompted; "
         "do not silently refuse without attempting the tool that asks them. "
         "When asked to write a summary or report file, actually create it with "

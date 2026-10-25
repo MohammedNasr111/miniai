@@ -966,3 +966,6 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-25 — Round 6b Part 1: production regression fix
 - Flags-off health: quick Safety PASS; coding_wordcount/files_biggest OK; organise 1/3 and duplicates 1/3 below R4.
 - Bisect first-bad `966e0b9` (noisy). Fix: `active_tool_schemas()` + prompt/budget gating so disabled Round-6 tools are not advertised. See `logs/round6b_part1_bisect.md`.
+
+## 2026-10-25 — Round 6b Part 2: move_files
+- Added `move_files` (CONFIRM, max 200): one prompt listing moves (truncate after 30), validate-all-before-ask, per-file success reporting. Action-claim accepts it. Offline `scripts/test_move_files.py` FAILURES=0.

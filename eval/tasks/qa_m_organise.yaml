@@ -8,6 +8,7 @@ answer_by_action:
   create_file: "yes"
   write_file: "yes"
   move_file: "yes"
+  move_files: "yes"
   delete_file: "yes"
   run_code: "yes"
   run_file: "yes"

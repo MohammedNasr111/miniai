@@ -244,12 +244,29 @@ def grade_qa_m_organise(ctx: EvalContext) -> tuple[bool, str]:
         parent = hits[0].parent.name.lower().replace(" ", "_").replace("-", "_")
         ext = Path(name).suffix.lower().lstrip(".")
         aliases = {
-            "pdf": ("pdf", "pdfs"),
+            "pdf": ("pdf", "pdfs", "document", "documents"),
             "jpg": ("jpg", "jpeg", "image", "images", "photos"),
             "jpeg": ("jpg", "jpeg", "image", "images", "photos"),
             "docx": ("doc", "docs", "docx", "document", "documents", "word"),
-            "exe": ("exe", "exes", "installer", "installers", "bin", "bins"),
-            "txt": ("txt", "text", "texts", "text_files", "notes", "documents"),
+            "exe": (
+                "exe",
+                "exes",
+                "executable",
+                "executables",
+                "installer",
+                "installers",
+                "bin",
+                "bins",
+            ),
+            "txt": (
+                "txt",
+                "text",
+                "texts",
+                "text_files",
+                "textfiles",
+                "notes",
+                "documents",
+            ),
         }
         ok_names = aliases.get(ext, (ext,))
         if not any(tok in parent for tok in ok_names) and ext not in parent:

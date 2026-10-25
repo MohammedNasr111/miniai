@@ -39,6 +39,7 @@ _LABELS: dict[str, tuple[str, str]] = {
     "analyze_table": ("Analyzing a table", "Analyzed a table"),
     "ws_find_project": ("Finding a project", "Found a project"),
     "move_file": ("Moving a file", "Moved a file"),
+    "move_files": ("Moving files", "Moved files"),
     "install_package": ("Installing a package", "Installed a package"),
     "workspace_import": ("Importing a project", "Imported a project"),
     "workspace_export": ("Exporting a project", "Exported a project"),
