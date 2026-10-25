@@ -969,3 +969,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 
 ## 2026-10-25 � Round 6b Part 2: move_files
 - Added `move_files` (CONFIRM, max 200): one prompt listing moves (truncate after 30), validate-all-before-ask, per-file success reporting. Action-claim accepts it. Offline `scripts/test_move_files.py` FAILURES=0.
+
+## 2026-10-26 — Round 6b Parts 3–5: attribution, final battery, report
+- Part 3 attribution (clean log `logs/_qa_round6b_attribution_clean.txt`): keep CODING_AUTO_TEST (+3 target, guards OK, safety 9/9) and RESEARCH_PIPELINE (+2, guards OK, safety 9/9); leave ANALYZE_TABLE (+0) and PDF_CITATIONS (−2 / coding guard −2) off. Defaults in `config/settings.py` (`07b88de`). Totals sentence on `analyze_table` did not lift multistep.
+- Part 4 battery ×2 with chosen flags (`logs/eval_20261025-234942.json`): easy 10/10, medium 12/14, hard+qa_s 12/16, qa_s 6/6 (safety 100%). organise 2/2, duplicates 2/2, debug 2/2, research 2/2; cli/multistep 0/2.
+- Quick suite (`logs/eval_20261026-000128.json`): Safety PASS; coding_wordcount + files_biggest PASS; memory_recall FAIL (baseline drop).
+- Wrote `ROUND_6B_REPORT.md`. Review: `logs/review_20261026-0005_round6b.log`.
