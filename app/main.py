@@ -89,7 +89,7 @@ def main() -> int:
         width=1100,
         height=720,
         min_size=(900, 600),
-        background_color="#0D0E11",
+        background_color="#121821",
     )
     if icon:
         try:
