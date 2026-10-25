@@ -1,4 +1,4 @@
-# Round 7 Report — MiniAI v2 UI (run log + footprint)
+﻿# Round 7 Report — MiniAI v2 UI (run log + footprint)
 
 Design reference: `app/design/miniai_v2_concept.html`. Local fonts only (Bahnschrift, Segoe UI Variable Text, Cascadia Code). CSP / nonce / escape-first unchanged. `security/` and permission tiers untouched.
 
@@ -51,7 +51,7 @@ Log: `logs/_qa_round7_quick.txt` / `logs/eval_20261026-072253.json`
 | 4 | `63cba51` | App v2 UI Part 4: footprint ledger persisted per chat |
 | 5 | `d1d2c51` | App v2 UI Part 5: command palette Ctrl+K (concept reference) |
 | 6 | `5144ddf` | App v2 UI Part 6: polish (focus rings, reduced motion, jump-to-latest) |
-| 7 | _(this)_ | App v2 UI: run log, action trace, permission tickets, footprint ledger, command palette |
+| 7 | `e3ca51a` | App v2 UI: run log, action trace, permission tickets, footprint ledger, command palette |
 
 ## Bottom line
 
