@@ -939,3 +939,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 
 ## 2026-10-25 — Round 5 Part 5: report
 - Wrote `ROUND_5_REPORT.md` + review log `logs/review_20261025-1214_round5.log`. Production restored: Qwen3-30B-A3B-GGUF with Part 2 options; answers Hi. Self-check 16/16.
+
+## 2026-10-25 — Round 6 Part 1: analyze_table
+- Added AUTO_ALLOW `analyze_table` (pandas fixed ops only: filter/group/aggregate/sort; CSV/TSV/XLSX; max 20 files × 50 MB). Outside paths wrapped as untrusted file content. Feature flag `FEATURE_ANALYZE_TABLE` (default on). Deps: pandas, openpyxl.
+- Offline `scripts/test_analyze_table.py`: FAILURES=0 (combine 6 CSVs, best/worst, bad column, formula plain text, size/file limits, xlsx, registry).
+- Review log: `logs/review_20261025-1248_round6_part1.log`.

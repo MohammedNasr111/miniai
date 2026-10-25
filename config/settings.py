@@ -37,6 +37,31 @@ THINKING_POLICY = (
 # Stage 12a answer checker: draft -> check -> fix. Default off until measured.
 _CHECKER_RAW = os.environ.get("MINIAI_CHECKER", "off").strip().lower()
 CHECKER = _CHECKER_RAW if _CHECKER_RAW in ("off", "on") else "off"
+# Round 6 feature flags (Part 5 may flip defaults to off if keep-rule fails).
+FEATURE_ANALYZE_TABLE = os.environ.get("MINIAI_FEATURE_ANALYZE_TABLE", "on").strip().lower() not in (
+    "0",
+    "off",
+    "false",
+    "no",
+)
+FEATURE_CODING_AUTO_TEST = os.environ.get("MINIAI_FEATURE_CODING_AUTO_TEST", "on").strip().lower() not in (
+    "0",
+    "off",
+    "false",
+    "no",
+)
+FEATURE_RESEARCH_PIPELINE = os.environ.get("MINIAI_FEATURE_RESEARCH_PIPELINE", "on").strip().lower() not in (
+    "0",
+    "off",
+    "false",
+    "no",
+)
+FEATURE_PDF_CITATIONS = os.environ.get("MINIAI_FEATURE_PDF_CITATIONS", "on").strip().lower() not in (
+    "0",
+    "off",
+    "false",
+    "no",
+)
 EMBEDDING_MODEL = "nomic-embed-text-v1-GGUF"
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")  # may be None; never print or log this
 

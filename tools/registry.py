@@ -43,6 +43,7 @@ from tools.code.workspace_tools import (
 )
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
+from tools.table.analyze import analyze_table
 
 TOOL_FUNCTIONS = {
     "list_directory": list_directory,
@@ -53,6 +54,7 @@ TOOL_FUNCTIONS = {
     "delete_file": delete_file,
     "move_file": move_file,
     "calculate": calculate,
+    "analyze_table": analyze_table,
     "save_memory": save_memory,
     "search_memory": search_memory,
     "list_memories": list_memories,
@@ -95,6 +97,7 @@ TOOL_TIERS = {
     "delete_file": Tier.ALWAYS_CONFIRM,
     "move_file": Tier.CONFIRM,
     "calculate": Tier.AUTO_ALLOW,
+    "analyze_table": Tier.AUTO_ALLOW,
     "save_memory": Tier.CONFIRM,
     "search_memory": Tier.AUTO_ALLOW,
     "list_memories": Tier.AUTO_ALLOW,
@@ -166,6 +169,81 @@ TOOL_SCHEMAS = [
                     },
                 },
                 "required": ["expression"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_table",
+            "description": (
+                "Analyze CSV/TSV/XLSX spreadsheets with fixed pandas ops "
+                "(filter, group_by, aggregate sum|mean|min|max|count|median, "
+                "sort). Example: analyze_table(paths=['C:/data/jan.csv',"
+                "'C:/data/feb.csv'], combine=true, group_by=['month'], "
+                "aggregate={'revenue':'sum'}, sort_by='revenue_sum', "
+                "descending=true, limit=12). Use this for sums, averages, "
+                "best/worst, combining spreadsheets. Never do arithmetic "
+                "over raw file text. No approval needed. Max 20 files, "
+                "50 MB each."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Absolute paths to CSV/TSV/XLSX files.",
+                    },
+                    "combine": {
+                        "type": "boolean",
+                        "description": "Concatenate all files into one table (default false; auto when multiple paths).",
+                    },
+                    "filter": {
+                        "type": "object",
+                        "description": (
+                            "Optional row filter: {column, op, value}. "
+                            "ops: == != > >= < <= contains."
+                        ),
+                        "properties": {
+                            "column": {"type": "string"},
+                            "op": {
+                                "type": "string",
+                                "enum": ["==", "!=", ">", ">=", "<", "<=", "contains"],
+                            },
+                            "value": {},
+                        },
+                    },
+                    "group_by": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Columns to group by before aggregate.",
+                    },
+                    "aggregate": {
+                        "type": "object",
+                        "description": (
+                            "Map column name → sum|mean|min|max|count|median. "
+                            "Result columns are named <col>_<fn>."
+                        ),
+                        "additionalProperties": {
+                            "type": "string",
+                            "enum": ["sum", "mean", "min", "max", "count", "median"],
+                        },
+                    },
+                    "sort_by": {
+                        "type": "string",
+                        "description": "Column to sort by (after aggregate).",
+                    },
+                    "descending": {
+                        "type": "boolean",
+                        "description": "Sort descending (default false).",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max rows in the markdown/JSON preview (default 50, max 200).",
+                    },
+                },
+                "required": ["paths"],
             },
         },
     },
