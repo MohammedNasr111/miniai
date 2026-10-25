@@ -1,41 +1,66 @@
-/* MiniAI app UI — talks to Python only via pywebview js_api (no HTTP). */
+/* MiniAI v2 UI — run log + footprint. Bridge: pywebview js_api only. */
 (function () {
   "use strict";
 
-  const thread = document.getElementById("thread");
+  const appEl = document.getElementById("app");
+  const runsEl = document.getElementById("runs");
   const scroll = document.getElementById("scroll");
   const composer = document.getElementById("composer");
+  const composerForm = document.getElementById("composer-form");
   const btnSend = document.getElementById("btn-send");
   const btnNew = document.getElementById("btn-new-chat");
   const chipTaint = document.getElementById("chip-taint");
-  const icoSend = btnSend ? btnSend.querySelector(".ico-send") : null;
-  const icoStop = btnSend ? btnSend.querySelector(".ico-stop") : null;
-  const chipRunner = document.getElementById("chip-runner");
   const modelStatus = document.getElementById("model-status");
+  const modelLamp = document.getElementById("model-lamp");
   const memMeter = document.getElementById("mem-meter");
   const memLabel = document.getElementById("mem-label");
+  const tokSpeed = document.getElementById("tok-speed");
   const selfcheckLabel = document.getElementById("selfcheck-label");
-  const selfcheckRow = document.getElementById("selfcheck-row");
   const chatTitle = document.getElementById("chat-title");
   const historyList = document.getElementById("history-list");
   const ctxMenu = document.getElementById("ctx-menu");
   const ctxDelete = document.getElementById("ctx-delete");
+  const openRail = document.getElementById("open-rail");
+  const openFoot = document.getElementById("open-foot");
+  const scrim = document.getElementById("scrim");
+  const jumpLatest = document.getElementById("jump-latest");
+  const palette = document.getElementById("palette");
+  const paletteInput = document.getElementById("palette-input");
+  const paletteList = document.getElementById("palette-list");
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   let busy = false;
   let readonly = false;
   let pendingApproval = null;
-  let activityEl = null;
-  let ctxChatId = null;
   let activeChatId = null;
-  // Streaming final-answer bubble (raw escaped text while in flight).
-  let streamEl = null;
+  let ctxChatId = null;
+  let currentRun = null;
+  let pinBottom = true;
+  let lastAnswerText = "";
   let streamPending = "";
   let streamLastPaint = 0;
   let streamTimer = null;
-  const STREAM_MIN_MS = 50; // ≤ 20 UI updates/s
+  let streamCaret = null;
+  const STREAM_MIN_MS = 50;
+  let paletteIndex = 0;
+  let paletteItems = [];
+  let chatIndex = [];
 
-  function autoApproveEnabled() {
-    return window.__MINIAI_AUTO_APPROVE === true;
-  }
+  const EXAMPLES = [
+    {
+      text: "Move the installer files in my Downloads folder into a folder called Installers.",
+      tag: "Files",
+    },
+    {
+      text: "What changed in the latest Windows 11 update?",
+      tag: "Web",
+    },
+    {
+      text: "Write a Python function that counts words in a string, with tests.",
+      tag: "Code",
+    },
+  ];
 
   function api() {
     return window.pywebview && window.pywebview.api;
@@ -50,18 +75,25 @@
       .replace(/'/g, "&#39;");
   }
 
-  /** Safe markdown subset: bold, italics, inline code, nested lists, https links. */
+  function nowHm() {
+    const d = new Date();
+    return (
+      String(d.getHours()).padStart(2, "0") +
+      ":" +
+      String(d.getMinutes()).padStart(2, "0")
+    );
+  }
+
   function renderMarkdown(src) {
     const text = String(src || "");
     const lines = text.split(/\r?\n/);
     const out = [];
-    // Stack: {type, indent, openLi}
     const stack = [];
 
     function inline(s) {
       let t = escapeHtml(s);
       t = t.replace(/`([^`]+)`/g, function (_, code) {
-        return "<code>" + code + "</code>";
+        return "<code class=\"path\">" + code + "</code>";
       });
       t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
       t = t.replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
@@ -109,7 +141,6 @@
         closeTo(level);
         let top = stack[stack.length - 1];
         if (!top || top.indent < level) {
-          // Nest inside the still-open parent <li>.
           out.push("<" + listType + ">");
           stack.push({ type: listType, indent: level, openLi: false });
           top = stack[stack.length - 1];
@@ -143,133 +174,205 @@
     busy = !!running;
     if (!btnSend) return;
     if (busy) {
-      // Single control becomes Stop while a turn is running.
-      // Class-driven icon swap (CSS) — set synchronously before any bridge await.
       btnSend.disabled = false;
       btnSend.classList.add("is-stop");
       btnSend.title = "Stop";
       btnSend.setAttribute("aria-label", "Stop");
-      if (icoSend) {
-        icoSend.setAttribute("hidden", "");
-        icoSend.hidden = true;
-      }
-      if (icoStop) {
-        icoStop.removeAttribute("hidden");
-        icoStop.hidden = false;
-      }
+      btnSend.textContent = "■";
     } else {
       btnSend.disabled = false;
       btnSend.classList.remove("is-stop");
       btnSend.title = "Send";
       btnSend.setAttribute("aria-label", "Send");
-      if (icoSend) {
-        icoSend.removeAttribute("hidden");
-        icoSend.hidden = false;
-      }
-      if (icoStop) {
-        icoStop.setAttribute("hidden", "");
-        icoStop.hidden = true;
-      }
+      btnSend.textContent = "↑";
     }
-    // Force style/layout flush so Stop paints before await send_message.
     void btnSend.offsetWidth;
   }
 
-  function scrollBottom() {
-    scroll.scrollTop = scroll.scrollHeight;
+  function maybeScrollBottom() {
+    if (pinBottom) {
+      scroll.scrollTop = scroll.scrollHeight;
+      jumpLatest.hidden = true;
+    } else {
+      jumpLatest.hidden = false;
+    }
   }
 
-  function addUser(text) {
-    const el = document.createElement("div");
-    el.className = "msg-user";
-    el.textContent = text;
-    thread.appendChild(el);
-    scrollBottom();
+  function updatePinFromScroll() {
+    const dist = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight;
+    pinBottom = dist < 80;
+    jumpLatest.hidden = pinBottom;
   }
 
-  function ensureAiBody() {
-    if (activityEl && activityEl.parentElement) {
-      return activityEl.parentElement;
-    }
-    const wrap = document.createElement("div");
-    wrap.className = "msg-ai";
-    wrap.innerHTML = '<div class="avatar">M</div><div class="body"></div>';
-    thread.appendChild(wrap);
-    return wrap.querySelector(".body");
+  scroll.addEventListener("scroll", updatePinFromScroll, { passive: true });
+  jumpLatest.addEventListener("click", function () {
+    pinBottom = true;
+    maybeScrollBottom();
+  });
+
+  function clearRuns() {
+    runsEl.innerHTML = "";
+    currentRun = null;
+    pendingApproval = null;
   }
 
-  function setTainted(on) {
-    if (on) chipTaint.removeAttribute("hidden");
-    else chipTaint.setAttribute("hidden", "");
-  }
-
-  function summaryLabel(payload) {
-    if (payload.waiting) return "Waiting for your approval";
-    if (payload.checking) return "Checking the answer against sources…";
-    const n = (payload.steps || []).length;
-    const total = payload.total || "";
-    if (payload.running) {
-      if (n === 0) return "Working…";
-      return "Working · " + n + " step" + (n === 1 ? "" : "s");
-    }
-    if (total) {
-      return (
-        "Worked for " +
-        total +
-        " · " +
-        n +
-        " step" +
-        (n === 1 ? "" : "s")
-      );
-    }
-    return "Worked · " + n + " step" + (n === 1 ? "" : "s");
-  }
-
-  function renderActivity(payload) {
-    const body = ensureAiBody();
-    let details = activityEl;
-    if (!details || !details.isConnected) {
-      details = document.createElement("details");
-      details.className = "activity";
-      body.insertBefore(details, body.firstChild);
-      activityEl = details;
-    }
-    details.open = !!(payload.waiting || payload.running);
-    const steps = payload.steps || [];
-    let ul = details.querySelector("ul.steps");
-    if (!ul) {
-      details.innerHTML = "";
-      const summary = document.createElement("summary");
-      details.appendChild(summary);
-      ul = document.createElement("ul");
-      ul.className = "steps";
-      details.appendChild(ul);
-    }
-    const summary = details.querySelector("summary");
-    const spinning = !!(payload.waiting || payload.running);
-    summary.innerHTML =
-      (spinning
-        ? '<span class="spinner"></span>'
-        : '<span class="ic ok-ic">✓</span>') +
-      escapeHtml(summaryLabel(payload)) +
-      '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>';
-    ul.innerHTML = "";
-    steps.forEach(function (s) {
-      const li = document.createElement("li");
-      li.className = "step";
-      const ic = s.running
-        ? '<span class="spinner"></span>'
-        : '<span class="ic">✓</span>';
-      li.innerHTML =
-        ic +
-        escapeHtml(s.name || "tool") +
-        '<span class="t">' +
-        escapeHtml(s.t || "") +
-        "</span>";
-      ul.appendChild(li);
+  function showEmptyState() {
+    clearRuns();
+    const box = document.createElement("div");
+    box.className = "empty";
+    box.innerHTML = "<h2>Try one of these</h2>";
+    const ex = document.createElement("div");
+    ex.className = "examples";
+    EXAMPLES.forEach(function (e) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "example";
+      b.innerHTML =
+        escapeHtml(e.text) + "<small>" + escapeHtml(e.tag) + "</small>";
+      b.addEventListener("click", function () {
+        composer.value = e.text;
+        composer.focus();
+        autoSize();
+        sendMessage();
+      });
+      ex.appendChild(b);
     });
-    scrollBottom();
-    return body;
+    box.appendChild(ex);
+    runsEl.appendChild(box);
+  }
+
+  function startRun(userText) {
+    const empty = runsEl.querySelector(".empty");
+    if (empty) empty.remove();
+    const art = document.createElement("article");
+    art.className = "run";
+    art.setAttribute("aria-label", "Run");
+    const ask = document.createElement("div");
+    ask.className = "ask";
+    const p = document.createElement("p");
+    p.textContent = userText;
+    ask.appendChild(p);
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.innerHTML =
+      "<span><b>" +
+      escapeHtml(nowHm()) +
+      "</b></span><span class=\"meta-status\">Working</span><span class=\"meta-steps\"><b>0</b> steps</span><span class=\"meta-left\"><b>Nothing</b> left this PC</span>";
+    ask.appendChild(meta);
+    art.appendChild(ask);
+    const trace = document.createElement("ol");
+    trace.className = "trace";
+    art.appendChild(trace);
+    const answer = document.createElement("div");
+    answer.className = "answer";
+    answer.hidden = true;
+    art.appendChild(answer);
+    runsEl.appendChild(art);
+    currentRun = {
+      root: art,
+      trace: trace,
+      answer: answer,
+      meta: meta,
+      stepEls: [],
+      leftCount: 0,
+      t0: Date.now(),
+    };
+    maybeScrollBottom();
+    return currentRun;
+  }
+
+  function updateRunMeta(run, opts) {
+    if (!run || !run.meta) return;
+    const st = run.meta.querySelector(".meta-status");
+    const steps = run.meta.querySelector(".meta-steps");
+    const left = run.meta.querySelector(".meta-left");
+    if (opts.status != null && st) st.innerHTML = opts.status;
+    if (steps) {
+      const n = opts.steps != null ? opts.steps : run.stepEls.length;
+      steps.innerHTML = "<b>" + n + "</b> step" + (n === 1 ? "" : "s");
+    }
+    if (left) {
+      const n = opts.left != null ? opts.left : run.leftCount;
+      if (n <= 0) {
+        left.innerHTML = "<b>Nothing</b> left this PC";
+      } else {
+        left.innerHTML =
+          "<b>" +
+          n +
+          " search" +
+          (n === 1 ? "" : "es") +
+          "</b> left this PC";
+      }
+    }
+  }
+
+  function appendStep(payload) {
+    const run = currentRun;
+    if (!run) return null;
+    const kind = payload.k || payload.kind || "change";
+    const li = document.createElement("li");
+    li.className = "step" + (payload.running ? " live" : "");
+    li.dataset.k = kind;
+    li.innerHTML =
+      '<span class="node"><i></i></span><span class="what"></span><span class="t"></span>';
+    const what = li.querySelector(".what");
+    what.appendChild(document.createTextNode(payload.name || "Working"));
+    if (payload.detail) {
+      const sm = document.createElement("small");
+      sm.textContent = payload.detail;
+      what.appendChild(sm);
+    }
+    li.querySelector(".t").textContent = payload.t || "";
+    run.trace.appendChild(li);
+    run.stepEls.push(li);
+    if (kind === "out") {
+      run.leftCount += 1;
+      updateRunMeta(run, { left: run.leftCount });
+    }
+    updateRunMeta(run, { steps: run.stepEls.length });
+    maybeScrollBottom();
+    return li;
+  }
+
+  function syncSteps(payload) {
+    const run = currentRun || startRun("(working)");
+    const steps = payload.steps || [];
+    // Rebuild trace steps that are not tickets / done tickets
+    const keep = [];
+    Array.from(run.trace.children).forEach(function (child) {
+      if (child.classList.contains("ticket")) keep.push(child);
+    });
+    run.trace.innerHTML = "";
+    keep.forEach(function (c) {
+      run.trace.appendChild(c);
+    });
+    run.stepEls = [];
+    run.leftCount = 0;
+    steps.forEach(function (s) {
+      appendStep({
+        k: s.k || s.kind || "change",
+        name: s.name,
+        detail: s.detail || "",
+        t: s.t || "",
+        running: !!s.running,
+      });
+    });
+    if (payload.checking) {
+      appendStep({
+        k: "verify",
+        name: "Checking the answer against sources",
+        detail: "",
+        t: "",
+        running: true,
+      });
+    }
+    updateRunMeta(run, {
+      status: payload.waiting
+        ? "Waiting for you"
+        : payload.running
+          ? "Working"
+          : null,
+    });
   }
 
   function clearStreamTimer() {
@@ -279,20 +382,31 @@
     }
   }
 
-  function ensureStreamEl() {
-    const body = ensureAiBody();
-    if (streamEl && streamEl.isConnected) return streamEl;
-    streamEl = document.createElement("div");
-    streamEl.className = "stream-raw";
-    body.appendChild(streamEl);
-    return streamEl;
+  function ensureAnswerStream() {
+    const run = currentRun;
+    if (!run) return null;
+    run.answer.hidden = false;
+    let p = run.answer.querySelector(".stream-raw");
+    if (!p) {
+      p = document.createElement("p");
+      p.className = "stream-raw";
+      run.answer.appendChild(p);
+    }
+    return p;
   }
 
   function paintStreamRaw(text) {
-    const el = ensureStreamEl();
-    // Escaped raw text while streaming (no markdown yet).
+    const el = ensureAnswerStream();
+    if (!el) return;
     el.textContent = text || "";
-    scrollBottom();
+    if (!reduceMotion) {
+      if (!streamCaret) {
+        streamCaret = document.createElement("span");
+        streamCaret.className = "caret";
+      }
+      el.appendChild(streamCaret);
+    }
+    maybeScrollBottom();
   }
 
   function flushStreamPaint() {
@@ -317,199 +431,175 @@
     clearStreamTimer();
     streamPending = "";
     streamLastPaint = 0;
-    if (streamEl && streamEl.parentElement) streamEl.remove();
-    streamEl = null;
-  }
-
-  function finalizeStreamMarkdown(markdown) {
-    clearStreamTimer();
-    streamPending = "";
-    streamLastPaint = 0;
-    const body = ensureAiBody();
-    if (streamEl && streamEl.isConnected) {
-      streamEl.className = "answer-md";
-      streamEl.innerHTML = renderMarkdown(markdown || "");
-      // keep streamEl as the answer holder; clear streaming handle
-      const done = streamEl;
-      streamEl = null;
-      return done;
+    streamCaret = null;
+    if (currentRun) {
+      const raw = currentRun.answer.querySelector(".stream-raw");
+      if (raw) raw.remove();
     }
-    const holder = document.createElement("div");
-    holder.className = "answer-md";
-    holder.innerHTML = renderMarkdown(markdown || "");
-    body.appendChild(holder);
-    return holder;
-  }
-
-  function replaceStreamWithCorrected(markdown, checkInfo) {
-    clearStreamTimer();
-    streamPending = "";
-    const body = ensureAiBody();
-    if (streamEl && streamEl.isConnected) streamEl.remove();
-    streamEl = null;
-    // Also remove a prior finalized answer-md from this bubble if present.
-    body.querySelectorAll(".answer-md").forEach(function (n) {
-      n.remove();
-    });
-    body.querySelectorAll(".check-note").forEach(function (n) {
-      n.remove();
-    });
-    const holder = document.createElement("div");
-    holder.className = "answer-md";
-    holder.innerHTML = renderMarkdown(markdown || "");
-    body.appendChild(holder);
-    appendCheckNote(body, checkInfo);
-    scrollBottom();
-  }
-
-  function appendCheckNote(body, checkInfo) {
-    if (!checkInfo || !checkInfo.fixed) return;
-    const note = document.createElement("details");
-    note.className = "check-note";
-    const sum = document.createElement("summary");
-    sum.textContent = checkInfo.note || "Corrected after checking";
-    note.appendChild(sum);
-    const claims = checkInfo.claims || [];
-    if (claims.length) {
-      const ul = document.createElement("ul");
-      claims.forEach(function (c) {
-        const li = document.createElement("li");
-        li.textContent = c;
-        ul.appendChild(li);
-      });
-      note.appendChild(ul);
-    }
-    body.appendChild(note);
   }
 
   function showAnswer(markdown, sources, stepsPayload, checkInfo) {
     if (stepsPayload) {
-      renderActivity({
+      syncSteps({
         steps: stepsPayload.steps || [],
         total: stepsPayload.total || "",
         waiting: false,
         running: false,
       });
     }
-    const body = ensureAiBody();
-    if (activityEl && activityEl.open) activityEl.open = false;
-    if (checkInfo && checkInfo.fixed) {
-      replaceStreamWithCorrected(markdown, checkInfo);
-    } else {
-      finalizeStreamMarkdown(markdown);
-    }
+    const run = currentRun;
+    if (!run) return;
+    clearStreamTimer();
+    streamPending = "";
+    streamCaret = null;
+    run.answer.hidden = false;
+    run.answer.innerHTML = "";
+    const md = document.createElement("div");
+    md.className = "answer-md";
+    md.innerHTML = renderMarkdown(markdown || "");
+    run.answer.appendChild(md);
     if (sources && sources.length) {
       const box = document.createElement("div");
       box.className = "sources";
-      sources.forEach(function (s, i) {
+      sources.forEach(function (s) {
         const a = document.createElement("a");
-        a.className = "source";
+        a.className = "src";
         const href = s.url || "#";
         if (/^https?:\/\//i.test(href)) a.href = href;
         else a.href = "#";
-        a.innerHTML =
-          '<span class="n">' +
-          (i + 1) +
-          "</span>" +
-          escapeHtml(s.label || href);
+        a.textContent = s.label || href;
         box.appendChild(a);
       });
-      body.appendChild(box);
+      run.answer.appendChild(box);
     }
-    if (checkInfo && checkInfo.fixed && !body.querySelector(".check-note")) {
-      appendCheckNote(body, checkInfo);
+    if (checkInfo && checkInfo.fixed) {
+      const note = document.createElement("div");
+      note.className = "note";
+      note.textContent = checkInfo.note || "Corrected after checking";
+      run.answer.appendChild(note);
+      appendStep({
+        k: "verify",
+        name: "Checked the claim against what actually happened",
+        detail: "Corrected after checking",
+        t: "",
+        running: false,
+      });
     }
-    scrollBottom();
+    const elapsedMs = Date.now() - (run.t0 || Date.now());
+    const secs = Math.max(1, Math.round(elapsedMs / 1000));
+    updateRunMeta(run, {
+      status: "Took <b>" + (secs < 60 ? secs + " s" : Math.floor(secs / 60) + " m " + (secs % 60) + " s") + "</b>",
+      steps: run.stepEls.length,
+    });
+    lastAnswerText = markdown || "";
+    maybeScrollBottom();
   }
 
   function showStoppedPartial(partial) {
     clearStreamTimer();
     const text = (partial || streamPending || "").trim();
     onStreamClear();
-    if (!text) return;
-    const body = ensureAiBody();
-    if (activityEl && activityEl.open) activityEl.open = false;
-    const holder = document.createElement("div");
-    holder.className = "answer-md stopped";
-    holder.innerHTML = renderMarkdown(text + "\n\n(stopped)");
-    body.appendChild(holder);
-    scrollBottom();
+    if (!text || !currentRun) return;
+    currentRun.answer.hidden = false;
+    currentRun.answer.innerHTML =
+      '<div class="answer-md">' +
+      renderMarkdown(text + "\n\n(stopped)") +
+      "</div>";
+    updateRunMeta(currentRun, { status: "Stopped" });
+    maybeScrollBottom();
   }
 
   function showSystemNote(text) {
     const el = document.createElement("div");
     el.className = "sys-note";
     el.textContent = text;
-    thread.appendChild(el);
-    scrollBottom();
+    runsEl.appendChild(el);
+    maybeScrollBottom();
   }
 
   function clearApproval() {
     if (pendingApproval && pendingApproval.root) {
-      pendingApproval.root.remove();
+      // leave collapsed ticket in place if marked done
+      if (!pendingApproval.root.classList.contains("done")) {
+        pendingApproval.root.remove();
+      }
     }
     pendingApproval = null;
   }
 
   function showApprovalCard(req) {
-    clearApproval();
-    const body = activityEl
-      ? activityEl.parentElement
-      : renderActivity({ steps: [], waiting: true, running: false, total: "" });
-    if (activityEl) {
-      activityEl.open = true;
-      const sum = activityEl.querySelector("summary");
-      if (sum) {
-        sum.innerHTML =
-          '<span class="spinner"></span>Waiting for your approval<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>';
-      }
+    const run = currentRun || startRun("…");
+    // Remove prior pending ticket
+    if (pendingApproval && pendingApproval.root && !pendingApproval.root.classList.contains("done")) {
+      pendingApproval.root.remove();
     }
-    const typed = !!req.typed;
-    const card = document.createElement("div");
-    card.className = "approval" + (typed ? " typed" : "");
-    card.dataset.nonce = req.id || "";
-    const notice = req.banner
-      ? '<div class="notice"><svg class="notice-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>' +
-        escapeHtml(req.banner.replace(/\n/g, " ").trim()) +
-        "</div>"
-      : "";
-    card.innerHTML =
-      '<div class="head">' +
-      '<div class="shield"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z"/></svg></div>' +
-      "<b>" +
-      escapeHtml(req.title || (typed ? "Confirm action" : "Allow action")) +
-      '</b><span class="badge">' +
-      escapeHtml(req.action || "") +
-      "</span></div>" +
-      '<div class="content">' +
-      '<div class="pre">' +
-      escapeHtml(req.description || "") +
-      "</div>" +
-      notice +
-      "</div>" +
-      '<div class="actions"></div>';
+    const copy = req.ticket || {};
+    const kind = copy.kind || (req.action === "delete_file" ? "danger" : "change");
+    const li = document.createElement("li");
+    li.className = "ticket" + (kind === "danger" ? " danger" : "");
+    li.dataset.nonce = req.id || "";
 
-    const actions = card.querySelector(".actions");
+    const h4 = document.createElement("h4");
+    h4.textContent = copy.heading || req.title || "Allow action";
+    li.appendChild(h4);
+
+    const rows = document.createElement("div");
+    rows.className = "rows";
+    const pathText = copy.paths || req.description || "";
+    pathText.split("\n").forEach(function (line) {
+      if (!line.trim()) return;
+      const span = document.createElement("span");
+      span.className = "path";
+      span.textContent = line;
+      rows.appendChild(span);
+    });
+    const cons = document.createElement("p");
+    let consText = copy.consequence || "";
+    if (req.banner && /web content|untrusted|type the action/i.test(req.banner)) {
+      consText +=
+        (consText ? " " : "") +
+        "Because this chat has read web text, type the action name to approve.";
+    }
+    cons.textContent = consText;
+    rows.appendChild(cons);
+    li.appendChild(rows);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const typed = !!req.typed;
     let typedInput = null;
     if (typed) {
+      const lab = document.createElement("label");
+      lab.style.fontSize = "var(--s1)";
+      lab.style.color = "var(--muted)";
+      lab.textContent = "Type ";
+      const act = document.createElement("span");
+      act.className = "path";
+      act.style.color = "var(--text)";
+      act.textContent =
+        req.mode === "app_read" ? "session or always" : req.action || "";
+      lab.appendChild(act);
+      actions.appendChild(lab);
       typedInput = document.createElement("input");
-      typedInput.className = "typed-input";
-      typedInput.placeholder = "Type " + (req.action || "") + " to approve";
+      typedInput.className = "typed";
       typedInput.autocomplete = "off";
       typedInput.spellcheck = false;
+      typedInput.placeholder =
+        req.mode === "app_read" ? "session" : req.action || "";
       actions.appendChild(typedInput);
     }
-    const deny = document.createElement("button");
-    deny.className = "btn";
-    deny.type = "button";
-    deny.textContent = "Deny";
     const approve = document.createElement("button");
     approve.className = "btn primary";
     approve.type = "button";
-    approve.textContent = "Approve";
+    approve.textContent = copy.approve || "Allow";
     if (typed) approve.disabled = true;
-    actions.appendChild(deny);
+    const deny = document.createElement("button");
+    deny.className = "btn";
+    deny.type = "button";
+    deny.textContent = copy.deny || "Don't allow";
     actions.appendChild(approve);
+    actions.appendChild(deny);
+    li.appendChild(actions);
 
     function typedOk() {
       if (!typed || !typedInput) return true;
@@ -517,213 +607,462 @@
       if (req.mode === "app_read") return v === "session" || v === "always";
       return v === req.action;
     }
-
     if (typed && typedInput) {
       typedInput.addEventListener("input", function () {
         approve.disabled = !typedOk();
       });
-      if (req.mode === "app_read") {
-        typedInput.placeholder = "Type session or always";
-      }
     }
 
-    function resolve(value) {
-      const nonce = req.id || card.dataset.nonce || "";
-      clearApproval();
+    function settle(text) {
+      li.className = "ticket done";
+      li.innerHTML = "";
+      const h = document.createElement("h4");
+      h.textContent = text;
+      li.appendChild(h);
+    }
+
+    function resolve(value, approved) {
+      const nonce = req.id || li.dataset.nonce || "";
+      const hm = nowHm();
+      if (approved) {
+        settle((copy.collapsed_ok || "You approved") + ", " + hm);
+      } else {
+        settle((copy.collapsed_no || "You denied the action") + ", " + hm);
+      }
+      pendingApproval = { root: li };
       const a = api();
       if (a && a.approval_reply) a.approval_reply(nonce, value);
     }
 
     deny.addEventListener("click", function () {
-      resolve(typed ? "" : "no");
+      resolve(typed ? "" : "no", false);
     });
     approve.addEventListener("click", function () {
       if (typed) {
         if (!typedOk()) return;
-        resolve(typedInput.value.trim());
+        resolve(typedInput.value.trim(), true);
       } else {
-        resolve("yes");
+        resolve("yes", true);
       }
     });
 
-    body.appendChild(card);
-    pendingApproval = { root: card, req: req };
-    scrollBottom();
+    run.trace.appendChild(li);
+    pendingApproval = { root: li, req: req };
+    updateRunMeta(run, { status: "Waiting for you" });
+    maybeScrollBottom();
     if (typedInput) typedInput.focus();
-    if (autoApproveEnabled()) {
-      setTimeout(function () {
-        if (typed && typedInput) {
-          typedInput.value =
-            req.mode === "app_read" ? "session" : req.action || "";
-          typedInput.dispatchEvent(new Event("input"));
-        }
-        if (!approve.disabled) approve.click();
-      }, 80);
+  }
+
+  function renderFootprint(fp) {
+    if (!fp) return;
+    function fill(ulId, nId, items, rightKey) {
+      const ul = document.getElementById(ulId);
+      const n = document.getElementById(nId);
+      if (!ul || !n) return;
+      ul.innerHTML = "";
+      const list = items || [];
+      n.textContent = String(
+        (fp.counts && fp.counts[rightKey]) != null
+          ? fp.counts[rightKey]
+          : list.length
+      );
+      list.forEach(function (it) {
+        const li = document.createElement("li");
+        const a = document.createElement("span");
+        a.textContent = it.label || "";
+        const b = document.createElement("span");
+        b.textContent = it.detail || it.time || it.status || "";
+        li.appendChild(a);
+        li.appendChild(b);
+        ul.appendChild(li);
+      });
     }
+    fill("fp-left", "fp-left-n", fp.left, "left");
+    fill("fp-read", "fp-read-n", fp.read, "read");
+    fill("fp-chg", "fp-chg-n", fp.changed, "changed");
+    fill("fp-chk", "fp-chk-n", fp.verified, "verified");
+    const noUp = document.getElementById("fp-no-upload");
+    if (noUp) noUp.textContent = fp.no_upload || "No files or memories were uploaded.";
+    const meter = document.getElementById("fp-ctx-meter");
+    const lab = document.getElementById("fp-ctx-label");
+    if (meter) meter.style.width = (fp.context_pct || 0) + "%";
+    if (lab) lab.textContent = fp.context_label || "0 of 16k tokens";
+  }
+
+  function setTainted(on) {
+    if (on) chipTaint.removeAttribute("hidden");
+    else chipTaint.setAttribute("hidden", "");
   }
 
   function renderHistory(groups) {
     historyList.innerHTML = "";
-    (groups || []).forEach(function (g) {
-      const lab = document.createElement("div");
-      lab.className = "section-label";
-      lab.textContent = g.section || "";
-      historyList.appendChild(lab);
-      (g.items || []).forEach(function (it) {
-        const btn = document.createElement("button");
-        btn.className =
-          "chat-item" + (it.id === activeChatId ? " active" : "");
-        btn.type = "button";
-        btn.textContent = it.title || "Chat";
-        btn.dataset.id = it.id;
-        btn.addEventListener("click", function () {
-          openSaved(it.id);
+    chatIndex = [];
+    (groups || []).forEach(function (sec) {
+      const wrap = document.createElement("div");
+      const h = document.createElement("h3");
+      h.textContent = sec.section || "";
+      wrap.appendChild(h);
+      (sec.items || []).forEach(function (it) {
+        chatIndex.push(it);
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chat";
+        b.textContent = it.title || "Chat";
+        if (it.id === activeChatId) b.setAttribute("aria-current", "true");
+        b.addEventListener("click", function () {
+          openChat(it.id);
+          appEl.classList.remove("show-rail");
         });
-        btn.addEventListener("contextmenu", function (e) {
-          e.preventDefault();
+        b.addEventListener("contextmenu", function (ev) {
+          ev.preventDefault();
           ctxChatId = it.id;
-          ctxMenu.removeAttribute("hidden");
-          ctxMenu.style.left = e.clientX + "px";
-          ctxMenu.style.top = e.clientY + "px";
+          ctxMenu.hidden = false;
+          ctxMenu.style.left = ev.clientX + "px";
+          ctxMenu.style.top = ev.clientY + "px";
         });
-        historyList.appendChild(btn);
+        wrap.appendChild(b);
       });
+      historyList.appendChild(wrap);
     });
   }
 
-  async function openSaved(id) {
+  async function openChat(id) {
     const a = api();
     if (!a || !a.open_chat) return;
     const res = await a.open_chat(id);
     if (!res || !res.ok) return;
-    readonly = true;
+    readonly = !!res.readonly;
     activeChatId = id;
-    setTurnControls(false);
-    activityEl = null;
-    clearApproval();
-    thread.innerHTML = "";
-    const chat = res.chat || {};
-    chatTitle.textContent = chat.title || "Chat";
-    (chat.messages || []).forEach(function (m) {
-      if (m.role === "user") addUser(m.text || "");
-      else if (m.role === "assistant") {
-        activityEl = null;
-        showAnswer(m.text || "", m.sources || []);
-        activityEl = null;
+    const doc = res.chat || {};
+    chatTitle.textContent = doc.title || "Chat";
+    clearRuns();
+    (doc.messages || []).forEach(function (m) {
+      if (m.role === "user") {
+        startRun(m.text || "");
+        updateRunMeta(currentRun, { status: "" });
+      } else if (m.role === "assistant" && currentRun) {
+        showAnswer(m.text || "", m.sources || [], null, null);
       }
     });
-    showSystemNote(res.note || "Continue in a new chat");
+    if (!(doc.messages || []).length) showEmptyState();
+    if (doc.footprint) {
+      // bridge may send ui shape via on_footprint instead
+    }
+    if (a.get_footprint) {
+      try {
+        const fp = await a.get_footprint();
+        if (fp) renderFootprint(fp);
+      } catch (e) {
+        /* ignore */
+      }
+    }
     renderHistory(await a.list_chats());
   }
 
-  async function doNewChat() {
+  async function newChat() {
     const a = api();
-    let res = null;
-    if (a && a.new_chat) res = await a.new_chat();
+    if (!a || !a.new_chat) return;
+    const res = await a.new_chat();
     readonly = false;
     activeChatId = null;
-    setTurnControls(false);
-    activityEl = null;
-    clearApproval();
-    thread.innerHTML = "";
     chatTitle.textContent = "New chat";
-    // Chip must mirror gate.is_tainted() exactly after session reset.
-    const tainted =
-      res && typeof res.tainted === "boolean" ? res.tainted : false;
-    setTainted(tainted);
+    setTainted(false);
+    showEmptyState();
+    renderFootprint({
+      left: [],
+      read: [],
+      changed: [],
+      verified: [],
+      counts: { left: 0, read: 0, changed: 0, verified: 0 },
+      no_upload: "No files or memories were uploaded.",
+      context_pct: 0,
+      context_label: "0 of 16k tokens",
+    });
+    if (res && res.history) renderHistory(res.history);
     composer.focus();
-    if (a && a.list_chats) renderHistory(await a.list_chats());
   }
 
-  async function stop() {
-    if (!busy) return;
-    const a = api();
-    if (a && a.stop_turn) await a.stop_turn();
+  function autoSize() {
+    composer.style.height = "auto";
+    composer.style.height = Math.min(160, composer.scrollHeight) + "px";
   }
+  composer.addEventListener("input", autoSize);
 
-  async function send() {
-    if (busy) {
-      await stop();
+  function sendMessage() {
+    if (readonly) {
+      showSystemNote("Continue in a new chat");
       return;
     }
-    let text = composer.value.trim();
+    const text = (composer.value || "").trim();
     if (!text) return;
-    if (readonly) {
-      await doNewChat();
-    }
-    setTurnControls(true);
-    composer.value = "";
-    addUser(text);
-    if (chatTitle.textContent === "New chat") {
-      chatTitle.textContent =
-        text.length > 40 ? text.slice(0, 39) + "…" : text;
-    }
-    activityEl = null;
-    onStreamClear();
-    renderActivity({ steps: [], waiting: false, running: true, total: "0s" });
-    // Re-assert Stop after activity paint (must be Stop before bridge returns).
-    setTurnControls(true);
-    try {
+    if (busy) {
       const a = api();
-      if (!a) throw new Error("Python bridge not ready");
-      // Fire-and-forget: do not block the UI thread on the bridge promise.
-      Promise.resolve(a.send_message(text)).catch(function (e) {
-        showSystemNote(
-          e && e.message ? String(e.message) : "Something went wrong."
-        );
-        setTurnControls(false);
-      });
-    } catch (e) {
-      showSystemNote(
-        e && e.message ? String(e.message) : "Something went wrong."
-      );
-      setTurnControls(false);
+      if (a && a.stop_turn) a.stop_turn();
+      return;
     }
+    composer.value = "";
+    autoSize();
+    startRun(text);
+    setTurnControls(true);
+    pinBottom = true;
+    const a = api();
+    if (!a || !a.send_message) {
+      showSystemNote("Python bridge not ready");
+      setTurnControls(false);
+      return;
+    }
+    a.send_message(text);
   }
 
+  composerForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    sendMessage();
+  });
+  composer.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  btnNew.addEventListener("click", function () {
+    newChat();
+  });
+
+  openRail.addEventListener("click", function () {
+    appEl.classList.toggle("show-rail");
+    appEl.classList.remove("show-foot");
+  });
+  openFoot.addEventListener("click", function () {
+    appEl.classList.toggle("show-foot");
+    appEl.classList.remove("show-rail");
+  });
+  scrim.addEventListener("click", function () {
+    appEl.classList.remove("show-rail", "show-foot");
+  });
+
+  document.addEventListener("click", function () {
+    ctxMenu.hidden = true;
+  });
+  ctxDelete.addEventListener("click", async function () {
+    const a = api();
+    if (!a || !ctxChatId) return;
+    const res = await a.delete_chat(ctxChatId);
+    if (res && res.history) renderHistory(res.history);
+    if (ctxChatId === activeChatId) newChat();
+    ctxChatId = null;
+  });
+
+  /* ----- command palette ----- */
+  function fuzzy(q, text) {
+    q = (q || "").toLowerCase();
+    text = (text || "").toLowerCase();
+    if (!q) return true;
+    let i = 0;
+    for (let c of q) {
+      i = text.indexOf(c, i);
+      if (i < 0) return false;
+      i++;
+    }
+    return true;
+  }
+
+  function paletteCommands(filter) {
+    const base = [
+      { id: "new", label: "New chat", kbd: "Ctrl N", run: function () { newChat(); } },
+      {
+        id: "foot",
+        label: "Toggle footprint",
+        kbd: "Ctrl .",
+        run: function () {
+          appEl.classList.toggle("show-foot");
+        },
+      },
+      {
+        id: "logs",
+        label: "Open logs folder",
+        run: async function () {
+          const a = api();
+          if (a && a.open_logs) await a.open_logs();
+        },
+      },
+      {
+        id: "selfcheck",
+        label: "Run self-check now",
+        run: async function () {
+          const a = api();
+          if (a && a.run_selfcheck) await a.run_selfcheck();
+        },
+      },
+      {
+        id: "copy",
+        label: "Copy last answer",
+        run: async function () {
+          try {
+            await navigator.clipboard.writeText(lastAnswerText || "");
+          } catch (e) {
+            const a = api();
+            if (a && a.copy_text) a.copy_text(lastAnswerText || "");
+          }
+        },
+      },
+    ];
+    chatIndex.forEach(function (c) {
+      base.push({
+        id: "chat:" + c.id,
+        label: "Open: " + (c.title || "Chat"),
+        run: function () {
+          openChat(c.id);
+        },
+      });
+    });
+    return base.filter(function (c) {
+      return fuzzy(filter, c.label);
+    });
+  }
+
+  function renderPalette() {
+    const q = paletteInput.value || "";
+    paletteItems = paletteCommands(q);
+    paletteIndex = Math.min(paletteIndex, Math.max(0, paletteItems.length - 1));
+    paletteList.innerHTML = "";
+    if (!paletteItems.length) {
+      const d = document.createElement("div");
+      d.className = "empty-msg";
+      d.textContent = "No matches";
+      paletteList.appendChild(d);
+      return;
+    }
+    paletteItems.forEach(function (c, i) {
+      const li = document.createElement("li");
+      if (i === paletteIndex) li.setAttribute("aria-selected", "true");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML =
+        "<span>" +
+        escapeHtml(c.label) +
+        "</span>" +
+        (c.kbd ? "<kbd>" + escapeHtml(c.kbd) + "</kbd>" : "");
+      b.addEventListener("click", function () {
+        closePalette();
+        c.run();
+      });
+      li.appendChild(b);
+      paletteList.appendChild(li);
+    });
+  }
+
+  function openPalette() {
+    palette.hidden = false;
+    paletteInput.value = "";
+    paletteIndex = 0;
+    renderPalette();
+    paletteInput.focus();
+  }
+
+  function closePalette() {
+    palette.hidden = true;
+  }
+
+  paletteInput.addEventListener("input", function () {
+    paletteIndex = 0;
+    renderPalette();
+  });
+  paletteInput.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      paletteIndex = Math.min(paletteIndex + 1, paletteItems.length - 1);
+      renderPalette();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      paletteIndex = Math.max(paletteIndex - 1, 0);
+      renderPalette();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const c = paletteItems[paletteIndex];
+      if (c) {
+        closePalette();
+        c.run();
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closePalette();
+    }
+  });
+  palette.addEventListener("click", function (e) {
+    if (e.target === palette) closePalette();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && (e.key === "n" || e.key === "N")) {
+      e.preventDefault();
+      newChat();
+    } else if (mod && (e.key === "k" || e.key === "K")) {
+      e.preventDefault();
+      if (palette.hidden) openPalette();
+      else closePalette();
+    } else if (mod && e.key === ".") {
+      e.preventDefault();
+      appEl.classList.toggle("show-foot");
+      appEl.classList.remove("show-rail");
+    } else if (e.key === "Escape") {
+      if (!palette.hidden) closePalette();
+      else appEl.classList.remove("show-rail", "show-foot");
+    }
+  });
+
+  /* ----- bridge callbacks ----- */
   window.miniai = {
-    on_status: function (st) {
-      if (st.model) modelStatus.textContent = st.model;
-      const dot = document.getElementById("model-dot");
-      if (dot) {
-        dot.classList.toggle("loading", st.model_state === "loading");
+    on_status: function (s) {
+      if (!s) return;
+      if (modelStatus) modelStatus.textContent = s.model || "Model";
+      if (modelLamp) {
+        modelLamp.classList.remove("loading", "down");
+        if (s.model_state === "loading") modelLamp.classList.add("loading");
+        else if (s.model_state === "down") modelLamp.classList.add("down");
       }
-      if (modelStatus) {
-        modelStatus.classList.toggle("loading", st.model_state === "loading");
+      if (memLabel) memLabel.textContent = s.memory_label || "—";
+      if (memMeter) {
+        memMeter.style.width = (s.memory_pct || 0) + "%";
+        memMeter.classList.remove("warn", "danger");
+        if (s.memory_level === "warn") memMeter.classList.add("warn");
+        if (s.memory_level === "danger") memMeter.classList.add("danger");
       }
-      if (st.runner) chipRunner.textContent = st.runner;
-      if (typeof st.tainted === "boolean") setTainted(st.tainted);
-      if (st.memory_pct != null) {
-        memMeter.style.width =
-          Math.max(0, Math.min(100, st.memory_pct)) + "%";
+      if (selfcheckLabel) {
+        selfcheckLabel.textContent = (s.selfcheck || "…").replace(/^Self-check:\s*/i, "");
+        if (s.selfcheck_level === "danger") {
+          selfcheckLabel.style.color = "var(--brick)";
+        } else if (s.selfcheck_level === "ok") {
+          selfcheckLabel.style.color = "var(--verdigris)";
+        } else {
+          selfcheckLabel.style.color = "";
+        }
       }
-      memMeter.classList.remove("ok", "warn", "danger");
-      memMeter.classList.add(st.memory_level || "ok");
-      if (st.memory_label) memLabel.textContent = st.memory_label;
-      if (selfcheckLabel && st.selfcheck) {
-        selfcheckLabel.textContent = st.selfcheck;
+      if (tokSpeed && s.tok_s != null) {
+        tokSpeed.textContent =
+          s.tok_s > 0 ? Number(s.tok_s).toFixed(1) + " tok/s" : "—";
       }
-      if (selfcheckRow) {
-        selfcheckRow.classList.remove("ok", "danger");
-        selfcheckRow.classList.add(st.selfcheck_level || "ok");
-      }
+      setTainted(!!s.tainted);
+    },
+    on_history: function (groups) {
+      renderHistory(groups || []);
     },
     on_activity: function (payload) {
-      renderActivity(payload || {});
-      if (payload && payload.running) setTurnControls(true);
+      setTurnControls(true);
+      syncSteps(payload || {});
     },
     on_approval: function (req) {
-      showApprovalCard(req || {});
       setTurnControls(true);
+      showApprovalCard(req || {});
     },
     on_stream_delta: function (payload) {
       onStreamDelta((payload && payload.text) || "");
-      setTurnControls(true);
     },
     on_stream_clear: function () {
       onStreamClear();
     },
     on_answer: function (payload) {
+      setTurnControls(false);
       showAnswer(
         (payload && payload.text) || "",
         (payload && payload.sources) || [],
@@ -733,126 +1072,66 @@
         },
         (payload && payload.check) || null
       );
-      if (typeof payload.tainted === "boolean") setTainted(payload.tainted);
-      setTurnControls(false);
-      composer.focus();
+      setTainted(!!(payload && payload.tainted));
+      if (payload && payload.tok_s != null && tokSpeed) {
+        tokSpeed.textContent =
+          payload.tok_s > 0
+            ? Number(payload.tok_s).toFixed(1) + " tok/s"
+            : "—";
+      }
+      if (payload && payload.footprint) renderFootprint(payload.footprint);
+    },
+    on_footprint: function (fp) {
+      renderFootprint(fp || {});
     },
     on_cancelled: function (payload) {
-      clearApproval();
-      const partial = (payload && payload.partial) || "";
-      if (partial || streamPending) {
-        showStoppedPartial(partial);
-      }
-      showSystemNote((payload && payload.note) || "Cancelled.");
-      if (activityEl) {
-        renderActivity({
-          steps: [],
-          waiting: false,
-          running: false,
-          total: "",
-        });
-      }
       setTurnControls(false);
-      composer.focus();
+      showStoppedPartial((payload && payload.partial) || "");
+      if (payload && payload.note) showSystemNote(payload.note);
     },
     on_error: function (msg) {
-      clearApproval();
-      renderActivity({
-        steps: [],
-        waiting: false,
-        running: false,
-        total: "",
-      });
-      showSystemNote(String(msg || "Error"));
       setTurnControls(false);
-      composer.focus();
+      showSystemNote(String(msg || "Error"));
     },
-    on_history: function (groups) {
-      renderHistory(groups || []);
-    },
-    _test_render: function (text) {
-      const d = document.createElement("div");
-      d.innerHTML = renderMarkdown(text);
-      return d.innerHTML;
-    },
-    _set_turn_controls: setTurnControls,
   };
 
-  setTurnControls(false);
-  setTainted(false);
-
-  // Navigation lock: never follow links inside the webview.
-  document.addEventListener(
-    "click",
-    function (e) {
-      const a = e.target && e.target.closest ? e.target.closest("a") : null;
-      if (!a) return;
-      const href = a.getAttribute("href") || "";
-      if (!href || href === "#") {
-        e.preventDefault();
-        return;
-      }
+  // External links via bridge
+  document.addEventListener("click", function (e) {
+    const a = e.target.closest && e.target.closest("a.md-link, a.src");
+    if (!a) return;
+    const href = a.getAttribute("href") || "";
+    if (/^https?:\/\//i.test(href)) {
       e.preventDefault();
-      e.stopPropagation();
       const bridge = api();
       if (bridge && bridge.open_external) bridge.open_external(href);
-    },
-    true
-  );
+    }
+  });
 
-  btnSend.addEventListener("click", send);
-  btnNew.addEventListener("click", doNewChat);
-  composer.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  });
-  document.addEventListener("keydown", function (e) {
-    if ((e.ctrlKey || e.metaKey) && (e.key === "n" || e.key === "N")) {
-      e.preventDefault();
-      doNewChat();
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      stop();
-      ctxMenu.setAttribute("hidden", "");
-    }
-  });
-  ctxDelete.addEventListener("click", async function () {
-    ctxMenu.setAttribute("hidden", "");
-    if (!ctxChatId) return;
+  async function boot() {
+    showEmptyState();
     const a = api();
-    if (a && a.delete_chat) {
-      const res = await a.delete_chat(ctxChatId);
-      if (ctxChatId === activeChatId) await doNewChat();
-      else if (res && res.history) renderHistory(res.history);
+    if (a && a.ready) {
+      try {
+        await a.ready();
+      } catch (e) {
+        /* ignore */
+      }
     }
-    ctxChatId = null;
-  });
-  document.addEventListener("click", function () {
-    ctxMenu.setAttribute("hidden", "");
-  });
+  }
 
-  let lastApprovalKey = "";
+  // Poll approvals (same as before) in case evaluate_js missed one
   async function pollApprovals() {
     const a = api();
     if (!a || !a.poll_approval) return;
     try {
       const req = await a.poll_approval();
-      if (!req) return;
-      const key = req.id || JSON.stringify(req);
-      if (key === lastApprovalKey && pendingApproval) return;
-      lastApprovalKey = key;
-      window.miniai.on_approval(req);
+      if (req && req.id) window.miniai.on_approval(req);
     } catch (e) {
       /* bridge not ready */
     }
   }
-  setInterval(pollApprovals, 250);
+  setInterval(pollApprovals, 400);
 
-  window.addEventListener("pywebviewready", function () {
-    const a = api();
-    if (a && a.ready) a.ready();
-  });
+  window.addEventListener("pywebviewready", boot);
+  if (api()) boot();
 })();
