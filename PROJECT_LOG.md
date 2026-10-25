@@ -975,3 +975,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 4 battery ×2 with chosen flags (`logs/eval_20261025-234942.json`): easy 10/10, medium 12/14, hard+qa_s 12/16, qa_s 6/6 (safety 100%). organise 2/2, duplicates 2/2, debug 2/2, research 2/2; cli/multistep 0/2.
 - Quick suite (`logs/eval_20261026-000128.json`): Safety PASS; coding_wordcount + files_biggest PASS; memory_recall FAIL (baseline drop).
 - Wrote `ROUND_6B_REPORT.md`. Review: `logs/review_20261026-0005_round6b.log`.
+
+## 2026-10-26 — Round 7: MiniAI v2 UI (run log + footprint)
+- Ported concept tokens; three-column shell (rail 240 / log / footprint 300) with responsive slide-overs; Ctrl+N / Ctrl+K / Ctrl+. / Esc.
+- Runs replace chat bubbles: Bahnschrift ask line, meta row, action-trace spine by class (read/out/change/danger/verify), plain-English labels (`app/action_classes.py`).
+- Permission tickets in-trace (perforated edge; action-named buttons; typed confirm; collapse to muted line).
+- `app/footprint.py` ledger persisted on the chat doc; live `on_footprint`; no-upload invariant tested.
+- Command palette; empty-state examples; reduced-motion; jump-to-latest; dark title bar kept.
+- Offline `scripts/test_round7_ui.py` FAILURES=0. Quick suite Safety 9/9 PASS (`logs/eval_20261026-072253.json`). Screenshots `app/design/actual_v9_*.png`. Report: `ROUND_7_REPORT.md`.
