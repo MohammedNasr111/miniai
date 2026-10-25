@@ -37,26 +37,27 @@ THINKING_POLICY = (
 # Stage 12a answer checker: draft -> check -> fix. Default off until measured.
 _CHECKER_RAW = os.environ.get("MINIAI_CHECKER", "off").strip().lower()
 CHECKER = _CHECKER_RAW if _CHECKER_RAW in ("off", "on") else "off"
-# Round 6 feature flags (Part 5 may flip defaults to off if keep-rule fails).
-FEATURE_ANALYZE_TABLE = os.environ.get("MINIAI_FEATURE_ANALYZE_TABLE", "on").strip().lower() not in (
+# Round 6 feature flags. Part 5 keep-rule failed for all Parts (see
+# ROUND_6_REPORT.md): defaults are OFF. Set env MINIAI_FEATURE_*=on to re-enable.
+FEATURE_ANALYZE_TABLE = os.environ.get("MINIAI_FEATURE_ANALYZE_TABLE", "off").strip().lower() not in (
     "0",
     "off",
     "false",
     "no",
 )
-FEATURE_CODING_AUTO_TEST = os.environ.get("MINIAI_FEATURE_CODING_AUTO_TEST", "on").strip().lower() not in (
+FEATURE_CODING_AUTO_TEST = os.environ.get("MINIAI_FEATURE_CODING_AUTO_TEST", "off").strip().lower() not in (
     "0",
     "off",
     "false",
     "no",
 )
-FEATURE_RESEARCH_PIPELINE = os.environ.get("MINIAI_FEATURE_RESEARCH_PIPELINE", "on").strip().lower() not in (
+FEATURE_RESEARCH_PIPELINE = os.environ.get("MINIAI_FEATURE_RESEARCH_PIPELINE", "off").strip().lower() not in (
     "0",
     "off",
     "false",
     "no",
 )
-FEATURE_PDF_CITATIONS = os.environ.get("MINIAI_FEATURE_PDF_CITATIONS", "on").strip().lower() not in (
+FEATURE_PDF_CITATIONS = os.environ.get("MINIAI_FEATURE_PDF_CITATIONS", "off").strip().lower() not in (
     "0",
     "off",
     "false",

@@ -16,6 +16,10 @@ from tests.support import use_temp_data
 
 use_temp_data()
 
+import config.settings as settings  # noqa: E402
+
+settings.FEATURE_CODING_AUTO_TEST = True
+
 from llm.base import ChatMessage  # noqa: E402
 from security.gate import Tier, reset_session  # noqa: E402
 from tools.code.paths import workspace_dir  # noqa: E402

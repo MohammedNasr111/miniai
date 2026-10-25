@@ -14,6 +14,10 @@ from tests.support import use_temp_data
 
 use_temp_data()
 
+import config.settings as settings  # noqa: E402
+
+settings.FEATURE_PDF_CITATIONS = True
+
 from agent.pdf_citations import (  # noqa: E402
     append_pdf_citations,
     parse_knowledge_hits,

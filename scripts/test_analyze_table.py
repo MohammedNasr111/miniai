@@ -16,6 +16,10 @@ from tests.support import use_temp_data
 
 use_temp_data()
 
+import config.settings as settings  # noqa: E402
+
+settings.FEATURE_ANALYZE_TABLE = True
+
 from tools.filesystem.untrusted_file import BEGIN_FILE_MARKER, END_FILE_MARKER  # noqa: E402
 from tools.registry import TOOL_FUNCTIONS, TOOL_TIERS  # noqa: E402
 from tools.table.analyze import analyze_table  # noqa: E402

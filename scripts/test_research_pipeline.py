@@ -13,6 +13,10 @@ from tests.support import use_temp_data
 
 use_temp_data()
 
+import config.settings as settings  # noqa: E402
+
+settings.FEATURE_RESEARCH_PIPELINE = True
+
 from agent.research_pipeline import (  # noqa: E402
     append_sources_and_price_check,
     build_sub_queries,
