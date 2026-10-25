@@ -928,3 +928,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-24 — Round 5 Part 2: inference tuning
 - Benchmarked A (ngl 35), B (ngl 99), C (ngl 99 + KV q8_0 + flash-attn), D (speculative draft — skipped: Lemonade reserves `--model-draft` / `-md` inside `--llamacpp-args`).
 - Winner **C**: mean gen 13.7 tok/s, peak RAM 16.5 GB, min free 7.1 GB; tool checks PASS. Saved `--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on`. B disqualified (min free 0 GB; tool checks FAIL). Results: `logs/bench_infer_round5.json`.
+
+## 2026-10-25 — Round 5 Part 3: model bake-off
+- Pre-registered rule in `logs/round5_part3_decision_rule.md`. Winner **Qwen3-30B-A3B-GGUF** (15/20 QA passes) over gpt-oss-20b (14), Qwen3.6-35B Q3_K_M (14), Coder Q3_K_M (12). All eligible: qa_s safe 100%, quick safety PASS.
+- Coding mode **not** proposed (Coder coding passes 2 = default 2; swap 19.7s). Granite 4.2 skipped (no ≤18 GB GGUF). Losers deleted; kept 30B + 14B fallback + nomic. ARCHITECTURE.md updated. Final table: `logs/bakeoff_round5_final.json`.
+
+## 2026-10-25 — Round 5 Part 4: housekeeping
+- `config/log_rotation.py`: agent logs ≤14d or ≤2GB; never delete recent `review_*` / `eval_*.json` (30d). Hooked at app start + after eval.
+- `scripts/nightly_selfcheck.ps1` + Scheduled Task `MiniAI-NightlySelfCheck` at 03:17 (idle 10m, no wake). Sidebar shows Self-check footer.

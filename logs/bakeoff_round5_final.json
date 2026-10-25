@@ -1,0 +1,106 @@
+{
+  "decision_rule": "logs/round5_part3_decision_rule.md",
+  "winner": "Qwen3-30B-A3B-GGUF",
+  "coding_mode": {
+    "propose": false,
+    "reason": "Coder coding passes 2 vs winner 2 (need ≥2 advantage); swap_s=19.7 < 60 but gate not met",
+    "swap_s": 19.65,
+    "winner_coding_passes": 2,
+    "coder_coding_passes": 2
+  },
+  "table": [
+    {
+      "model": "Qwen3-30B-A3B-GGUF",
+      "file": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+      "size_gb": 16.2,
+      "safety_qa_s": "3/3 safe",
+      "quick_safety": "PASS 9/9",
+      "easy": "5/5",
+      "medium": "6/7",
+      "hard": "4/8",
+      "overall_pass": 15,
+      "mean_wall_s": 51.0,
+      "gen_tok_s": 15.657,
+      "verdict": "WINNER"
+    },
+    {
+      "model": "gpt-oss-20b-GGUF",
+      "file": "gpt-oss-20b-GGUF",
+      "size_gb": 10.8,
+      "safety_qa_s": "3/3 safe",
+      "quick_safety": "PASS 9/9",
+      "easy": "5/5",
+      "medium": "6/7",
+      "hard": "3/8",
+      "overall_pass": 14,
+      "mean_wall_s": 111.8,
+      "gen_tok_s": 15.172,
+      "verdict": "eligible — lost on pass count (tie≤2 would still lose on wall)"
+    },
+    {
+      "model": "Qwen3.6-35B-A3B-GGUF-Q3_K_M",
+      "file": "unsloth/Qwen3.6-35B-A3B-GGUF:Q3_K_M",
+      "size_gb": 16.3,
+      "safety_qa_s": "3/3 safe",
+      "quick_safety": "PASS 9/9",
+      "easy": "5/5",
+      "medium": "5/7",
+      "hard": "4/8",
+      "overall_pass": 14,
+      "mean_wall_s": 98.6,
+      "gen_tok_s": 11.378,
+      "verdict": "eligible — lost on pass count; slower gen"
+    },
+    {
+      "model": "Qwen3-Coder-30B-A3B-Instruct-GGUF-Q3_K_M",
+      "file": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q3_K_M",
+      "size_gb": 13.7,
+      "safety_qa_s": "3/3 safe",
+      "quick_safety": "PASS 9/9",
+      "easy": "4/5",
+      "medium": "5/7",
+      "hard": "3/8",
+      "overall_pass": 12,
+      "mean_wall_s": 87.8,
+      "gen_tok_s": 15.071,
+      "coding_passes": 2,
+      "swap_s": 19.65,
+      "verdict": "eligible — lost overall; coding mode not proposed"
+    },
+    {
+      "model": "Granite-4.2-30B",
+      "file": null,
+      "size_gb": null,
+      "verdict": "skipped — no Granite 4.2 30B GGUF ≤18 GB in Lemonade catalog"
+    }
+  ],
+  "eval_jsons": {
+    "Qwen3-30B-A3B-GGUF": {
+      "qa": "logs/eval_20261025-004847.json",
+      "qa_s": "logs/eval_20261025-004920.json",
+      "quick_safety": "logs/eval_20261025-005158.json"
+    },
+    "gpt-oss-20b-GGUF": {
+      "qa": "logs/eval_20261025-021217.json",
+      "qa_s": "logs/eval_20261025-021335.json",
+      "quick_safety": "logs/eval_20261025-021657.json"
+    },
+    "Qwen3.6-35B-A3B-GGUF-Q3_K_M": {
+      "qa": "logs/eval_20261025-103833.json",
+      "quick_safety": "logs/eval_20261025-104208.json"
+    },
+    "Qwen3-Coder-30B-A3B-Instruct-GGUF-Q3_K_M": {
+      "qa": "logs/eval_20261025-115007.json",
+      "quick_safety": "logs/eval_20261025-115351.json"
+    }
+  },
+  "deleted_losers": [
+    "gpt-oss-20b-GGUF",
+    "Qwen3.6-35B-A3B-GGUF",
+    "Qwen3.6-35B-A3B-GGUF-Q3_K_M",
+    "Qwen3-Coder-30B-A3B-Instruct-GGUF",
+    "Qwen3-Coder-30B-A3B-Instruct-GGUF-Q3_K_M",
+    "Qwen3-0.6B-GGUF"
+  ],
+  "kept": ["Qwen3-30B-A3B-GGUF", "Qwen3-14B-GGUF", "nomic-embed-text-v1-GGUF"]
+}

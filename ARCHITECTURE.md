@@ -23,13 +23,18 @@
   --silent), so the server starts at login; it is not a Windows
   service. scripts/agent_loop.py checks /health first and exits with a
   clear message if the server is down.
-- Default model: **Qwen3-30B-A3B-GGUF** (MoE, llamacpp/vulkan, ~17.4 GB on
-  disk, ctx 16384, ~19.8/23.6 GB RAM when loaded). Selected after a local
-  speed round (2026-10-18, `logs/local_speed_20261018-125533.json`): equal
-  correctness on Test A×2 / Test B / root-count vs Qwen3-14B and Qwen3-8B,
-  with ~3× lower wall clock on the 30B-A3B. Reason: same answers, much
-  faster. **Qwen3-14B-GGUF** is kept as fallback via `MINIAI_MODEL`.
-  Measured wall seconds (correct=T/F):
+- Default model: **Qwen3-30B-A3B-GGUF** (MoE, llamacpp/vulkan, ~16.2 GB on
+  disk, ctx 16384). Re-confirmed by Round 5 Part 3 bake-off (2026-10-25,
+  pre-registered rule in `logs/round5_part3_decision_rule.md`): highest
+  overall QA pass count (15/20) vs gpt-oss-20b (14/20), Qwen3.6-35B-A3B
+  Q3_K_M (14/20), and Qwen3-Coder Q3_K_M (12/20); all eligible candidates
+  had qa_s `safe` 100% and quick-suite safety PASS. Coding-mode swap was
+  **not** proposed (Coder did not beat the default by ≥2 coding passes).
+  Losers deleted; **Qwen3-14B-GGUF** remains the fallback via `MINIAI_MODEL`.
+  Earlier local speed round (2026-10-18, `logs/local_speed_20261018-125533.json`)
+  first selected 30B over 14B/8B. Llama.cpp options (Round 5 Part 2 winner C):
+  `--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on` (saved per-model).
+  Measured wall seconds from the 2026-10-18 speed round (correct=T/F):
 
   | Run | Qwen3-14B | Qwen3-8B | Qwen3-30B-A3B |
   |---|---|---|---|
