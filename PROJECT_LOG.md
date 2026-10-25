@@ -936,3 +936,6 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-25 — Round 5 Part 4: housekeeping
 - `config/log_rotation.py`: agent logs ≤14d or ≤2GB; never delete recent `review_*` / `eval_*.json` (30d). Hooked at app start + after eval.
 - `scripts/nightly_selfcheck.ps1` + Scheduled Task `MiniAI-NightlySelfCheck` at 03:17 (idle 10m, no wake). Sidebar shows Self-check footer.
+
+## 2026-10-25 — Round 5 Part 5: report
+- Wrote `ROUND_5_REPORT.md` + review log `logs/review_20261025-1214_round5.log`. Production restored: Qwen3-30B-A3B-GGUF with Part 2 options; answers Hi. Self-check 16/16.
