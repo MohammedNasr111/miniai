@@ -1,0 +1,301 @@
+<title>MiniAI Run Log</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: machine rail | run log with action trace spine | footprint ledger of what this chat touched on the PC */
+:root{
+  color-scheme: dark;
+  --slate:#121821;      /* base ground */
+  --panel:#171E28;      /* rails */
+  --raised:#1E2632;     /* inputs, tickets */
+  --line:#2A3441;       /* hairlines */
+  --text:#E4E8EE;
+  --muted:#8E99A8;
+  --faint:#5E6977;
+  --glacier:#86B6E8;    /* reading on this PC, primary action */
+  --amber:#E7AA4E;      /* changes things, needs permission */
+  --verdigris:#62C4A5;  /* verified / done */
+  --brick:#E07362;      /* deletes, blocked */
+  --lilac:#B6A0EE;      /* data leaving this PC */
+  --display:"Bahnschrift","Barlow Semi Condensed","Arial Narrow",sans-serif;
+  --body:"Segoe UI Variable Text","IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --code:"Cascadia Code","JetBrains Mono",Consolas,monospace;
+  --s1:12px; --s2:13.5px; --s3:15px; --s4:19px; --s5:24px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--slate);color:var(--text);font:400 var(--s3)/1.55 var(--body);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--glacier);outline-offset:2px;border-radius:4px}
+.app{height:100%;display:grid;grid-template-columns:240px minmax(0,1fr) 300px}
+/* ---------- rail ---------- */
+.rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding:18px 14px 14px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px 18px}
+.mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(150deg,#93A9FF,#6C78F0);display:grid;place-items:center;font:600 16px/1 var(--display);color:#fff}
+.brand b{font:600 18px/1 var(--display);letter-spacing:.2px}
+.newchat{display:flex;justify-content:space-between;align-items:center;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;cursor:pointer;font-size:var(--s2)}
+.newchat:hover{background:var(--raised)}
+.newchat kbd{font:500 11px var(--display);color:var(--muted);letter-spacing:.3px}
+.chats{flex:1;overflow:auto;margin-top:18px;display:flex;flex-direction:column;gap:14px}
+.chats h3{margin:0 6px 4px;font:500 var(--s1)/1 var(--display);color:var(--faint);letter-spacing:.4px}
+.chat{display:block;width:100%;text-align:left;padding:7px 8px;border-radius:6px;border:0;background:none;color:var(--muted);font-size:var(--s2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.chat:hover{color:var(--text);background:var(--raised)}
+.chat[aria-current="true"]{color:var(--text);background:var(--raised)}
+.machine{border-top:1px solid var(--line);padding:14px 6px 2px;display:grid;gap:9px;font-size:var(--s1);color:var(--muted)}
+.mrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mrow strong{font:500 var(--s2)/1 var(--display);color:var(--text);font-variant-numeric:tabular-nums}
+.lamp{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--verdigris);margin-right:6px;box-shadow:0 0 0 3px color-mix(in srgb,var(--verdigris) 20%,transparent)}
+.gauge{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--glacier)}
+/* ---------- log ---------- */
+.log{display:flex;flex-direction:column;min-width:0;min-height:0}
+.top{display:flex;align-items:center;gap:12px;padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
+.top h1{margin:0;font:500 var(--s4)/1.2 var(--display);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flag{font-size:var(--s1);color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.iconbtn{display:none;border:1px solid var(--line);background:none;border-radius:7px;padding:5px 9px;font-size:var(--s1);cursor:pointer;color:var(--muted)}
+.scroll{flex:1;overflow:auto;padding-block:8px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.runs{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:40px;padding-top:24px}
+.ask{display:grid;gap:6px}
+.ask p{margin:0;font:500 var(--s5)/1.25 var(--display);letter-spacing:.1px;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:14px;font-size:var(--s1);color:var(--faint);font-variant-numeric:tabular-nums}
+.meta span b{color:var(--muted);font-weight:500}
+/* trace: the signature element */
+.trace{list-style:none;margin:18px 0 0;padding:0;position:relative}
+.trace::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line);border-radius:1px}
+.step{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:12px;align-items:start;padding:5px 0;font-size:var(--s2)}
+.node{width:20px;height:20px;display:grid;place-items:center;position:relative;z-index:1}
+.node i{display:block;width:10px;height:10px;border-radius:50%;border:2px solid var(--c);background:var(--slate)}
+.step[data-k="change"] .node i{border-radius:2px;background:var(--c)}
+.step[data-k="verify"] .node i{background:var(--c)}
+.step[data-k="out"] .node i{border-style:dashed}
+.step[data-k="read"]{--c:var(--glacier)} .step[data-k="out"]{--c:var(--lilac)}
+.step[data-k="change"]{--c:var(--amber)} .step[data-k="verify"]{--c:var(--verdigris)} .step[data-k="danger"]{--c:var(--brick)}
+.step .what{color:var(--text)} .step .what small{display:block;color:var(--muted);font-size:var(--s1);margin-top:1px}
+.step .t{font:500 var(--s1)/1.7 var(--display);color:var(--faint);font-variant-numeric:tabular-nums}
+.step.live .node i{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 25%,transparent)}}
+.path{font:400 12.5px/1.5 var(--code);color:var(--muted);overflow-wrap:anywhere}
+/* permission ticket */
+.ticket{list-style:none;margin:8px 0 8px 32px;background:var(--raised);border:1px solid color-mix(in srgb,var(--tc) 55%,var(--line));border-radius:10px;padding:14px 16px 14px 22px;position:relative;display:grid;gap:10px}
+.ticket::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:8px;background:radial-gradient(circle at 0 50%,var(--slate) 3px,transparent 3.5px) 0 0/8px 12px repeat-y}
+.ticket{--tc:var(--amber)} .ticket.danger{--tc:var(--brick)}
+.ticket h4{margin:0;font:500 var(--s3)/1.3 var(--display);color:var(--tc)}
+.ticket p{margin:0;font-size:var(--s2);color:var(--muted)}
+.ticket .rows{display:grid;gap:3px}
+.ticket .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ticket.done{padding-block:9px;--tc:var(--faint)}
+.ticket.done h4{color:var(--muted);font-size:var(--s2)}
+.btn{border-radius:7px;padding:7px 14px;border:1px solid var(--line);background:transparent;cursor:pointer;font-size:var(--s2)}
+.btn.primary{background:var(--tc);border-color:var(--tc);color:#161A20;font-weight:600}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.typed{background:var(--slate);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--code);width:15ch;min-width:0}
+/* answer */
+.answer{margin:14px 0 0 32px;display:grid;gap:12px;max-width:65ch}
+.answer p{margin:0}
+.answer table{border-collapse:collapse;font-size:var(--s2);width:100%}
+.answer td{padding:5px 0;border-bottom:1px solid var(--line)}
+.answer td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.tablewrap{overflow-x:auto}
+.sources{display:flex;flex-wrap:wrap;gap:8px}
+.src{font-size:var(--s1);color:var(--lilac);border:1px dashed color-mix(in srgb,var(--lilac) 50%,transparent);border-radius:6px;padding:3px 9px}
+.note{font-size:var(--s1);color:var(--muted);border-left:2px solid var(--amber);padding-left:10px}
+.caret{display:inline-block;width:7px;height:1.1em;background:var(--glacier);vertical-align:-2px;margin-left:2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+/* composer */
+.composer{padding:12px max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));border-top:1px solid var(--line)}
+.cbox{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:center;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 16px}
+.cbox:focus-within{border-color:color-mix(in srgb,var(--glacier) 60%,var(--line))}
+.cbox input{flex:1;min-width:0;background:none;border:0;outline:0;padding:6px 0;font-size:var(--s3)}
+.send{border:0;border-radius:8px;width:36px;height:36px;background:var(--glacier);color:#11161D;cursor:pointer;font:600 16px/1 var(--display)}
+.hint{max-width:760px;margin:8px auto 0;font-size:var(--s1);color:var(--faint);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+/* footprint ledger */
+.foot{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:18px 18px 18px;display:flex;flex-direction:column;gap:22px;min-height:0}
+.foot h2{margin:0;font:500 var(--s4)/1.2 var(--display)}
+.foot > p{margin:-14px 0 0;font-size:var(--s1);color:var(--muted)}
+.ledger{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+.ledger h3{margin:0;display:flex;justify-content:space-between;align-items:baseline;font:500 var(--s2)/1.3 var(--display);color:var(--c)}
+.ledger h3 b{font:600 var(--s4)/1 var(--display);font-variant-numeric:tabular-nums}
+.ledger ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:4px;min-width:0}
+.ledger li{font-size:var(--s1);color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.ledger li span:last-child{flex:none}
+.ledger li span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ledger.out{--c:var(--lilac)} .ledger.read{--c:var(--glacier)} .ledger.change{--c:var(--amber)} .ledger.check{--c:var(--verdigris)}
+.zero{font-size:var(--s1);color:var(--verdigris)}
+.ctx{display:grid;gap:6px;font-size:var(--s1);color:var(--muted)}
+.scrim{display:none}
+/* responsive */
+@media (max-width:1100px){
+  .app{grid-template-columns:220px minmax(0,1fr)}
+  .foot{position:fixed;right:0;top:0;bottom:0;width:min(320px,88vw);z-index:20;transform:translateX(100%);transition:transform .2s ease;padding-top:calc(18px + env(safe-area-inset-top,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+  .app.show-foot .foot{transform:none}
+  .iconbtn.f{display:inline-block}
+}
+@media (max-width:700px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:fixed;left:0;top:0;bottom:0;width:min(280px,86vw);z-index:20;transform:translateX(-100%);transition:transform .2s ease;padding-top:calc(18px + env(safe-area-inset-top,0px));padding-left:max(14px,env(safe-area-inset-left,0px))}
+  .app.show-rail .rail{transform:none}
+  .iconbtn.r{display:inline-block}
+  .ask p{font-size:21px}
+  .answer,.ticket{margin-left:0}
+  .flag{display:none}
+}
+.app.show-rail .scrim,.app.show-foot .scrim{display:block;position:fixed;inset:0;background:rgba(5,8,12,.55);z-index:15}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app" id="app">
+  <aside class="rail" aria-label="Chats and machine status">
+    <div class="brand"><div class="mark" aria-hidden="true">M</div><b>MiniAI</b></div>
+    <button class="newchat" id="newchat" type="button">New chat <kbd>Ctrl N</kbd></button>
+    <nav class="chats" aria-label="Chats">
+      <div><h3>Today</h3>
+        <button class="chat" aria-current="true" type="button">Tidy up Downloads</button>
+        <button class="chat" type="button">Latest Windows 11 update</button>
+      </div>
+      <div><h3>Yesterday</h3>
+        <button class="chat" type="button">Expense tracker in Python</button>
+        <button class="chat" type="button">Warranty clause in the manual</button>
+        <button class="chat" type="button">Keyboards under RM300</button>
+      </div>
+    </nav>
+    <section class="machine" aria-label="This PC">
+      <div class="mrow"><span><span class="lamp" aria-hidden="true"></span>Qwen3 30B, on this PC</span></div>
+      <div class="mrow"><span>Writing speed</span><strong>13.7 tok/s</strong></div>
+      <div class="mrow"><span>Memory</span><strong>16.5 of 23.6 GB</strong></div>
+      <div class="gauge" aria-hidden="true"><i style="width:70%"></i></div>
+      <div class="mrow"><span>Nightly self-check</span><strong style="color:var(--verdigris)">16 of 16</strong></div>
+    </section>
+  </aside>
+
+  <main class="log">
+    <header class="top">
+      <button class="iconbtn r" id="openRail" type="button" aria-label="Show chats">Chats</button>
+      <h1>Tidy up Downloads</h1>
+      <span class="flag" title="A web page was read in this chat. Actions now need you to type the action name to approve.">Web text in this chat</span>
+      <button class="iconbtn f" id="openFoot" type="button">Footprint</button>
+    </header>
+
+    <div class="scroll" id="scroll">
+      <div class="runs">
+
+        <article class="run" aria-label="Run 1">
+          <div class="ask"><p>Move the installer files in my Downloads folder into a folder called Installers.</p>
+            <div class="meta"><span><b>10:58</b></span><span>Took <b>38 s</b></span><span><b>4</b> steps</span><span><b>Nothing</b> left this PC</span></div></div>
+          <ol class="trace">
+            <li class="step" data-k="read"><span class="node"><i></i></span><span class="what">Listed Downloads<small>31 files, sorted by size</small></span><span class="t">0.4 s</span></li>
+            <li class="step" data-k="change"><span class="node"><i></i></span><span class="what">Asked to move 5 files<small>You approved at 10:58</small></span><span class="t">6 s</span></li>
+            <li class="step" data-k="change"><span class="node"><i></i></span><span class="what">Moved 5 files into Downloads\Installers</span><span class="t">0.2 s</span></li>
+            <li class="step" data-k="verify"><span class="node"><i></i></span><span class="what">Checked the claim against what actually happened<small>All 5 moves confirmed on disk</small></span><span class="t">0.1 s</span></li>
+          </ol>
+          <div class="answer">
+            <p>Done. I moved 5 installers (440 MB in total) into <span class="path">Downloads\Installers</span>. ChromeSetup.exe and ChromeSetup (1).exe are identical, so you can delete one of them.</p>
+            <div class="tablewrap"><table><tbody>
+              <tr><td>CursorUserSetup-x64.exe</td><td>196 MB</td></tr>
+              <tr><td>DiscordSetup.exe</td><td>132 MB</td></tr>
+              <tr><td>Install VALORANT.exe</td><td>71.7 MB</td></tr>
+              <tr><td>ChromeSetup.exe</td><td>11.8 MB</td></tr>
+              <tr><td>ChromeSetup (1).exe</td><td>11.8 MB</td></tr>
+            </tbody></table></div>
+          </div>
+        </article>
+
+        <article class="run" aria-label="Run 2">
+          <div class="ask"><p>What changed in the latest Windows 11 update?</p>
+            <div class="meta"><span><b>11:04</b></span><span>Took <b>1 m 12 s</b></span><span><b>3</b> steps</span><span><b>3 searches</b> left this PC</span></div></div>
+          <ol class="trace">
+            <li class="step" data-k="out"><span class="node"><i></i></span><span class="what">Searched the web from 3 angles<small>Only the search words left this PC</small></span><span class="t">7 s</span></li>
+            <li class="step" data-k="read"><span class="node"><i></i></span><span class="what">Read 4 pages<small>Treated as untrusted text. One page dated 14 months ago was ranked last.</small></span><span class="t">21 s</span></li>
+            <li class="step" data-k="verify"><span class="node"><i></i></span><span class="what">Checked every quote against the pages<small>2 of 2 quotes found word for word</small></span><span class="t">0.1 s</span></li>
+          </ol>
+          <div class="answer">
+            <p>The October update adds a Copilot voice mode that can see the active window when you allow it, moves Print Screen to the Snipping Tool by default, and adds an NPU graph to Task Manager on PCs that have one.</p>
+            <div class="sources"><span class="src">support.microsoft.com</span><span class="src">blogs.windows.com</span><span class="src">theverge.com</span></div>
+          </div>
+        </article>
+
+        <article class="run" aria-label="Run 3" id="run3">
+          <div class="ask"><p>Delete the duplicate ChromeSetup file.</p>
+            <div class="meta"><span><b>11:06</b></span><span id="r3time">Waiting for you</span></div></div>
+          <ol class="trace" id="trace3">
+            <li class="step" data-k="read"><span class="node"><i></i></span><span class="what">Compared the two files<small>Same size and same SHA-256, so they are true duplicates</small></span><span class="t">0.3 s</span></li>
+            <li class="ticket danger" id="ticket">
+            <h4>Delete 1 file</h4>
+            <div class="rows"><span class="path">Downloads\Installers\ChromeSetup (1).exe</span><p>It goes to the Recycle Bin, so you can restore it. Because this chat has read web text, type the action name to approve.</p></div>
+            <div class="actions">
+              <label class="sr" for="typed" style="font-size:var(--s1);color:var(--muted)">Type <span class="path" style="color:var(--text)">delete_file</span></label>
+              <input class="typed" id="typed" autocomplete="off" spellcheck="false" placeholder="delete_file">
+              <button class="btn primary" id="approve" type="button" disabled>Delete file</button>
+              <button class="btn" id="deny" type="button">Keep it</button>
+            </div>
+          </li>
+          </ol>
+          <div class="answer" id="answer3" hidden><p id="stream3"></p></div>
+        </article>
+
+      </div>
+    </div>
+
+    <div class="composer">
+      <form class="cbox" id="composer"><label for="ask" style="position:absolute;left:-9999px">Message</label>
+        <input id="ask" placeholder="Ask MiniAI to find, explain or change something on this PC" autocomplete="off">
+        <button class="send" type="submit" aria-label="Send">↑</button></form>
+      <div class="hint"><span>Runs on this PC. Only web searches go online, and they show up in the footprint.</span><span>Ctrl K for commands</span></div>
+    </div>
+  </main>
+
+  <aside class="foot" aria-label="Footprint of this chat">
+    <h2>Footprint</h2>
+    <p>Everything this chat touched, kept as a ledger.</p>
+    <section class="ledger out"><h3>Left this PC <b>3</b></h3>
+      <ul><li><span>Search: Windows 11 October update changes</span><span>11:04</span></li>
+      <li><span>Search: Windows 11 update Print Screen</span><span>11:04</span></li>
+      <li><span>Search: Task Manager NPU graph</span><span>11:04</span></li></ul>
+      <span class="zero">No files or memories were uploaded.</span></section>
+    <section class="ledger read"><h3>Read on this PC <b id="readN">7</b></h3>
+      <ul><li><span>Downloads (folder listing)</span><span>31 files</span></li>
+      <li><span>4 web pages</span><span>untrusted</span></li>
+      <li><span>ChromeSetup.exe, ChromeSetup (1).exe</span><span>hashed</span></li></ul></section>
+    <section class="ledger change"><h3>Changed <b id="chgN">5</b></h3>
+      <ul id="chgList"><li><span>Moved 5 installers to Downloads\Installers</span><span>10:58</span></li></ul></section>
+    <section class="ledger check"><h3>Verified by code <b id="chkN">2</b></h3>
+      <ul id="chkList"><li><span>Move claim matched the disk</span><span>pass</span></li>
+      <li><span>Quotes matched the pages</span><span>pass</span></li></ul></section>
+    <section class="ctx"><span>Conversation memory in use</span><div class="gauge" aria-hidden="true"><i style="width:38%;background:var(--muted)"></i></div><span>6.2k of 16k tokens. Older tool results get summarised first.</span></section>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+</div>
+
+<script>
+(function(){
+  const app=document.getElementById('app');
+  const typed=document.getElementById('typed'), approve=document.getElementById('approve'), deny=document.getElementById('deny');
+  const ticket=document.getElementById('ticket'), trace=document.getElementById('trace3');
+  const ans=document.getElementById('answer3'), out=document.getElementById('stream3'), r3=document.getElementById('r3time');
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  typed.addEventListener('input',()=>{approve.disabled=typed.value.trim()!=='delete_file'});
+  function step(kind,what,sub,t,live){const li=document.createElement('li');li.className='step'+(live?' live':'');li.dataset.k=kind;li.innerHTML='<span class="node"><i></i></span><span class="what"></span><span class="t"></span>';li.querySelector('.what').textContent=what;if(sub){const s=document.createElement('small');s.textContent=sub;li.querySelector('.what').appendChild(s)}li.querySelector('.t').textContent=t||'';trace.appendChild(li);return li}
+  function settle(text){ticket.className='ticket done';ticket.innerHTML='<h4></h4>';ticket.querySelector('h4').textContent=text}
+  function stream(text,done){ans.hidden=false;if(reduce){out.textContent=text;done&&done();return}let i=0;const caret=document.createElement('span');caret.className='caret';const tick=()=>{i+=3;out.textContent=text.slice(0,i);out.appendChild(caret);if(i<text.length)setTimeout(tick,28);else{caret.remove();done&&done()}};tick()}
+  approve.addEventListener('click',()=>{
+    settle('You approved: delete 1 file, 11:06');
+    r3.textContent='Working';
+    const s=step('danger','Moving ChromeSetup (1).exe to the Recycle Bin','', '', true);
+    setTimeout(()=>{s.classList.remove('live');s.querySelector('.t').textContent='0.2 s';
+      step('verify','Checked the claim against what actually happened','File is in the Recycle Bin and gone from Installers','0.1 s');
+      document.getElementById('chgN').textContent='6';
+      const li=document.createElement('li');li.innerHTML='<span>Deleted ChromeSetup (1).exe to Recycle Bin</span><span>11:06</span>';document.getElementById('chgList').appendChild(li);
+      document.getElementById('chkN').textContent='3';
+      const c=document.createElement('li');c.innerHTML='<span>Delete claim matched the disk</span><span>pass</span>';document.getElementById('chkList').appendChild(c);
+      stream('Deleted. ChromeSetup (1).exe is in the Recycle Bin, and ChromeSetup.exe stays in Installers. Restore it from the Recycle Bin if you need it back.',()=>{r3.innerHTML='Took <b>9 s</b>'});
+    },reduce?0:1400);
+  });
+  deny.addEventListener('click',()=>{settle('You kept the file, 11:06');r3.textContent='Stopped';stream('Kept. Nothing was deleted.')});
+  const toggle=(c)=>app.classList.toggle(c);
+  document.getElementById('openRail').addEventListener('click',()=>toggle('show-rail'));
+  document.getElementById('openFoot').addEventListener('click',()=>toggle('show-foot'));
+  document.getElementById('scrim').addEventListener('click',()=>app.classList.remove('show-rail','show-foot'));
+  document.getElementById('composer').addEventListener('submit',e=>{e.preventDefault()});
+})();
+</script>
