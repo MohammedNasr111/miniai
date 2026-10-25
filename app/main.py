@@ -56,6 +56,19 @@ def main() -> int:
     except Exception as exc:
         logger.warning("temp cleanup failed: %s", exc)
 
+    try:
+        from config.log_rotation import rotate_logs
+
+        rotated = rotate_logs()
+        logger.info(
+            "log rotation removed=%s freed_bytes=%s kept_agent=%s",
+            rotated.get("removed"),
+            rotated.get("freed_bytes"),
+            rotated.get("kept_agent"),
+        )
+    except Exception as exc:
+        logger.warning("log rotation failed: %s", exc)
+
     # Only our JS / NewWindowRequested path may open browsers.
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = False
 

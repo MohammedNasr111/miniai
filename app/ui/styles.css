@@ -57,6 +57,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .chat-item.active{background:var(--surface-2);color:var(--text)}
 .sys{border-top:1px solid var(--border);padding:12px 8px 2px;display:grid;gap:8px}
 .sys-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)}
+.sys-row.danger #selfcheck-label,.sys-row.danger{color:#c45b5b}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);
   box-shadow:0 0 0 3px rgba(76,195,138,.15)}
 .dot.loading{background:var(--warn);box-shadow:0 0 0 3px rgba(233,177,90,.2)}

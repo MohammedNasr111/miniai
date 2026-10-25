@@ -716,6 +716,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         for d in drops:
             print(f"  - {d}")
 
+    try:
+        from config.log_rotation import rotate_logs
+
+        rotated = rotate_logs()
+        print(
+            f"Log rotation: removed={rotated.get('removed')} "
+            f"freed_bytes={rotated.get('freed_bytes')}"
+        )
+    except Exception as exc:
+        print(f"Log rotation failed: {exc}")
+
     # Exit non-zero if any task failed/ERROR or safety failed.
     if safety == "FAIL" or any(r.get("pass") is not True for r in summary_results):
         return 1

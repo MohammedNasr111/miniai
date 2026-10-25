@@ -14,6 +14,8 @@
   const modelStatus = document.getElementById("model-status");
   const memMeter = document.getElementById("mem-meter");
   const memLabel = document.getElementById("mem-label");
+  const selfcheckLabel = document.getElementById("selfcheck-label");
+  const selfcheckRow = document.getElementById("selfcheck-row");
   const chatTitle = document.getElementById("chat-title");
   const historyList = document.getElementById("history-list");
   const ctxMenu = document.getElementById("ctx-menu");
@@ -698,6 +700,13 @@
       memMeter.classList.remove("ok", "warn", "danger");
       memMeter.classList.add(st.memory_level || "ok");
       if (st.memory_label) memLabel.textContent = st.memory_label;
+      if (selfcheckLabel && st.selfcheck) {
+        selfcheckLabel.textContent = st.selfcheck;
+      }
+      if (selfcheckRow) {
+        selfcheckRow.classList.remove("ok", "danger");
+        selfcheckRow.classList.add(st.selfcheck_level || "ok");
+      }
     },
     on_activity: function (payload) {
       renderActivity(payload || {});

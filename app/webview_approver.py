@@ -323,6 +323,16 @@ class AppBridge:
         else:
             model_label = f"{display} · ready"
             model_state = "ready"
+        selfcheck_label = "Self-check: …"
+        selfcheck_level = "ok"
+        try:
+            from config.log_rotation import read_selfcheck_summary
+
+            sc = read_selfcheck_summary()
+            selfcheck_label = sc.get("label") or selfcheck_label
+            selfcheck_level = sc.get("level") or "ok"
+        except Exception as exc:
+            logger.info("selfcheck summary unavailable: %s", exc)
         self._call_js(
             "on_status",
             {
@@ -333,6 +343,8 @@ class AppBridge:
                 "memory_pct": mem_pct,
                 "memory_label": mem_label,
                 "memory_level": mem_level,
+                "selfcheck": selfcheck_label,
+                "selfcheck_level": selfcheck_level,
             },
         )
     def open_external(self, url: str) -> dict[str, Any]:
