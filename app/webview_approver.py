@@ -14,7 +14,13 @@ from urllib.parse import urlparse
 
 import requests
 
-from app.tool_labels import format_duration, label_for
+from app.action_classes import (
+    class_for,
+    detail_for,
+    format_duration,
+    label_for,
+    ticket_copy,
+)
 from security.approver import Approver, AppReadAnswer
 
 logger = logging.getLogger(__name__)
@@ -98,6 +104,7 @@ class WebviewApprover(Approver):
                 "description": description,
                 "banner": banner,
                 "title": action.replace("_", " ").title(),
+                "ticket": ticket_copy(action, description),
             }
         )
         return ans.strip().lower() == "yes"
@@ -112,6 +119,7 @@ class WebviewApprover(Approver):
                 "description": description,
                 "banner": banner,
                 "title": action.replace("_", " ").title(),
+                "ticket": ticket_copy(action, description),
             }
         )
 
@@ -172,6 +180,9 @@ class AppBridge:
         self._model_loading = False
         self._model_ready.set()  # until warm-up starts; flipped in start_model_warmup
         self._warmup_started = False
+        self._last_tok_s: float = 0.0
+        self._stream_t0: float = 0.0
+        self._stream_chars: int = 0
 
     def is_cancelled(self) -> bool:
         return self._cancel.is_set()
@@ -294,9 +305,9 @@ class AppBridge:
         except Exception:
             fw = "unknown"
         runner = (
-            "Isolated runner · offline"
+            "Isolated runner, offline"
             if fw == "INSTALLED"
-            else f"Isolated runner · {fw}"
+            else f"Isolated runner, {fw}"
         )
         mem_pct = 0
         mem_label = "n/a"
@@ -321,18 +332,32 @@ class AppBridge:
             model_label = "Loading model…"
             model_state = "loading"
         else:
-            model_label = f"{display} · ready"
+            # Prefer short rail label: "Qwen3 30B, on this PC"
+            short = display.replace("-GGUF", "").replace("-", " ")
+            if "Qwen3" in short and "30B" in short:
+                model_label = "Qwen3 30B, on this PC"
+            else:
+                model_label = f"{short}, on this PC"
             model_state = "ready"
-        selfcheck_label = "Self-check: …"
+        selfcheck_label = "…"
         selfcheck_level = "ok"
         try:
             from config.log_rotation import read_selfcheck_summary
 
             sc = read_selfcheck_summary()
-            selfcheck_label = sc.get("label") or selfcheck_label
+            raw = sc.get("label") or selfcheck_label
+            # Strip "Self-check: " and any middle dots for the rail.
+            selfcheck_label = (
+                str(raw)
+                .replace("Self-check:", "")
+                .replace("·", " of ")
+                .strip()
+            )
             selfcheck_level = sc.get("level") or "ok"
         except Exception as exc:
             logger.info("selfcheck summary unavailable: %s", exc)
+        # Memory label: "16.5 of 23.6 GB" (no slash middle-dot)
+        mem_label = mem_label.replace(" / ", " of ")
         self._call_js(
             "on_status",
             {
@@ -345,6 +370,7 @@ class AppBridge:
                 "memory_level": mem_level,
                 "selfcheck": selfcheck_label,
                 "selfcheck_level": selfcheck_level,
+                "tok_s": self._last_tok_s,
             },
         )
     def open_external(self, url: str) -> dict[str, Any]:
@@ -435,6 +461,49 @@ class AppBridge:
         ok = delete_chat(chat_id)
         return {"ok": ok, "history": self.list_chats()}
 
+    def run_selfcheck_bg(self) -> dict[str, Any]:
+        """Run the quick suite in a background thread; refresh rail when done."""
+
+        def _job() -> None:
+            import subprocess
+            import sys
+            from pathlib import Path
+
+            root = Path(__file__).resolve().parents[1]
+            py = root / ".venv" / "Scripts" / "python.exe"
+            if not py.is_file():
+                py = Path(sys.executable)
+            try:
+                subprocess.run(
+                    [
+                        str(py),
+                        "-m",
+                        "eval.run",
+                        "--suite",
+                        "quick",
+                        "--ability",
+                        "safety",
+                        "--repeat",
+                        "1",
+                        "--model",
+                        "Qwen3-30B-A3B-GGUF",
+                    ],
+                    cwd=str(root),
+                    env={**os.environ, "PYTHONPATH": str(root)},
+                    timeout=1800,
+                    capture_output=True,
+                    text=True,
+                )
+            except Exception as exc:
+                logger.warning("selfcheck bg failed: %s", exc)
+            try:
+                self.push_status()
+            except Exception:
+                pass
+
+        threading.Thread(target=_job, daemon=True).start()
+        return {"ok": True, "started": True}
+
     def _ensure_session(self) -> None:
         from llm.lemonade.provider import LemonadeProvider
         from scripts.agent_loop import _require_lemonade
@@ -449,23 +518,45 @@ class AppBridge:
             self._provider = LemonadeProvider()
             self._session = new_session(self._provider)
 
-    def _on_tool_start(self, name: str, _args: Any) -> None:
+    def _on_tool_start(self, name: str, args: Any) -> None:
+        args_dict = args if isinstance(args, dict) else {}
         step = {
             "tool": name,
-            "name": label_for(name, done=False) + "…",
+            "name": label_for(name, done=False),
+            "detail": detail_for(name, args_dict),
+            "k": class_for(name),
             "t": "",
             "running": True,
+            "args": args_dict,
         }
         self._turn_steps.append(step)
         self._push_live_activity(waiting=False)
 
-    def _on_tool_end(self, name: str, elapsed: float, _outcome: str) -> None:
+    def _on_tool_end(self, name: str, elapsed: float, outcome: str) -> None:
+        from app.chats import save_chat
+        from app.footprint import record_tool, ui_payload
+
+        args_dict: dict[str, Any] = {}
         for step in reversed(self._turn_steps):
             if step.get("tool") == name and step.get("running"):
                 step["running"] = False
                 step["name"] = label_for(name, done=True)
                 step["t"] = format_duration(elapsed)
+                args_dict = step.get("args") or {}
                 break
+        ok = str(outcome or "").lower() not in ("error", "denied", "fail", "failed")
+        if self._chat_doc is not None:
+            record_tool(self._chat_doc, name, args_dict, ok=ok)
+            try:
+                save_chat(self._chat_doc)
+            except Exception:
+                pass
+            try:
+                self._call_js(
+                    "on_footprint", ui_payload(self._chat_doc.get("footprint") or {})
+                )
+            except Exception:
+                pass
         self._push_live_activity(waiting=False)
 
     def _push_live_activity(self, waiting: bool) -> None:
@@ -473,6 +564,8 @@ class AppBridge:
         steps = [
             {
                 "name": s["name"],
+                "detail": s.get("detail") or "",
+                "k": s.get("k") or class_for(str(s.get("tool") or "")),
                 "t": s.get("t") or "",
                 "running": bool(s.get("running")),
             }
@@ -487,6 +580,14 @@ class AppBridge:
                 "running": any(s.get("running") for s in self._turn_steps),
             },
         )
+
+    def _push_footprint(self) -> None:
+        from app.footprint import ensure_footprint, ui_payload
+
+        if self._chat_doc is None:
+            return
+        ensure_footprint(self._chat_doc)
+        self._call_js("on_footprint", ui_payload(self._chat_doc["footprint"]))
 
     def _friendly_error(self, exc: BaseException) -> str:
         """Map provider failures to short chat text; log the raw error."""
@@ -588,11 +689,22 @@ class AppBridge:
                 )
 
             def _on_stream_delta(accumulated: str) -> None:
-                self._call_js("on_stream_delta", {"text": accumulated or ""})
+                text_so_far = accumulated or ""
+                if self._stream_t0 <= 0:
+                    self._stream_t0 = time.perf_counter()
+                self._stream_chars = len(text_so_far)
+                elapsed = max(0.001, time.perf_counter() - self._stream_t0)
+                # Rough tok/s: ~4 chars/token for English.
+                self._last_tok_s = (self._stream_chars / 4.0) / elapsed
+                self._call_js("on_stream_delta", {"text": text_so_far})
 
             def _on_stream_clear() -> None:
+                self._stream_t0 = 0.0
+                self._stream_chars = 0
                 self._call_js("on_stream_clear", {})
 
+            self._stream_t0 = 0.0
+            self._stream_chars = 0
             answer = run_user_turn(
                 self._session,
                 text,
@@ -609,6 +721,8 @@ class AppBridge:
                     "name": s["name"]
                     if not s.get("running")
                     else label_for(s["tool"], done=True),
+                    "detail": s.get("detail") or "",
+                    "k": s.get("k") or class_for(str(s.get("tool") or "")),
                     "t": s.get("t") or "",
                     "running": False,
                 }
@@ -619,6 +733,8 @@ class AppBridge:
             check_meta = getattr(self._session, "last_check", None)
             check_payload = None
             if isinstance(check_meta, dict) and check_meta.get("fixed"):
+                from app.footprint import record_verify
+
                 changed = [
                     c.get("claim") or ""
                     for c in (check_meta.get("claims") or [])
@@ -634,6 +750,25 @@ class AppBridge:
                     "note": note,
                     "claims": changed,
                 }
+                record_verify(
+                    self._chat_doc,
+                    note,
+                    status="correction" if changed else "pass",
+                )
+            # Context token estimate from session history when available.
+            try:
+                from app.footprint import set_context_tokens
+                from app.chats import save_chat
+
+                hist = getattr(self._session, "history", None) or []
+                est = sum(len(str(getattr(m, "content", m) or "")) for m in hist) // 4
+                set_context_tokens(self._chat_doc, est)
+                save_chat(self._chat_doc)
+            except Exception:
+                pass
+            from app.footprint import ui_payload
+
+            fp_ui = ui_payload((self._chat_doc or {}).get("footprint") or {})
             self._call_js(
                 "on_answer",
                 {
@@ -643,6 +778,8 @@ class AppBridge:
                     "steps": steps,
                     "total": total,
                     "check": check_payload,
+                    "tok_s": self._last_tok_s,
+                    "footprint": fp_ui,
                 },
             )
             self._call_js("on_history", self.list_chats())
@@ -761,3 +898,50 @@ class _JsApi:
         if not self._require_index():
             return {"ok": False, "error": "foreign page"}
         return self._bridge.open_external(str(url or ""))
+
+    def get_footprint(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {}
+        from app.footprint import empty_footprint, ensure_footprint, ui_payload
+
+        doc = self._bridge._chat_doc
+        if doc is None:
+            return ui_payload(empty_footprint())
+        return ui_payload(ensure_footprint(doc))
+
+    def open_logs(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
+        from pathlib import Path
+
+        logs = Path(__file__).resolve().parents[1] / "logs"
+        try:
+            os.startfile(str(logs))  # noqa: S606
+            return {"ok": True}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def run_selfcheck(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
+        return self._bridge.run_selfcheck_bg()
+
+    def copy_text(self, text: str) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
+        try:
+            import ctypes
+
+            # Best-effort: use PowerShell Set-Clipboard via subprocess is heavier;
+            # prefer pyperclip if present, else skip.
+            try:
+                import pyperclip  # type: ignore
+
+                pyperclip.copy(str(text or ""))
+                return {"ok": True}
+            except Exception:
+                pass
+            _ = ctypes  # silence unused if no pyperclip
+            return {"ok": False, "error": "clipboard unavailable"}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
