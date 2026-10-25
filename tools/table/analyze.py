@@ -312,9 +312,21 @@ def _analyze_table_impl(
         "rows": records,
     }
     md = _to_markdown(df, limit)
+    # Human-readable totals sentence(s) so the model can copy numbers
+    # (e.g. into summary.md) without re-deriving them.
+    totals_lines: list[str] = []
+    if totals:
+        parts = []
+        for key, val in totals.items():
+            parts.append(f"{key} is {_format_cell(val)}")
+        totals_lines.append(
+            "Totals: " + "; ".join(parts) + "."
+        )
+    totals_block = ("\n".join(totals_lines) + "\n\n") if totals_lines else ""
     body = (
         "## Table result\n\n"
         f"{md}\n\n"
+        f"{totals_block}"
         "## Exact numbers (JSON)\n\n"
         f"```json\n{json.dumps(payload, indent=2, ensure_ascii=False, default=str)}\n```\n"
     )
