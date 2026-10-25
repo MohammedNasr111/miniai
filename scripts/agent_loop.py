@@ -725,9 +725,13 @@ def run_tool_rounds(
                 q_for_slug = msg.content or ""
                 break
     try:
-        slug = ensure_task_slug_folder(q_for_slug)
+        from config import settings as _settings
+
+        _coding_on = bool(getattr(_settings, "FEATURE_CODING_AUTO_TEST", True))
+        slug = ensure_task_slug_folder(q_for_slug) if _coding_on else None
     except Exception:
         slug = None
+        _coding_on = True
     if slug:
         history.append(
             ChatMessage(
@@ -909,7 +913,15 @@ def run_tool_rounds(
         rounds += 1
 
         # Early stop near turn wall budget with honest test status.
-        if coding_turn and should_skip_rerun_for_budget() and rounds < max_rounds:
+        from config import settings as _settings_es
+
+        _coding_on_es = bool(getattr(_settings_es, "FEATURE_CODING_AUTO_TEST", True))
+        if (
+            _coding_on_es
+            and coding_turn
+            and should_skip_rerun_for_budget()
+            and rounds < max_rounds
+        ):
             status = last_auto_test_summary or (
                 "Tests: status unknown (time budget nearly exhausted)."
             )
