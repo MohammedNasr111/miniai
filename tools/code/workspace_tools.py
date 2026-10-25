@@ -481,13 +481,43 @@ def workspace_export(project: str) -> str:
     return msg
 
 
-# Coding tools that raise the turn round cap to 10.
+def maybe_auto_run_tests(written_paths: list[str]) -> str | None:
+    """Run project tests once via real run_tests (CONFIRM). Return parsed summary.
+
+    Returns None when skipped (no tests / feature off / nothing written).
+    On denial or error, returns a short status string.
+    """
+    from config import settings
+    from tools.code.project_discover import infer_test_target
+    from tools.code.pytest_summary import parse_pytest_summary
+
+    if not getattr(settings, "FEATURE_CODING_AUTO_TEST", True):
+        return None
+    if not written_paths:
+        return None
+    target = infer_test_target(written_paths)
+    if not target:
+        return None
+    from security.gate import PermissionDenied
+
+    try:
+        raw = run_tests(path=target)
+    except PermissionDenied:
+        return f"Auto-test skipped: user denied run_tests on {target}."
+    except Exception as exc:
+        return f"Auto-test error on {target}: {exc}"
+    summary = parse_pytest_summary(raw)
+    return f"[Auto-test {target}] {summary}"
+
+
+# Coding tools that raise the turn round cap (Round 6: 16).
 CODING_TOOLS = frozenset(
     {
         "ws_read",
         "ws_list",
         "ws_write",
         "ws_edit",
+        "ws_find_project",
         "run_file",
         "run_tests",
         "run_code",

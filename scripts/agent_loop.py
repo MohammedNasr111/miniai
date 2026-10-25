@@ -686,7 +686,9 @@ def run_tool_rounds(
 
     Default round cap is 8. If any coding tool (ws_*, run_*, install_package,
     workspace_*) or file-mutating tool (create/write/move/delete) is used
-    this turn, the cap becomes 12.
+    this turn, the cap becomes 16. After ws_write/ws_edit, auto-runs tests
+    once per model round (same run_tests CONFIRM). Stops early near the
+    turn time budget with an honest test status.
 
     Optional on_tool_start / on_tool_end / cancel_check support the app UI
     (live activity + Stop). cancel_check raising KeyboardInterrupt rolls
@@ -699,12 +701,37 @@ def run_tool_rounds(
     is set when the shown answer differs from what was streamed.
     """
     from agent.checker import maybe_check_and_fix
-    from tools.code.workspace_tools import CODING_TOOLS
+    from tools.code.project_discover import ensure_task_slug_folder
+    from tools.code.workspace_tools import CODING_TOOLS, maybe_auto_run_tests
 
     _register_user_urls(history)
     reset_turn_runs()
     reset_action_claim_state()
     streamed_final = ""
+    last_auto_test_summary = ""
+
+    # Per-task slug folder for new coding requests (existing files untouched).
+    q_for_slug = question or ""
+    if not q_for_slug:
+        for msg in reversed(history):
+            if getattr(msg, "role", None) == "user":
+                q_for_slug = msg.content or ""
+                break
+    try:
+        slug = ensure_task_slug_folder(q_for_slug)
+    except Exception:
+        slug = None
+    if slug:
+        history.append(
+            ChatMessage(
+                role="system",
+                content=(
+                    f"New coding task folder ready: write project files under "
+                    f"'{slug}/' (e.g. {slug}/main.py, {slug}/tests/...). "
+                    "Do not write unrelated new files at the workspace root."
+                ),
+            )
+        )
 
     def _delta(text: str) -> None:
         nonlocal streamed_final
@@ -752,14 +779,40 @@ def run_tool_rounds(
     _fs_mutate = {"create_file", "write_file", "move_file", "delete_file"}
     turn_evidence: list[str] = []
     tools_used: set[str] = set()
+    coding_turn = False
+    early_stop_status = None
+
+    def _paths_from_tool_calls(tool_calls, names: set[str]) -> list[str]:
+        import json as _json
+
+        paths: list[str] = []
+        for tc in tool_calls or []:
+            name = _tool_call_name(tc)
+            if name not in names:
+                continue
+            if isinstance(tc, dict):
+                fn = tc.get("function") or {}
+                raw = fn.get("arguments") or "{}"
+            else:
+                fn = getattr(tc, "function", None)
+                raw = getattr(fn, "arguments", None) if fn is not None else "{}"
+            try:
+                args = _json.loads(raw) if isinstance(raw, str) else (raw or {})
+            except Exception:
+                args = {}
+            p = args.get("path")
+            if isinstance(p, str) and p.strip():
+                paths.append(p.strip())
+        return paths
 
     def _consume_tool_round(resp, *, next_call):
-        nonlocal rounds, max_rounds
+        nonlocal rounds, max_rounds, coding_turn, last_auto_test_summary, early_stop_status
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
         names_this = {_tool_call_name(tc) for tc in resp.tool_calls}
         if names_this & (CODING_TOOLS | _fs_mutate):
-            max_rounds = 12
+            max_rounds = 16
+            coding_turn = True
         call_names: list[str] = []
         for tc in resp.tool_calls:
             name = _tool_call_name(tc)
@@ -792,9 +845,64 @@ def run_tool_rounds(
                 append_evidence(summary)
                 turn_evidence.append(summary)
         history.extend(tool_messages)
+
+        # Auto-test once per model round after successful ws_write/ws_edit
+        # (same run_tests CONFIRM; never bypass). Skip if model already
+        # called run_tests this round.
+        if "run_tests" not in names_this:
+            ok_paths: list[str] = []
+            for tc, message in zip(resp.tool_calls, tool_messages):
+                name = _tool_call_name(tc)
+                if name not in {"ws_write", "ws_edit"}:
+                    continue
+                paths = _paths_from_tool_calls([tc], {"ws_write", "ws_edit"})
+                if not paths:
+                    continue
+                text = (message.content or "").lower()
+                if (
+                    text.startswith("error")
+                    or "denied" in text
+                    or "refused" in text
+                ):
+                    continue
+                ok_paths.append(paths[0])
+            auto_msg = maybe_auto_run_tests(ok_paths)
+            if auto_msg:
+                last_auto_test_summary = auto_msg
+                history.append(ChatMessage(role="system", content=auto_msg))
+                append_evidence(auto_msg)
+                turn_evidence.append(auto_msg)
+                if transcript is not None:
+                    try:
+                        transcript.write(
+                            "auto_test",
+                            summary=auto_msg[:500],
+                            paths=ok_paths,
+                        )
+                    except Exception:
+                        pass
+
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
         rounds += 1
+
+        # Early stop near turn wall budget with honest test status.
+        if coding_turn and should_skip_rerun_for_budget() and rounds < max_rounds:
+            status = last_auto_test_summary or (
+                "Tests: status unknown (time budget nearly exhausted)."
+            )
+            # Prefer the "Tests: ..." clause if present
+            if "Tests:" in status:
+                status = status[status.index("Tests:") :]
+            early_stop_status = status
+
+            class _EarlyStop:
+                content = status
+                tool_calls = None
+                thinking = None
+
+            return _EarlyStop()
+
         try:
             return next_call(provider, history, transcript)
         except StreamCancelled as exc:
@@ -804,14 +912,27 @@ def run_tool_rounds(
 
     while response.tool_calls and rounds < max_rounds:
         response = _consume_tool_round(response, next_call=_model)
-    cap = bool(response.tool_calls)
+        if early_stop_status is not None:
+            break
+    cap = bool(getattr(response, "tool_calls", None)) and early_stop_status is None
     if transcript is not None:
         transcript.rounds = rounds
         transcript.round_cap_hit = cap
     check_meta = None
-    if cap:
+    if early_stop_status is not None:
+        shown = early_stop_status
+        response.content = shown
+        if transcript is not None:
+            transcript.final(raw=shown, shown=shown)
+    elif cap:
         # Surface a concrete final answer when the round limit stops the loop.
         shown = f"Stopped after {max_rounds} tool rounds without a final answer."
+        if last_auto_test_summary and "Tests:" in last_auto_test_summary:
+            shown = (
+                shown
+                + " "
+                + last_auto_test_summary[last_auto_test_summary.index("Tests:") :]
+            )
         response.content = shown
         if transcript is not None:
             transcript.final(raw=shown, shown=shown)
@@ -983,11 +1104,12 @@ def system_prompt() -> str:
         "If you could not complete the task or did not find the information, "
         "say so plainly. Never state a fact you did not actually read in a "
         "tool result. "
-        "For coding tasks, work in the workspace: write files with ws_write, "
+        "For coding tasks, work in the workspace: if the user names a project "
+        "or folder, call ws_find_project first. Write files with ws_write, "
         "change them with small ws_edit calls, run with run_file or run_tests, "
         "read the error, fix, and run again. Prefer a small dedicated project "
-        "folder when the workspace already has unrelated files. Never claim "
-        "code works unless a run in this conversation succeeded."
+        "folder (not the workspace root) when starting something new. Never "
+        "claim code works unless a run in this conversation succeeded."
     )
 
 

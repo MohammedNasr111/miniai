@@ -255,11 +255,11 @@ def main() -> int:
         ex.return_value = [
             ChatMessage(role="tool", content="ok", tool_call_id="c1")
         ]
-        # coding tool -> cap 12
+        # coding tool -> cap 16 (Round 6)
         hist = [ChatMessage(role="user", content="code")]
         guard = MagicMock()
-        r = run_tool_rounds(_fake_provider("ws_list", 14), hist, guard)
-        coding_cap = "Stopped after 12 tool rounds" in (r.content or "")
+        r = run_tool_rounds(_fake_provider("ws_list", 18), hist, guard)
+        coding_cap = "Stopped after 16 tool rounds" in (r.content or "")
         # non-coding -> cap 8
         hist2 = [ChatMessage(role="user", content="web")]
         r2 = run_tool_rounds(_fake_provider("list_directory", 14), hist2, guard)

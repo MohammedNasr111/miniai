@@ -41,6 +41,7 @@ from tools.code.workspace_tools import (
     ws_read,
     ws_write,
 )
+from tools.code.project_discover import ws_find_project
 from tools.web.fetch_tools import fetch_url
 from tools.web.research_tools import web_research
 from tools.table.analyze import analyze_table
@@ -79,6 +80,7 @@ TOOL_FUNCTIONS = {
     "ws_list": ws_list,
     "ws_write": ws_write,
     "ws_edit": ws_edit,
+    "ws_find_project": ws_find_project,
     "run_file": run_file,
     "run_tests": run_tests,
     "install_package": install_package,
@@ -120,6 +122,7 @@ TOOL_TIERS = {
     "workspace_restore": Tier.CONFIRM,
     "ws_read": Tier.AUTO_ALLOW,
     "ws_list": Tier.AUTO_ALLOW,
+    "ws_find_project": Tier.AUTO_ALLOW,
     # Gate is AUTO_ALLOW (no prompt); CONFIRM here so the duplicate-call guard
     # treats them as mutating.
     "ws_write": Tier.CONFIRM,
@@ -754,7 +757,11 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "ws_read",
-            "description": "Read a text file inside the MiniAI code workspace (paths relative to the workspace root).",
+            "description": (
+                "Read a text file inside the MiniAI code workspace (paths relative "
+                "to the workspace root). If the user names a project or folder, "
+                "call ws_find_project first."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -768,7 +775,11 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "ws_list",
-            "description": "List files and folders directly inside a workspace directory (default '.').",
+            "description": (
+                "List files and folders directly inside a workspace directory "
+                "(default '.'). If the user names a project or folder, call "
+                "ws_find_project first."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -781,8 +792,36 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "ws_find_project",
+            "description": (
+                "List candidate project roots in the MiniAI coding workspace "
+                "(folders with Python + tests, pyproject, or requirements), "
+                "with file counts and newest mtime. If the user names a "
+                "project or folder, call ws_find_project first. No approval needed."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "hint": {
+                        "type": "string",
+                        "description": "Optional project/folder name or keywords to rank matches.",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "ws_write",
-            "description": "Create or overwrite a text file in the MiniAI code workspace. Auto-committed. Prefer small edits via ws_edit when changing existing files.",
+            "description": (
+                "Create or overwrite a text file in the MiniAI code workspace. "
+                "Auto-committed. Prefer small edits via ws_edit when changing "
+                "existing files. If the user names a project or folder, call "
+                "ws_find_project first. Prefer writing under a dedicated "
+                "project slug folder rather than the workspace root."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -797,7 +836,11 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "ws_edit",
-            "description": "Replace exactly one occurrence of old with new in a workspace file. Fails if old matches 0 or 2+ times. Auto-committed.",
+            "description": (
+                "Replace exactly one occurrence of old with new in a workspace "
+                "file. Fails if old matches 0 or 2+ times. Auto-committed. If "
+                "the user names a project or folder, call ws_find_project first."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {

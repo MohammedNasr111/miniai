@@ -944,3 +944,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Added AUTO_ALLOW `analyze_table` (pandas fixed ops only: filter/group/aggregate/sort; CSV/TSV/XLSX; max 20 files Ã— 50 MB). Outside paths wrapped as untrusted file content. Feature flag `FEATURE_ANALYZE_TABLE` (default on). Deps: pandas, openpyxl.
 - Offline `scripts/test_analyze_table.py`: FAILURES=0 (combine 6 CSVs, best/worst, bad column, formula plain text, size/file limits, xlsx, registry).
 - Review log: `logs/review_20261025-1248_round6_part1.log`.
+
+## 2026-10-25 — Round 6 Part 2: coding loop
+- Auto-test after ws_write/ws_edit (once/round via real run_tests CONFIRM); parsed summary =1500 chars. `ws_find_project` AUTO_ALLOW. Per-task `workspace/<slug>/` for new build requests. Coding round cap 16 + early stop near turn budget.
+- Offline `scripts/test_coding_loop_r6.py`: FAILURES=0. Review: logs/review_20261025-1255_round6_part2.log
