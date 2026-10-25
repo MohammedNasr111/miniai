@@ -102,4 +102,4 @@ Log: `logs/_qa_round6_quick.txt` / `logs/eval_20261025-151759.json`.
 | 4 | `fb35b5d` | PDF citations |
 | 5 (rule) | `966e0b9` | pre-register keep rule |
 | 5 (disable) | `d1d33fe` | measure + disable flags |
-| 6 | _(this commit)_ | Round 6 report |
+| 6 | `398467e` | Round 6 report |
