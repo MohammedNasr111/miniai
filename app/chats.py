@@ -67,6 +67,8 @@ def save_chat(doc: dict[str, Any]) -> Path:
 
 
 def create_chat(first_user_text: str = "") -> dict[str, Any]:
+    from app.footprint import empty_footprint
+
     now = _now_iso()
     doc = {
         "id": new_chat_id(),
@@ -74,6 +76,7 @@ def create_chat(first_user_text: str = "") -> dict[str, Any]:
         "updated": now,
         "title": title_from_text(first_user_text) if first_user_text else "New chat",
         "messages": [],
+        "footprint": empty_footprint(),
     }
     return doc
 
