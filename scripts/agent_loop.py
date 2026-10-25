@@ -701,6 +701,10 @@ def run_tool_rounds(
     is set when the shown answer differs from what was streamed.
     """
     from agent.checker import maybe_check_and_fix
+    from agent.research_pipeline import (
+        maybe_finalize_research_answer,
+        maybe_prepare_compare_research,
+    )
     from tools.code.project_discover import ensure_task_slug_folder
     from tools.code.workspace_tools import CODING_TOOLS, maybe_auto_run_tests
 
@@ -709,6 +713,8 @@ def run_tool_rounds(
     reset_action_claim_state()
     streamed_final = ""
     last_auto_test_summary = ""
+    pipeline_evidence = None
+    pending_research_text = ""
 
     # Per-task slug folder for new coding requests (existing files untouched).
     q_for_slug = question or ""
@@ -732,6 +738,19 @@ def run_tool_rounds(
                 ),
             )
         )
+
+    # Part 3: pre-fetch comparison research (3 sub-queries → web_research).
+    try:
+        pipeline_evidence = maybe_prepare_compare_research(
+            q_for_slug,
+            history,
+            append_evidence_fn=append_evidence,
+        )
+        if pipeline_evidence and pipeline_evidence.merged_text:
+            pending_research_text = pipeline_evidence.merged_text
+    except Exception:
+        pipeline_evidence = None
+        pending_research_text = ""
 
     def _delta(text: str) -> None:
         nonlocal streamed_final
@@ -778,6 +797,8 @@ def run_tool_rounds(
     max_rounds = 8
     _fs_mutate = {"create_file", "write_file", "move_file", "delete_file"}
     turn_evidence: list[str] = []
+    if pending_research_text:
+        turn_evidence.append(pending_research_text)
     tools_used: set[str] = set()
     coding_turn = False
     early_stop_status = None
@@ -1023,10 +1044,18 @@ def run_tool_rounds(
         shown, inj_meta = maybe_append_injection_notice(
             shown, turn_evidence, transcript=transcript
         )
+        # Part 3: append Sources + price-estimate warnings for compare questions.
+        shown, research_meta = maybe_finalize_research_answer(
+            shown,
+            q,
+            turn_evidence,
+            pipeline_evidence=pipeline_evidence,
+        )
         if check_meta is None:
             check_meta = {}
         check_meta["action_claim"] = claim_meta
         check_meta["injection_notice"] = inj_meta
+        check_meta["research_pipeline"] = research_meta
         # Guards / notices changed what was streamed → UI replaces the bubble.
         if streamed_snapshot and shown != streamed_snapshot:
             check_meta["stream_corrected"] = True

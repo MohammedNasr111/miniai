@@ -948,3 +948,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-25 — Round 6 Part 2: coding loop
 - Auto-test after ws_write/ws_edit (once/round via real run_tests CONFIRM); parsed summary =1500 chars. `ws_find_project` AUTO_ALLOW. Per-task `workspace/<slug>/` for new build requests. Coding round cap 16 + early stop near turn budget.
 - Offline `scripts/test_coding_loop_r6.py`: FAILURES=0. Review: logs/review_20261025-1255_round6_part2.log
+
+## 2026-10-25 — Round 6 Part 3: research pipeline
+- Compare/recommend questions: 3 template sub-queries via web_research, merge/dedupe by URL; post-answer Sources (https + titles) + price-estimate warnings. Flag FEATURE_RESEARCH_PIPELINE.
+- Offline `scripts/test_research_pipeline.py`: FAILURES=0. Review: logs/review_20261025-1259_round6_part3.log
