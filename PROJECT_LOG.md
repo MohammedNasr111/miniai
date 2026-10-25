@@ -952,3 +952,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-25 — Round 6 Part 3: research pipeline
 - Compare/recommend questions: 3 template sub-queries via web_research, merge/dedupe by URL; post-answer Sources (https + titles) + price-estimate warnings. Flag FEATURE_RESEARCH_PIPELINE.
 - Offline `scripts/test_research_pipeline.py`: FAILURES=0. Review: logs/review_20261025-1259_round6_part3.log
+
+## 2026-10-25 — Round 6 Part 4: PDF page citations
+- After answers that used search_knowledge, append `Source: <file>, page N` for top overlapping chunks (token overlap =0.12, max 3). Flag FEATURE_PDF_CITATIONS.
+- Offline `scripts/test_pdf_citations.py`: FAILURES=0. Review: logs/review_20261025-1300_round6_part4.log

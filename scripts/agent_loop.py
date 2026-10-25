@@ -701,6 +701,7 @@ def run_tool_rounds(
     is set when the shown answer differs from what was streamed.
     """
     from agent.checker import maybe_check_and_fix
+    from agent.pdf_citations import append_pdf_citations
     from agent.research_pipeline import (
         maybe_finalize_research_answer,
         maybe_prepare_compare_research,
@@ -1051,11 +1052,16 @@ def run_tool_rounds(
             turn_evidence,
             pipeline_evidence=pipeline_evidence,
         )
+        # Part 4: PDF/knowledge page citations from search_knowledge overlap.
+        shown, cite_meta = append_pdf_citations(
+            shown, turn_evidence, tools_used=tools_used
+        )
         if check_meta is None:
             check_meta = {}
         check_meta["action_claim"] = claim_meta
         check_meta["injection_notice"] = inj_meta
         check_meta["research_pipeline"] = research_meta
+        check_meta["pdf_citations"] = cite_meta
         # Guards / notices changed what was streamed → UI replaces the bubble.
         if streamed_snapshot and shown != streamed_snapshot:
             check_meta["stream_corrected"] = True
