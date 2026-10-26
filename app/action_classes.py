@@ -40,6 +40,7 @@ TOOL_CLASS: dict[str, str] = {
     "browser_type": "out",
     # changes things
     "create_file": "change",
+    "create_folder": "change",
     "write_file": "change",
     "move_file": "change",
     "move_files": "change",
@@ -67,10 +68,13 @@ VERIFY_EVENTS = frozenset(
         "quote_check",
         "run_claim_check",
         "action_claim_check",
+        "post_action_verify",
         "price_check",
         "recency_note",
         "injection_notice",
         "answer_check",
+        "listing_honesty",
+        "decline_honesty",
     }
 )
 
@@ -99,6 +103,7 @@ _LABELS: dict[str, tuple[str, str]] = {
     "browser_click": ("Clicking on the page", "Clicked on the page"),
     "browser_type": ("Typing on the page", "Typed on the page"),
     "create_file": ("Creating a file", "Created a file"),
+    "create_folder": ("Creating a folder", "Created a folder"),
     "write_file": ("Writing a file", "Wrote a file"),
     "move_file": ("Moving a file", "Moved a file"),
     "move_files": ("Moving files", "Moved files"),
@@ -123,12 +128,24 @@ _LABELS: dict[str, tuple[str, str]] = {
         "Checking the claim",
         "Checked the claim against what actually happened",
     ),
+    "post_action_verify": (
+        "Checking the disk",
+        "Checked the claim against what actually happened",
+    ),
     "price_check": ("Checking prices", "Checked price estimates"),
     "recency_note": ("Checking dates", "Noted a stale page"),
     "injection_notice": ("Noting page instructions", "Noted instructions found in a page"),
     "answer_check": (
         "Checking the answer against sources",
         "Checked the answer against sources",
+    ),
+    "listing_honesty": (
+        "Checking folder names",
+        "Checked names against the folder listing",
+    ),
+    "decline_honesty": (
+        "Noting the decline",
+        "Noted that you declined",
     ),
 }
 
@@ -151,6 +168,7 @@ def label_for(tool_or_event: str, *, done: bool) -> str:
 # Denied / declined — never past-tense "done" verbs.
 _DENIED_LABELS: dict[str, str] = {
     "create_file": "Didn't create the file (you declined)",
+    "create_folder": "Didn't create the folder (you declined)",
     "write_file": "Didn't write the file (you declined)",
     "move_file": "Didn't move the file (you declined)",
     "move_files": "Didn't move the files (you declined)",
@@ -235,8 +253,17 @@ def detail_for(tool: str, args: Optional[dict[str, Any]] = None) -> str:
     if tool == "list_directory":
         p = _short_path(args.get("path"))
         return p or "Folder listing"
-    if tool in ("read_file", "ws_read", "create_file", "write_file", "delete_file"):
-        return _short_path(args.get("path")) or "A file"
+    if tool in (
+        "read_file",
+        "ws_read",
+        "create_file",
+        "create_folder",
+        "write_file",
+        "delete_file",
+    ):
+        return _short_path(args.get("path")) or (
+            "A folder" if tool == "create_folder" else "A file"
+        )
     if tool == "move_file":
         return f"{_short_path(args.get('src'))} → {_short_path(args.get('dest'))}"
     if tool == "move_files":
@@ -309,6 +336,17 @@ def ticket_copy(action: str, description: str = "") -> dict[str, str]:
             "collapsed_ok": "You approved: move 1 file",
             "collapsed_no": "You kept the file where it was",
         }
+    if a == "create_folder":
+        return {
+            "kind": "change",
+            "heading": "Create folder",
+            "consequence": "A new folder will be created on this PC.",
+            "approve": "Create folder",
+            "deny": "Don't create",
+            "paths": "\n".join(paths) if paths else desc.strip(),
+            "collapsed_ok": "You approved: create folder",
+            "collapsed_no": "You cancelled the folder",
+        }
     if a in ("write_file", "create_file"):
         verb = "Create" if a == "create_file" or "did not exist" in desc.lower() else "Write"
         return {
@@ -379,6 +417,7 @@ def _paths_from_description(desc: str) -> list[str]:
         for prefix in (
             "Move to Recycle Bin: ",
             "Create new file: ",
+            "Create new folder: ",
             "Create file (did not exist): ",
             "Overwrite existing file: ",
             "from: ",

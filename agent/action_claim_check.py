@@ -38,10 +38,20 @@ _CLAIM_SPECS: list[tuple[str, re.Pattern[str], frozenset[str]]] = [
         frozenset({"move_file", "move_files"}),
     ),
     (
+        "created a folder",
+        re.compile(
+            r"(?i)\b(?:i(?:'ve|\s+have)\s+created\s+(?:the\s+|a\s+)?folder|"
+            r"i\s+created\s+(?:the\s+|a\s+)?folder|"
+            r"i(?:'ve|\s+have)\s+made\s+(?:the\s+|a\s+)?folder|"
+            r"i\s+made\s+(?:the\s+|a\s+)?folder)\b"
+        ),
+        frozenset({"create_folder"}),
+    ),
+    (
         "created / wrote a file",
         re.compile(
             r"(?i)\b(?:i(?:'ve|\s+have)\s+(?:created|written|wrote|saved)\s+(?:the\s+)?"
-            r"(?:file|document|note|folder|\S+\.\w{1,10})|"
+            r"(?:file|document|note|\S+\.\w{1,10})|"
             r"i\s+(?:created|wrote|saved)\s+(?:the\s+)?(?:file|document|note|\S+\.\w{1,10})|"
             r"i(?:'ve|\s+have)\s+saved\s+the\s+file)\b"
         ),
@@ -91,9 +101,21 @@ CORRECTION_TMPL = (
     "\n\n⚠ Correction: I said I {claim}, but that didn't actually happen."
 )
 
-_WRITE_TOOLS = frozenset({"create_file", "write_file", "ws_write", "ws_edit"})
+_WRITE_TOOLS = frozenset(
+    {"create_file", "create_folder", "write_file", "ws_write", "ws_edit"}
+)
 _PATH_FROM_RESULT = re.compile(
-    r"(?i)\b(?:Wrote|Created|Updated|Edited)\s+([^\s(]+)"
+    r"(?i)\b(?:Wrote|Created(?:\s+folder)?|Updated|Edited|Moved)\s+([^\s(]+)"
+)
+_MUTATING_FS = frozenset(
+    {
+        "create_file",
+        "create_folder",
+        "write_file",
+        "delete_file",
+        "move_file",
+        "move_files",
+    }
 )
 # Soft wall-clock budget for a whole user turn (re-run needs ≥60s remaining).
 TURN_WALL_BUDGET_S = 240.0
@@ -139,6 +161,14 @@ def get_succeeded_tools() -> set[str]:
     return set(_succeeded_tools)
 
 
+def get_denied_tools() -> set[str]:
+    return set(_denied_tools)
+
+
+def get_failed_tools() -> set[str]:
+    return set(_failed_tools)
+
+
 def get_succeeded_paths() -> set[str]:
     return set(_succeeded_paths)
 
@@ -158,13 +188,18 @@ def should_skip_rerun_for_budget() -> bool:
 
 
 def _remember_paths_from_result(name: str, result_text: str) -> None:
-    if name not in _WRITE_TOOLS:
+    if name not in _WRITE_TOOLS and name != "delete_file":
         return
     for m in _PATH_FROM_RESULT.finditer(result_text or ""):
         raw = m.group(1).strip().strip("'\"")
         if not raw:
             continue
+        # "Moved X to the Recycle Bin" — keep the path before "to"
+        if name == "delete_file" and " to " in raw.lower():
+            raw = re.split(r"(?i)\s+to\s+", raw, maxsplit=1)[0].strip()
         _succeeded_paths.add(raw.replace("\\", "/"))
+        # Also keep Windows-style form for os.path.exists checks.
+        _succeeded_paths.add(raw)
         base = raw.replace("\\", "/").rsplit("/", 1)[-1]
         if base:
             _succeeded_paths.add(base)

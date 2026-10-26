@@ -6,6 +6,7 @@ from security.gate import Tier
 from tools.calculate import calculate
 from tools.filesystem.fs_tools import (
     create_file,
+    create_folder,
     delete_file,
     list_directory,
     move_file,
@@ -52,6 +53,7 @@ TOOL_FUNCTIONS = {
     "search_files": search_files,
     "read_file": read_file,
     "create_file": create_file,
+    "create_folder": create_folder,
     "write_file": write_file,
     "delete_file": delete_file,
     "move_file": move_file,
@@ -97,6 +99,7 @@ TOOL_TIERS = {
     "search_files": Tier.AUTO_ALLOW,
     "read_file": Tier.AUTO_ALLOW,
     "create_file": Tier.CONFIRM,
+    "create_folder": Tier.CONFIRM,
     "write_file": Tier.CONFIRM,
     "delete_file": Tier.ALWAYS_CONFIRM,
     "move_file": Tier.CONFIRM,
@@ -356,7 +359,11 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "create_file",
-            "description": "Create a new file with the given content at the given path. Fails if the file already exists. This will prompt the user for confirmation before proceeding.",
+            "description": (
+                "Create a new file with the given content at the given path. "
+                "Fails if the file already exists. Prompts for confirmation. "
+                "Do not use this to make folders — use create_folder instead."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -364,6 +371,28 @@ TOOL_SCHEMAS = [
                     "content": {"type": "string", "description": "Text content to write into the new file."},
                 },
                 "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_folder",
+            "description": (
+                "Create a new empty folder (directory) at the given path. "
+                "Fails if the path already exists. Prompts for confirmation. "
+                "Use this when the user asks to make a folder or directory — "
+                "never create_file for that."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Absolute path of the new folder (e.g. Desktop\\Test Folder).",
+                    },
+                },
+                "required": ["path"],
             },
         },
     },

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +26,8 @@ from send2trash import send2trash
 
 from security.gate import Tier, check_permission
 from security.protected_paths import assert_not_protected
+
+_FOLDER_WORD = re.compile(r"(?i)\bfolders?\b")
 
 # Win32 GetDriveTypeW: only fixed local volumes are safe for Recycle Bin.
 DRIVE_FIXED = 3
@@ -310,10 +313,84 @@ def backup_existing_file(target: Path) -> Path:
     return dest
 
 
-def create_file(path: str, content: str) -> str:
+def _under_existing_user_folder(target: Path) -> bool:
+    """True if target is under a resolved Desktop/Documents/… that exists."""
+    from config.paths import resolve_user_folders
+
+    try:
+        resolved = target if target.is_absolute() else target.resolve()
+    except OSError:
+        resolved = target
+    for root in resolve_user_folders().values():
+        try:
+            root_res = root.resolve()
+        except OSError:
+            root_res = root
+        if not root_res.is_dir():
+            continue
+        try:
+            resolved.resolve().relative_to(root_res)
+            return True
+        except (ValueError, OSError):
+            try:
+                # Compare without requiring target to exist yet
+                pref = str(root_res).rstrip("\\/").lower()
+                cand = str(resolved).rstrip("\\/").lower()
+                if cand == pref or cand.startswith(pref + "\\") or cand.startswith(pref + "/"):
+                    return True
+            except Exception:
+                continue
+    return False
+
+
+def create_folder(path: str) -> str:
+    """Create a new directory. CONFIRM; refuses if it already exists."""
     target = resolve_fs_path(path)
     shown = str(target)
     assert_not_protected(shown)
+    if target.exists():
+        raise FileExistsError(
+            f"Path already exists, not creating folder: {shown}."
+        )
+    parent = target.parent
+    if not parent.exists():
+        if not _under_existing_user_folder(target):
+            raise FileNotFoundError(
+                f"Parent folder does not exist: {parent}. "
+                "Create folders only inside an existing user folder "
+                "(Desktop, Documents, Downloads, …)."
+            )
+        # Parents allowed only under an existing known user folder.
+    check_permission(
+        action="create_folder",
+        tier=Tier.CONFIRM,
+        description=f"Create new folder: {shown}",
+    )
+    if target.exists():
+        raise FileExistsError(
+            f"Path already exists, not creating folder: {shown}."
+        )
+    target.mkdir(parents=True, exist_ok=False)
+    return f"Created folder {shown}."
+
+
+def create_file(path: str, content: str) -> str:
+    from tools.filesystem.turn_context import get_turn_user_text
+
+    target = resolve_fs_path(path)
+    shown = str(target)
+    assert_not_protected(shown)
+    # Folder requests must not create extensionless files named like folders.
+    user_q = get_turn_user_text()
+    if (
+        _FOLDER_WORD.search(user_q)
+        and not target.suffix
+        and not str(path).rstrip().endswith(("/", "\\"))
+    ):
+        raise ValueError(
+            f"Refusing create_file for {shown!r}: the user asked for a folder "
+            "and this path has no file extension. Call create_folder instead."
+        )
     check_permission(
         action="create_file",
         tier=Tier.CONFIRM,

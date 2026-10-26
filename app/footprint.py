@@ -182,6 +182,8 @@ def _change_label(tool: str, args: dict[str, Any]) -> str:
         return f"Moved {n} file{'s' if n != 1 else ''}"
     if tool == "move_file":
         return f"Moved {args.get('src') or 'a file'}"
+    if tool == "create_folder":
+        return f"Created folder {args.get('path') or 'a folder'}"
     if tool in ("create_file", "write_file", "ws_write"):
         return f"Wrote {args.get('path') or 'a file'}"
     if tool == "ws_edit":

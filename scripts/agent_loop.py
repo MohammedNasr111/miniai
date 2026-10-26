@@ -726,6 +726,12 @@ def run_tool_rounds(
                 q_for_slug = msg.content or ""
                 break
     try:
+        from tools.filesystem.turn_context import set_turn_user_text
+
+        set_turn_user_text(q_for_slug)
+    except Exception:
+        pass
+    try:
         from config import settings as _settings
 
         _coding_on = bool(getattr(_settings, "FEATURE_CODING_AUTO_TEST", True))
@@ -803,6 +809,7 @@ def run_tool_rounds(
     max_rounds = 8
     _fs_mutate = {
         "create_file",
+        "create_folder",
         "write_file",
         "move_file",
         "move_files",
@@ -1123,11 +1130,15 @@ def run_tool_rounds(
         shown, cite_meta = append_pdf_citations(
             shown, turn_evidence, tools_used=tools_used
         )
-        from agent.listing_honesty import maybe_correct_biggest_files_answer
+        from agent.decline_honesty import apply_decline_wording
+        from agent.listing_honesty import maybe_correct_listing_answer
+        from agent.post_action_verify import verify_create_delete
 
-        shown, listing_meta = maybe_correct_biggest_files_answer(
+        shown, decline_meta = apply_decline_wording(shown)
+        shown, listing_meta = maybe_correct_listing_answer(
             q, shown, transcript=transcript
         )
+        fs_verify = verify_create_delete(transcript=transcript)
         if check_meta is None:
             check_meta = {}
         check_meta["action_claim"] = claim_meta
@@ -1135,10 +1146,16 @@ def run_tool_rounds(
         check_meta["research_pipeline"] = research_meta
         check_meta["pdf_citations"] = cite_meta
         check_meta["listing_honesty"] = listing_meta
+        check_meta["decline_honesty"] = decline_meta
+        check_meta["post_action_verify"] = fs_verify
         if listing_meta and listing_meta.get("corrected"):
             check_meta["fixed"] = True
             if not check_meta.get("note"):
                 check_meta["note"] = "Corrected file listing from list_directory"
+        if decline_meta and decline_meta.get("corrected"):
+            check_meta["fixed"] = True
+            if not check_meta.get("note"):
+                check_meta["note"] = "Noted that you declined"
         # Guards / notices changed what was streamed → UI replaces the bubble.
         if streamed_snapshot and shown != streamed_snapshot:
             check_meta["stream_corrected"] = True
@@ -1201,8 +1218,10 @@ def system_prompt() -> str:
         "ask what you remember (favourite colour, preferences, prior facts), "
         "call search_memory before answering — do not say you lack access. "
         "Absolute paths the user gives (including Temp folders) are valid for "
-        "list_directory, read_file, create_file, write_file, move_file, and "
-        "delete_file; you do not need the MiniAI coding workspace for those. "
+        "list_directory, read_file, create_file, create_folder, write_file, "
+        "move_file, and delete_file; you do not need the MiniAI coding "
+        "workspace for those. When the user asks to make a folder or "
+        "directory, call create_folder — never create_file for a folder. "
         "Paths under the MiniAI coding workspace (LocalLow/MiniAI/workspace) "
         "ARE the coding workspace — use ws_list, ws_read, ws_write, ws_edit, "
         "run_file, and run_tests there; never claim you cannot access it. "
