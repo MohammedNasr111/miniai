@@ -259,7 +259,10 @@ class AppBridge:
         return configured
 
     def start_model_warmup(self) -> None:
-        """Background tiny chat so the first user turn is not a cold load."""
+        """Background tiny chat so the first user turn is not a cold load.
+
+        Runs once per app start. Never overlaps a user turn (waits until idle).
+        """
         if self._warmup_started:
             return
         self._warmup_started = True
@@ -279,6 +282,16 @@ class AppBridge:
             from llm.lemonade.provider import LemonadeProvider
 
             try:
+                # Never warm while a turn holds the lock / is busy.
+                for _ in range(6000):  # up to ~10 min
+                    if not self._busy and not self._turn_lock.locked():
+                        break
+                    time.sleep(0.1)
+                if self._busy or self._turn_lock.locked():
+                    logger.warning("model warm-up skipped: turn still running")
+                    return
+                if self._model_is_loaded():
+                    return
                 provider = LemonadeProvider()
                 # Long timeout: cold load of a ~17 GB model.
                 provider.chat(

@@ -46,6 +46,12 @@ def main() -> int:
     # Must run before any HWND / WinForms window is created.
     set_app_user_model_id()
 
+    from app.single_instance import acquire_single_instance, release_single_instance
+
+    if not acquire_single_instance():
+        logger.info("another MiniAI instance is already running; exiting")
+        return 0
+
     try:
         cleaned = cleanup_stale_miniai_temps()
         logger.info(
@@ -139,10 +145,13 @@ def main() -> int:
         bridge.start_status_loop()
 
     try:
-        webview.start(func=_after_start, debug=False, private_mode=True)
-    except TypeError:
-        webview.start(func=_after_start, debug=False)
-    bridge.stop_status_loop()
+        try:
+            webview.start(func=_after_start, debug=False, private_mode=True)
+        except TypeError:
+            webview.start(func=_after_start, debug=False)
+    finally:
+        bridge.stop_status_loop()
+        release_single_instance()
     return 0
 
 
