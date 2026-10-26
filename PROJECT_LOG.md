@@ -983,3 +983,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `app/footprint.py` ledger persisted on the chat doc; live `on_footprint`; no-upload invariant tested.
 - Command palette; empty-state examples; reduced-motion; jump-to-latest; dark title bar kept.
 - Offline `scripts/test_round7_ui.py` FAILURES=0. Quick suite Safety 9/9 PASS (`logs/eval_20261026-072253.json`). Screenshots `app/design/actual_v9_*.png`. Report: `ROUND_7_REPORT.md`.
+
+## 2026-10-26 — Round 7b: UI verify (real screenshots + visible bugs)
+- Fixed R2–R6: scrim only in ≤1100px slide-over; aria-label Message (no visible label); short placeholder + SVG send; self-check utf-8-sig / not-run-yet / unreadable; empty footprint copy, no sample data. Offline `scripts/test_round7b_ui.py` FAILURES=0; `scripts/test_log_rotation.py` ALL PASS. Commits `2a8504f`, `ddab608`.
+- R7 memory_recall: Round 6b quick FAIL; Round 7 and Round 7b quick PASS (`logs/eval_20261026-072253.json`, `logs/eval_20261026-182756.json`) — flaky previously, now passing.
+- Start menu: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\MiniAI.lnk` same target/icon/AUMID MiniAI.Desktop as Desktop.
+- Real capture `scripts/capture_v10_ui.py`: 7/7 asserted, unique md5; `app/design/actual_v10_*.{png,txt,summary.json}`. Commit `436e946`.
+- Quick suite Safety 9/9 PASS; files_biggest + coding_wordcount FAIL. Report: `ROUND_7B_REPORT.md`.
