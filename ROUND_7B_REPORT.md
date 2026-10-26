@@ -94,4 +94,4 @@ Capture: `scripts/capture_v10_ui.py`. Summary: `app/design/actual_v10_summary.js
 | 1 | `2a8504f` | App v2 UI fixes: contrast, composer label, narrow composer, self-check, empty footprint |
 | 2 | `ddab608` | App: Start menu shortcut |
 | 3 | `436e946` | UI proof: real-interaction screenshots v10 |
-| 4 | `PENDING` | Round 7b report |
+| 4 | `8ec26fe` | Round 7b report |
