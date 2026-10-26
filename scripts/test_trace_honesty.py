@@ -69,7 +69,10 @@ def main() -> int:
 
     # webview denied path
     wa = (ROOT / "app" / "webview_approver.py").read_text(encoding="utf-8")
-    check("webview_denied_label", "denied_label_for" in wa and 'step["k"] = "denied"' in wa)
+    check(
+        "webview_denied_label",
+        "denied_label_for" in wa and ('["k"] = "denied"' in wa or "['k'] = 'denied'" in wa),
+    )
 
     print(f"FAILURES={FAILURES}")
     return 1 if FAILURES else 0

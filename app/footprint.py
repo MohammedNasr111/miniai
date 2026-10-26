@@ -60,11 +60,42 @@ def record_tool(
     t = when or _now_hm()
     kind = class_for(tool)
 
+    # Synthetic sub-step from web_research progress (not a registered tool).
+    if tool == "web_pages_read":
+        try:
+            n = int(args.get("count") or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            fp["read"].append(
+                {
+                    "label": f"{n} web page{'s' if n != 1 else ''} (untrusted)",
+                    "detail": "untrusted",
+                    "time": t,
+                }
+            )
+        fp["assert_no_upload"] = True
+        return fp
+
     if kind == "out" or is_outbound(tool):
         if tool in ("web_research", "web_search"):
             q = str(args.get("question") or args.get("query") or "").strip()
             label = f"Search: {q}" if q else "Search"
             fp["left"].append({"label": label, "time": t, "kind": "search"})
+            # Pages read during research also count under "Read on this PC".
+            n_pages = args.get("pages_read")
+            try:
+                n = int(n_pages) if n_pages is not None else 0
+            except (TypeError, ValueError):
+                n = 0
+            if n > 0:
+                fp["read"].append(
+                    {
+                        "label": f"{n} web page{'s' if n != 1 else ''} (untrusted)",
+                        "detail": "untrusted",
+                        "time": t,
+                    }
+                )
         else:
             url = str(args.get("url") or "").strip()
             label = f"Fetch: {url}" if url else "Fetched a page"

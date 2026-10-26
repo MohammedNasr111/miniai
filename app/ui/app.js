@@ -421,10 +421,10 @@
     const run = currentRun;
     if (!run) return null;
     run.answer.hidden = false;
-    let p = run.answer.querySelector(".stream-raw");
+    let p = run.answer.querySelector(".stream-md");
     if (!p) {
-      p = document.createElement("p");
-      p.className = "stream-raw";
+      p = document.createElement("div");
+      p.className = "stream-md answer-md";
       run.answer.appendChild(p);
     }
     return p;
@@ -433,7 +433,9 @@
   function paintStreamRaw(text) {
     const el = ensureAnswerStream();
     if (!el) return;
-    el.textContent = text || "";
+    // Light incremental markdown (escape-first via renderMarkdown); full
+    // re-render happens on completion in showAnswer.
+    el.innerHTML = renderMarkdown(text || "");
     if (!reduceMotion) {
       if (!streamCaret) {
         streamCaret = document.createElement("span");
@@ -1104,6 +1106,24 @@
     },
     on_history: function (groups) {
       renderHistory(groups || []);
+      if (activeChatId && chatTitle) {
+        const all = [];
+        (groups || []).forEach(function (sec) {
+          (sec.items || []).forEach(function (it) {
+            all.push(it);
+          });
+        });
+        const hit = all.find(function (it) {
+          return it.id === activeChatId;
+        });
+        if (hit && hit.title) chatTitle.textContent = hit.title;
+      }
+    },
+    on_chat_title: function (payload) {
+      if (payload && payload.id) activeChatId = payload.id;
+      if (chatTitle && payload && payload.title) {
+        chatTitle.textContent = payload.title;
+      }
     },
     on_activity: function (payload) {
       setTurnControls(true);

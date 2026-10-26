@@ -80,7 +80,10 @@ def web_research(question: str, max_sources: int = 4) -> str:
         max_sources = 4
     started = time.monotonic()
     today = today_date()
+    from tools.web.research_progress import emit_research_progress
+
     results = TavilyProvider().search(question, SEARCH_COUNT)
+    emit_research_progress("searched", query=question, hit_count=len(results or []))
     pages: list[_Page] = []
     skipped: list[str] = []
     for result in results:
@@ -117,8 +120,18 @@ def web_research(question: str, max_sources: int = 4) -> str:
             )
         )
         remember_url(final_url)
+    emit_research_progress(
+        "pages_read",
+        count=len(pages),
+        query=question,
+        urls=[p.final_url for p in pages],
+    )
     if is_recency_question(question) and pages:
         pages = order_pages_newest_first(pages, today=today)
+        emit_research_progress(
+            "recency_note",
+            detail="Ordered pages by date for a recency question",
+        )
     chosen = _select(question, pages, expand_neighbors=True)
     return _render(question, pages, chosen, skipped, today=today)
 

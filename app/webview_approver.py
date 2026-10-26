@@ -183,6 +183,7 @@ class AppBridge:
         self._last_tok_s: float = 0.0
         self._stream_t0: float = 0.0
         self._stream_chars: int = 0
+        self._web_pages_read: int = 0
 
     def is_cancelled(self) -> bool:
         return self._cancel.is_set()
@@ -514,6 +515,8 @@ class AppBridge:
 
     def _on_tool_start(self, name: str, args: Any) -> None:
         args_dict = args if isinstance(args, dict) else {}
+        if name == "web_research":
+            self._web_pages_read = 0
         step = {
             "tool": name,
             "name": label_for(name, done=False),
@@ -526,6 +529,104 @@ class AppBridge:
         self._turn_steps.append(step)
         self._push_live_activity(waiting=False)
 
+    def _on_research_progress(self, kind: str, payload: dict[str, Any]) -> None:
+        """Expand web_research into searched → read N pages (+ optional recency)."""
+        payload = payload or {}
+        if kind == "searched":
+            q = str(payload.get("query") or "").strip()
+            for step in reversed(self._turn_steps):
+                if step.get("tool") == "web_research" and step.get("running"):
+                    step["running"] = False
+                    step["name"] = label_for("web_research", done=True)
+                    if q:
+                        step["detail"] = (q[:80] + "…") if len(q) > 80 else q
+                        step.setdefault("args", {})["question"] = q
+                    step["t"] = ""
+                    break
+            self._push_live_activity(waiting=False)
+            return
+        if kind == "pages_read":
+            try:
+                n = int(payload.get("count") or 0)
+            except (TypeError, ValueError):
+                n = 0
+            self._web_pages_read = max(0, n)
+            # Stash on the parent web_research args for footprint at tool_end.
+            for step in reversed(self._turn_steps):
+                if step.get("tool") == "web_research":
+                    step.setdefault("args", {})["pages_read"] = n
+                    break
+            if n > 0:
+                self._turn_steps.append(
+                    {
+                        "tool": "web_pages_read",
+                        "name": f"Read {n} page{'s' if n != 1 else ''}",
+                        "detail": "untrusted",
+                        "k": "out",
+                        "t": "",
+                        "running": False,
+                        "args": {"count": n},
+                    }
+                )
+            self._push_live_activity(waiting=False)
+            return
+        if kind == "recency_note":
+            self._turn_steps.append(
+                {
+                    "tool": "recency_note",
+                    "name": label_for("recency_note", done=True),
+                    "detail": str(payload.get("detail") or ""),
+                    "k": "verify",
+                    "t": "",
+                    "running": False,
+                    "args": {},
+                }
+            )
+            self._push_live_activity(waiting=False)
+
+    def _append_guard_verify_steps(self, check_meta: Any) -> None:
+        """Add faint verify nodes for guards that actually ran this turn."""
+        if not isinstance(check_meta, dict):
+            return
+        seen: set[str] = {
+            str(s.get("tool") or "") for s in self._turn_steps if s.get("tool")
+        }
+
+        def _add(tool: str, detail: str = "") -> None:
+            if tool in seen:
+                return
+            seen.add(tool)
+            self._turn_steps.append(
+                {
+                    "tool": tool,
+                    "name": label_for(tool, done=True),
+                    "detail": detail,
+                    "k": "verify",
+                    "t": "",
+                    "running": False,
+                    "args": {},
+                }
+            )
+
+        # Quote / answer checker
+        if check_meta.get("fixed") or check_meta.get("note") or check_meta.get("claims"):
+            _add("answer_check", str(check_meta.get("note") or ""))
+        inj = check_meta.get("injection_notice") or {}
+        if isinstance(inj, dict) and (inj.get("appended") or inj.get("found")):
+            _add("injection_notice", "Instructions in a page were ignored")
+        claim = check_meta.get("action_claim") or {}
+        if isinstance(claim, dict) and (
+            claim.get("corrected") or claim.get("unbacked") or claim.get("reran")
+        ):
+            _add("action_claim_check", "Checked claims against tools")
+        research = check_meta.get("research_pipeline") or {}
+        if isinstance(research, dict) and research.get("price_warning"):
+            _add("price_check", "Price estimates may be outdated")
+        elif isinstance(research, dict) and (
+            research.get("sources_appended") or research.get("ran")
+        ):
+            _add("price_check", "Compared sources")
+
     def _on_tool_end(self, name: str, elapsed: float, outcome: str) -> None:
         from app.action_classes import denied_label_for
         from app.chats import save_chat
@@ -534,19 +635,36 @@ class AppBridge:
         args_dict: dict[str, Any] = {}
         outcome_l = str(outcome or "").lower()
         denied = outcome_l in ("denied", "deny", "cancelled", "canceled")
-        ok = outcome_l not in ("error", "denied", "deny", "fail", "failed", "cancelled", "canceled")
+        ok = outcome_l not in (
+            "error",
+            "denied",
+            "deny",
+            "fail",
+            "failed",
+            "cancelled",
+            "canceled",
+        )
+        target = None
         for step in reversed(self._turn_steps):
-            if step.get("tool") == name and step.get("running"):
-                step["running"] = False
-                if denied:
-                    step["name"] = denied_label_for(name)
-                    step["k"] = "denied"
-                    step["denied"] = True
-                else:
-                    step["name"] = label_for(name, done=True)
-                step["t"] = format_duration(elapsed)
-                args_dict = step.get("args") or {}
+            if step.get("tool") != name:
+                continue
+            if step.get("running") or name == "web_research":
+                target = step
                 break
+        if target is not None:
+            already_done = not target.get("running")
+            target["running"] = False
+            if denied:
+                target["name"] = denied_label_for(name)
+                target["k"] = "denied"
+                target["denied"] = True
+            elif not already_done:
+                target["name"] = label_for(name, done=True)
+            target["t"] = format_duration(elapsed)
+            args_dict = dict(target.get("args") or {})
+            if name == "web_research" and self._web_pages_read:
+                args_dict["pages_read"] = self._web_pages_read
+                target["args"] = args_dict
         if self._chat_doc is not None:
             record_tool(self._chat_doc, name, args_dict, ok=ok)
             try:
@@ -663,7 +781,18 @@ class AppBridge:
             if self._chat_doc is None:
                 self._chat_doc = create_chat(text)
             append_message(self._chat_doc, "user", text)
+            try:
+                self._call_js(
+                    "on_chat_title",
+                    {
+                        "id": self._chat_doc.get("id"),
+                        "title": self._chat_doc.get("title") or "New chat",
+                    },
+                )
+            except Exception:
+                pass
             self._turn_steps = []
+            self._web_pages_read = 0
             self._turn_t0 = time.perf_counter()
             self._call_js(
                 "on_activity",
@@ -714,16 +843,24 @@ class AppBridge:
 
             self._stream_t0 = 0.0
             self._stream_chars = 0
-            answer = run_user_turn(
-                self._session,
-                text,
-                on_tool_start=self._on_tool_start,
-                on_tool_end=self._on_tool_end,
-                cancel_check=self.is_cancelled,
-                on_checking=_on_checking,
-                on_stream_delta=_on_stream_delta,
-                on_stream_clear=_on_stream_clear,
-            )
+            from tools.web.research_progress import set_research_progress
+
+            set_research_progress(self._on_research_progress)
+            try:
+                answer = run_user_turn(
+                    self._session,
+                    text,
+                    on_tool_start=self._on_tool_start,
+                    on_tool_end=self._on_tool_end,
+                    cancel_check=self.is_cancelled,
+                    on_checking=_on_checking,
+                    on_stream_delta=_on_stream_delta,
+                    on_stream_clear=_on_stream_clear,
+                )
+            finally:
+                set_research_progress(None)
+            check_meta_early = getattr(self._session, "last_check", None)
+            self._append_guard_verify_steps(check_meta_early)
             total = format_duration(time.perf_counter() - self._turn_t0)
             steps = [
                 {
