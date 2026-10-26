@@ -1,8 +1,7 @@
-"""Offline: post-action os.path.exists checks for create/delete."""
+"""Offline: post-action os.path.exists checks for create/delete (this turn)."""
 
 from __future__ import annotations
 
-import json
 import sys
 import tempfile
 from pathlib import Path
@@ -22,12 +21,8 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         print(f"FAIL: {name} — {detail}")
 
 
-class _Tx:
-    def __init__(self, path: Path) -> None:
-        self.path = path
-
-
 def main() -> int:
+    from agent.action_claim_check import note_fs_verify_target, reset_action_claim_state
     from agent.post_action_verify import verify_create_delete
 
     with tempfile.TemporaryDirectory(prefix="miniai_pav_") as tmp:
@@ -37,35 +32,14 @@ def main() -> int:
         folder = root / "dir"
         folder.mkdir()
         gone = root / "gone.txt"
-        # Simulate deleted: path should not exist
-        tx = root / "t.jsonl"
-        events = [
-            {
-                "type": "tool_call",
-                "name": "create_file",
-                "args": {"path": str(f)},
-                "result": f"Created {f}",
-                "outcome": "ok",
-            },
-            {
-                "type": "tool_call",
-                "name": "create_folder",
-                "args": {"path": str(folder)},
-                "result": f"Created folder {folder}",
-                "outcome": "ok",
-            },
-            {
-                "type": "tool_call",
-                "name": "delete_file",
-                "args": {"path": str(gone)},
-                "result": f"Moved {gone} to the Recycle Bin.",
-                "outcome": "ok",
-            },
-        ]
-        tx.write_text(
-            "\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8"
-        )
-        meta = verify_create_delete(transcript=_Tx(tx))
+        # gone never created → delete verify: path absent
+
+        reset_action_claim_state()
+        note_fs_verify_target("create_file", str(f), was_dir=False)
+        note_fs_verify_target("create_folder", str(folder), was_dir=True)
+        note_fs_verify_target("delete_file", str(gone), was_dir=False)
+
+        meta = verify_create_delete()
         check("ran", meta["ran"])
         check("passed", meta["passed"], str(meta))
         details = [c["detail"] for c in meta["checks"]]
@@ -76,28 +50,22 @@ def main() -> int:
             str(details),
         )
         check(
-            "recycle",
-            any("Recycle Bin" in d for d in details),
+            "recycle_or_gone",
+            any(("Recycle Bin" in d) or d.startswith("Gone from") for d in details),
             str(details),
         )
 
         # Fail case: create reported but file missing
+        reset_action_claim_state()
         missing = root / "nope.txt"
-        tx2 = root / "t2.jsonl"
-        tx2.write_text(
-            json.dumps(
-                {
-                    "type": "tool_call",
-                    "name": "create_file",
-                    "args": {"path": str(missing)},
-                    "outcome": "ok",
-                }
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        bad = verify_create_delete(transcript=_Tx(tx2))
+        note_fs_verify_target("create_file", str(missing), was_dir=False)
+        bad = verify_create_delete()
         check("fail_missing", bad["ran"] and not bad["passed"], str(bad))
+
+        # Prior-turn leak: after reset, old paths must not appear
+        reset_action_claim_state()
+        empty = verify_create_delete()
+        check("empty_after_reset", not empty["ran"], str(empty))
 
     print(f"FAILURES={FAILURES}")
     return 1 if FAILURES else 0

@@ -126,6 +126,9 @@ _succeeded_tools: set[str] = set()
 _denied_tools: set[str] = set()
 _failed_tools: set[str] = set()
 _succeeded_paths: set[str] = set()
+# (tool, path, was_dir) for successful create/delete this turn only.
+_fs_verify_targets: list[tuple[str, str, bool]] = []
+_turn_id: str = ""
 _turn_started_mono: float = 0.0
 # Tools already performed in code before the model turn (e.g. remember-intent).
 _pre_succeeded_tools: set[str] = set()
@@ -144,17 +147,24 @@ def set_auto_recall_hits(n: int) -> None:
 
 
 def reset_action_claim_state() -> None:
+    import secrets
     import time
 
-    global _turn_started_mono, _auto_recall_hits
+    global _turn_started_mono, _auto_recall_hits, _turn_id
     _succeeded_tools.clear()
     _denied_tools.clear()
     _failed_tools.clear()
     _succeeded_paths.clear()
+    _fs_verify_targets.clear()
     _succeeded_tools.update(_pre_succeeded_tools)
     _pre_succeeded_tools.clear()
     # Keep _auto_recall_hits until explicitly reset by chat for the next turn.
     _turn_started_mono = time.perf_counter()
+    _turn_id = secrets.token_hex(8)
+
+
+def get_turn_id() -> str:
+    return _turn_id
 
 
 def get_succeeded_tools() -> set[str]:
@@ -171,6 +181,11 @@ def get_failed_tools() -> set[str]:
 
 def get_succeeded_paths() -> set[str]:
     return set(_succeeded_paths)
+
+
+def get_fs_verify_targets() -> list[tuple[str, str, bool]]:
+    """Successful create_file / create_folder / delete_file paths this turn."""
+    return list(_fs_verify_targets)
 
 
 def remaining_turn_budget_s() -> float:
@@ -203,6 +218,23 @@ def _remember_paths_from_result(name: str, result_text: str) -> None:
         base = raw.replace("\\", "/").rsplit("/", 1)[-1]
         if base:
             _succeeded_paths.add(base)
+        if name in ("create_file", "create_folder", "delete_file"):
+            was_dir = name == "create_folder" or (
+                name == "delete_file"
+                and ("folder" in (result_text or "").lower() or "directory" in (result_text or "").lower())
+            )
+            # Avoid duplicate path entries for the same tool.
+            key = (name, raw)
+            if not any(t == key[0] and p == key[1] for t, p, _ in _fs_verify_targets):
+                _fs_verify_targets.append((name, raw, was_dir))
+
+
+def note_fs_verify_target(name: str, path: str, *, was_dir: bool = False) -> None:
+    """Record a create/delete path for this-turn disk verification."""
+    if not name or not path:
+        return
+    if not any(t == name and p == path for t, p, _ in _fs_verify_targets):
+        _fs_verify_targets.append((name, path, was_dir))
 
 
 def record_tool_outcome(name: str, result_text: str) -> str:
@@ -345,6 +377,16 @@ def format_correction(unbacked: list[dict[str, Any]], remember_gap: bool) -> str
     return CORRECTION_TMPL.format(claim=short)
 
 
+def claims_present_in_answer(answer: str) -> list[str]:
+    """Return claim labels whose patterns appear in the answer (backed or not)."""
+    found: list[str] = []
+    text = answer or ""
+    for claim, pattern, _tools in _CLAIM_SPECS:
+        if pattern.search(text):
+            found.append(claim)
+    return found
+
+
 def apply_action_claim_correction(
     answer: str,
     user_text: str,
@@ -359,14 +401,18 @@ def apply_action_claim_correction(
     needs, unbacked, remember_gap = needs_action_claim_fix(
         answer, user_text, succeeded
     )
+    present = claims_present_in_answer(answer)
     detail = {
         "fired": needs,
         "reran": reran,
         "unbacked": unbacked,
         "remember_gap": remember_gap,
+        "claims_present": present,
+        "relevant": bool(present) or remember_gap or bool(unbacked),
         "succeeded": sorted(succeeded),
         "denied": sorted(_denied_tools),
         "correction_appended": False,
+        "turn_id": _turn_id,
     }
     if not needs:
         if transcript is not None:

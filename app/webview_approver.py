@@ -527,12 +527,19 @@ class AppBridge:
             self._session = new_session(self._provider)
 
     def _on_tool_start(self, name: str, args: Any) -> None:
-        args_dict = args if isinstance(args, dict) else {}
+        args_dict = dict(args) if isinstance(args, dict) else {}
         if name == "web_research":
             self._web_pages_read = 0
+        if name == "delete_file" and args_dict.get("path"):
+            try:
+                from pathlib import Path as _P
+
+                args_dict["was_dir"] = _P(str(args_dict["path"])).is_dir()
+            except Exception:
+                args_dict.setdefault("was_dir", False)
         step = {
             "tool": name,
-            "name": label_for(name, done=False),
+            "name": label_for(name, done=False, args=args_dict),
             "detail": detail_for(name, args_dict),
             "k": class_for(name),
             "t": "",
@@ -598,12 +605,19 @@ class AppBridge:
             self._push_live_activity(waiting=False)
 
     def _append_guard_verify_steps(self, check_meta: Any) -> None:
-        """Add faint verify nodes for guards that actually ran this turn."""
+        """Add verify nodes only for guards that checked something this turn."""
         if not isinstance(check_meta, dict):
             return
         seen: set[str] = {
             str(s.get("tool") or "") for s in self._turn_steps if s.get("tool")
         }
+        turn_id = ""
+        claim0 = check_meta.get("action_claim") or {}
+        if isinstance(claim0, dict):
+            turn_id = str(claim0.get("turn_id") or "")
+        fs0 = check_meta.get("post_action_verify") or {}
+        if isinstance(fs0, dict) and fs0.get("turn_id"):
+            turn_id = str(fs0.get("turn_id") or turn_id)
 
         def _add(tool: str, detail: str = "") -> None:
             if tool in seen:
@@ -618,49 +632,68 @@ class AppBridge:
                     "t": "",
                     "running": False,
                     "args": {},
+                    "turn_id": turn_id,
                 }
             )
 
-        # Quote / answer checker
-        if check_meta.get("fixed") or check_meta.get("note") or check_meta.get("claims"):
-            _add("answer_check", str(check_meta.get("note") or ""))
+        # Quote / source checker — only when there were claims to check.
+        claims = check_meta.get("claims") or []
+        quote_relevant = bool(claims) or (
+            check_meta.get("fixed")
+            and check_meta.get("note")
+            and "declined" not in str(check_meta.get("note") or "").lower()
+            and check_meta.get("source") != "decline"
+            and not (check_meta.get("listing_honesty") or {}).get("corrected")
+            and (
+                "source" in str(check_meta.get("note") or "").lower()
+                or "quote" in str(check_meta.get("note") or "").lower()
+                or "checking" in str(check_meta.get("note") or "").lower()
+            )
+        )
+        if quote_relevant and claims:
+            _add(
+                "answer_check",
+                str(check_meta.get("note") or "Checked the answer against sources"),
+            )
         inj = check_meta.get("injection_notice") or {}
         if isinstance(inj, dict) and (inj.get("appended") or inj.get("found")):
             _add("injection_notice", "Instructions in a page were ignored")
         claim = check_meta.get("action_claim") or {}
-        # Runs every turn after tools; show green when it ran (pass or correct).
-        if isinstance(claim, dict) and (
-            claim.get("corrected")
-            or claim.get("unbacked")
-            or claim.get("reran")
-            or claim.get("succeeded") is not None
-            or "fired" in claim
-        ):
-            detail = "Checked claims against tools"
+        # Only when the answer had action claims (or a remember gap) to check.
+        if isinstance(claim, dict) and claim.get("relevant"):
+            detail = "Claims matched what happened"
             if claim.get("correction_appended"):
                 detail = "Claim did not match tools — corrected"
-            elif not claim.get("fired"):
-                detail = "Claims matched what happened"
+            elif claim.get("unbacked") or claim.get("fired"):
+                detail = "Checked claims against tools"
             _add("action_claim_check", detail)
         fs_v = check_meta.get("post_action_verify") or {}
-        if isinstance(fs_v, dict) and fs_v.get("ran"):
-            summary = str(fs_v.get("summary") or "")
-            if not summary and fs_v.get("checks"):
-                summary = "; ".join(
-                    str(c.get("detail") or "")
-                    for c in fs_v["checks"]
-                    if c.get("ok")
+        if isinstance(fs_v, dict) and fs_v.get("ran") and fs_v.get("checks"):
+            # One node per successful check (truthful detail strings).
+            for c in fs_v["checks"]:
+                if not c.get("ok"):
+                    continue
+                detail = str(c.get("detail") or "")
+                key = f"post_action_verify:{detail}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                self._turn_steps.append(
+                    {
+                        "tool": "post_action_verify",
+                        "name": label_for("post_action_verify", done=True),
+                        "detail": detail,
+                        "k": "verify",
+                        "t": "",
+                        "running": False,
+                        "args": {},
+                        "turn_id": turn_id,
+                    }
                 )
-            _add(
-                "post_action_verify",
-                summary or "Checked the disk after the action",
-            )
         listing = check_meta.get("listing_honesty") or {}
         if isinstance(listing, dict) and listing.get("corrected"):
             _add("listing_honesty", "Removed names not in the folder listing")
-        decline = check_meta.get("decline_honesty") or {}
-        if isinstance(decline, dict) and decline.get("corrected"):
-            _add("decline_honesty", "You declined, so nothing was changed")
+        # Decline: muted denied node + answer wording only — no extra verify node.
         research = check_meta.get("research_pipeline") or {}
         if isinstance(research, dict) and research.get("price_warning"):
             _add("price_check", "Price estimates may be outdated")
@@ -696,14 +729,15 @@ class AppBridge:
         if target is not None:
             already_done = not target.get("running")
             target["running"] = False
+            args_dict = dict(target.get("args") or {})
             if denied:
-                target["name"] = denied_label_for(name)
+                target["name"] = denied_label_for(name, args_dict)
                 target["k"] = "denied"
                 target["denied"] = True
             elif not already_done:
-                target["name"] = label_for(name, done=True)
+                # After delete the path is gone — keep was_dir from tool_start.
+                target["name"] = label_for(name, done=True, args=args_dict)
             target["t"] = format_duration(elapsed)
-            args_dict = dict(target.get("args") or {})
             if name == "web_research" and self._web_pages_read:
                 args_dict["pages_read"] = self._web_pages_read
                 target["args"] = args_dict
@@ -930,7 +964,17 @@ class AppBridge:
             if isinstance(check_meta, dict):
                 from app.footprint import record_verify
 
-                if check_meta.get("fixed"):
+                # Decline wording: replace bubble only — no Footprint verify row.
+                if check_meta.get("source") == "decline" and check_meta.get(
+                    "stream_corrected"
+                ):
+                    check_payload = {
+                        "fixed": True,
+                        "note": "",
+                        "claims": [],
+                        "silent": True,
+                    }
+                elif check_meta.get("fixed") and check_meta.get("source") != "decline":
                     changed = [
                         c.get("claim") or ""
                         for c in (check_meta.get("claims") or [])
@@ -946,32 +990,48 @@ class AppBridge:
                         "note": note,
                         "claims": changed,
                     }
-                    record_verify(
-                        self._chat_doc,
-                        note,
-                        status="correction" if changed else "pass",
+                    tid = str(
+                        (check_meta.get("action_claim") or {}).get("turn_id") or ""
                     )
-                # Independent disk checks → Footprint "Verified by code"
+                    quote_claims = check_meta.get("claims") or []
+                    if quote_claims:
+                        record_verify(
+                            self._chat_doc,
+                            note,
+                            status="correction" if changed else "pass",
+                            turn_id=tid,
+                        )
+                    elif check_meta.get("source") == "listing":
+                        record_verify(
+                            self._chat_doc,
+                            note,
+                            status="pass",
+                            turn_id=tid,
+                        )
+                # Independent disk checks → Footprint (this turn only)
                 fs_v = check_meta.get("post_action_verify") or {}
                 if isinstance(fs_v, dict) and fs_v.get("ran"):
+                    tid = str(fs_v.get("turn_id") or "")
                     for c in fs_v.get("checks") or []:
                         if c.get("ok"):
                             record_verify(
                                 self._chat_doc,
                                 str(c.get("detail") or "Checked the disk"),
                                 status="pass",
+                                turn_id=tid,
                             )
                 claim = check_meta.get("action_claim") or {}
-                if isinstance(claim, dict) and "fired" in claim and not claim.get(
-                    "correction_appended"
+                if (
+                    isinstance(claim, dict)
+                    and claim.get("relevant")
+                    and not claim.get("correction_appended")
                 ):
-                    # Guard ran and claims were fine (or corrected via rerun without append).
-                    if not claim.get("fired") or claim.get("reran"):
-                        record_verify(
-                            self._chat_doc,
-                            "Checked the claim against what actually happened",
-                            status="pass",
-                        )
+                    record_verify(
+                        self._chat_doc,
+                        "Checked the claim against what actually happened",
+                        status="pass",
+                        turn_id=str(claim.get("turn_id") or ""),
+                    )
             # Context token estimate from session history when available.
             try:
                 from app.footprint import set_context_tokens

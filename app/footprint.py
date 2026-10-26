@@ -128,13 +128,27 @@ def record_verify(
     *,
     status: str = "pass",
     when: Optional[str] = None,
+    turn_id: str = "",
 ) -> Optional[dict[str, Any]]:
     if doc is None:
         return None
     fp = ensure_footprint(doc)
-    fp["verified"].append(
-        {"label": label, "status": status, "time": when or _now_hm()}
-    )
+    # Count each (turn_id, label) once — prevents cross-turn re-counts.
+    if turn_id:
+        for existing in fp.get("verified") or []:
+            if (
+                existing.get("turn_id") == turn_id
+                and existing.get("label") == label
+            ):
+                return fp
+    entry: dict[str, Any] = {
+        "label": label,
+        "status": status,
+        "time": when or _now_hm(),
+    }
+    if turn_id:
+        entry["turn_id"] = turn_id
+    fp["verified"].append(entry)
     return fp
 
 
@@ -175,7 +189,17 @@ def _read_label(tool: str, args: dict[str, Any]) -> tuple[str, str]:
 
 def _change_label(tool: str, args: dict[str, Any]) -> str:
     if tool == "delete_file":
-        return f"Deleted {args.get('path') or 'a file'}"
+        path = args.get("path")
+        is_folder = bool(args.get("was_dir"))
+        if path and not is_folder:
+            try:
+                from pathlib import Path as _P
+
+                is_folder = _P(str(path)).is_dir()
+            except Exception:
+                pass
+        noun = "folder" if is_folder else "file"
+        return f"Deleted {noun} {path or ('a ' + noun)}"
     if tool == "move_files":
         moves = args.get("moves") or []
         n = len(moves) if isinstance(moves, list) else 0

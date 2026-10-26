@@ -1,81 +1,147 @@
-"""Independent filesystem checks after successful create/delete (not tool text)."""
+"""Independent filesystem checks after successful create/delete (this turn only)."""
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from typing import Any, Optional
 
 
-def _paths_from_transcript(transcript: Any, tool_names: set[str]) -> list[tuple[str, str]]:
-    """Return (tool, path) pairs from successful tool_call events."""
-    if transcript is None:
-        return []
-    path = getattr(transcript, "path", None)
-    if path is None:
-        return []
+def _parent_label(path: str) -> str:
+    """Short place name for truthful wording (Desktop, Downloads, …)."""
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        parent = Path(path).parent
+        name = parent.name or str(parent)
     except Exception:
-        return []
-    out: list[tuple[str, str]] = []
-    for line in text.splitlines():
+        return "disk"
+    known = {
+        "desktop",
+        "documents",
+        "downloads",
+        "pictures",
+        "music",
+        "videos",
+    }
+    if name.lower() in known:
+        return name
+    return name or "disk"
+
+
+def _recycle_bin_has_basename(basename: str) -> bool:
+    """True if Shell.Application Namespace(10) lists an item with this name.
+
+    This is a real Recycle Bin membership check — not merely path absence.
+    """
+    if not basename:
+        return False
+    try:
+        import win32com.client  # type: ignore
+    except ImportError:
         try:
-            ev = json.loads(line)
-        except json.JSONDecodeError:
+            import pythoncom  # noqa: F401
+            from win32com.client import Dispatch  # type: ignore
+        except ImportError:
+            # Fallback without pywin32: COM via ctypes is heavy; skip.
+            return False
+        else:
+            shell = Dispatch("Shell.Application")
+            bin_ns = shell.NameSpace(10)
+            if bin_ns is None:
+                return False
+            items = bin_ns.Items()
+            needle = basename.lower()
+            for i in range(items.Count):
+                try:
+                    if str(items.Item(i).Name or "").lower() == needle:
+                        return True
+                except Exception:
+                    continue
+            return False
+    shell = win32com.client.Dispatch("Shell.Application")
+    bin_ns = shell.NameSpace(10)
+    if bin_ns is None:
+        return False
+    items = bin_ns.Items()
+    needle = basename.lower()
+    for i in range(items.Count):
+        try:
+            if str(items.Item(i).Name or "").lower() == needle:
+                return True
+        except Exception:
             continue
-        if ev.get("type") != "tool_call":
-            continue
-        name = str(ev.get("name") or "")
-        if name not in tool_names:
-            continue
-        if str(ev.get("outcome") or "ok").lower() in ("denied", "failed", "error"):
-            continue
-        args = ev.get("args") or {}
-        p = args.get("path")
-        if isinstance(p, str) and p.strip():
-            out.append((name, p.strip()))
-    return out
+    return False
 
 
 def verify_create_delete(transcript: Any = None) -> dict[str, Any]:
-    """os.path.exists checks for create_file / create_folder / delete_file.
+    """os.path.exists checks for this turn's create_file / create_folder / delete_file.
 
-    Returns a meta dict with ``checks`` (list of {tool, path, ok, detail})
-    and ``passed`` / ``ran`` flags for UI + footprint.
+    Uses in-memory turn targets (not the full session transcript) so prior
+    turns cannot leak into this turn's verify nodes or Footprint.
     """
-    pairs = _paths_from_transcript(
-        transcript, {"create_file", "create_folder", "delete_file"}
-    )
+    from agent.action_claim_check import get_fs_verify_targets, get_turn_id
+
+    # transcript kept for API compat; intentionally unused for scoping.
+    _ = transcript
+    targets = get_fs_verify_targets()
     checks: list[dict[str, Any]] = []
-    for tool, path in pairs:
+    for tool, path, was_dir in targets:
         exists = os.path.exists(path)
+        kind = "folder" if (was_dir or (exists and os.path.isdir(path))) else "file"
         if tool == "delete_file":
-            ok = not exists
-            detail = (
-                "File is in the Recycle Bin"
-                if ok
-                else f"File still present on disk: {path}"
+            gone = not exists
+            place = _parent_label(path)
+            base = Path(path).name
+            in_bin = False
+            if gone:
+                in_bin = _recycle_bin_has_basename(base)
+            if gone and in_bin:
+                detail = f"{'Folder' if kind == 'folder' else 'File'} is in the Recycle Bin"
+            elif gone:
+                detail = (
+                    f"Gone from {place} (sent to the Recycle Bin)"
+                )
+            else:
+                detail = f"{'Folder' if kind == 'folder' else 'File'} still present on disk: {path}"
+            ok = gone
+            checks.append(
+                {
+                    "tool": tool,
+                    "path": path,
+                    "ok": ok,
+                    "detail": detail,
+                    "checked": "path_absent"
+                    + ("+recycle_bin_name" if in_bin else ""),
+                }
             )
         elif tool == "create_folder":
             ok = exists and os.path.isdir(path)
             detail = "Folder exists on disk" if ok else f"Folder missing: {path}"
+            checks.append(
+                {
+                    "tool": tool,
+                    "path": path,
+                    "ok": ok,
+                    "detail": detail,
+                    "checked": "path_isdir",
+                }
+            )
         else:
             ok = exists and os.path.isfile(path)
             detail = "File exists on disk" if ok else f"File missing: {path}"
-        checks.append(
-            {
-                "tool": tool,
-                "path": path,
-                "ok": ok,
-                "detail": detail,
-            }
-        )
+            checks.append(
+                {
+                    "tool": tool,
+                    "path": path,
+                    "ok": ok,
+                    "detail": detail,
+                    "checked": "path_isfile",
+                }
+            )
     passed = [c for c in checks if c["ok"]]
     return {
         "ran": bool(checks),
         "passed": bool(passed) and all(c["ok"] for c in checks),
         "checks": checks,
         "summary": "; ".join(c["detail"] for c in passed) if passed else "",
+        "turn_id": get_turn_id(),
     }

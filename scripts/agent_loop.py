@@ -1150,18 +1150,23 @@ def run_tool_rounds(
         check_meta["post_action_verify"] = fs_verify
         if listing_meta and listing_meta.get("corrected"):
             check_meta["fixed"] = True
+            check_meta["source"] = "listing"
             if not check_meta.get("note"):
                 check_meta["note"] = "Corrected file listing from list_directory"
         if decline_meta and decline_meta.get("corrected"):
-            check_meta["fixed"] = True
-            if not check_meta.get("note"):
-                check_meta["note"] = "Noted that you declined"
+            # Wording-only fix: do NOT mark as answer/source check (no amber note /
+            # extra verify node). stream_corrected still replaces the bubble.
+            check_meta["source"] = "decline"
         # Guards / notices changed what was streamed → UI replaces the bubble.
         if streamed_snapshot and shown != streamed_snapshot:
             check_meta["stream_corrected"] = True
-            check_meta["fixed"] = True
-            if not check_meta.get("note"):
-                check_meta["note"] = "Corrected after checking"
+            if check_meta.get("source") != "decline":
+                check_meta["fixed"] = True
+                if not check_meta.get("note"):
+                    check_meta["note"] = "Corrected after checking"
+            else:
+                # Still tell the UI to replace streamed text without a verify node.
+                check_meta["stream_corrected"] = True
         response.content = shown
         if transcript is not None:
             transcript.final(raw=raw, shown=shown)
