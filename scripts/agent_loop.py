@@ -942,6 +942,26 @@ def run_tool_rounds(
                         thinking = None
 
                     return _EarlyPass()
+            elif ok_paths and coding_turn:
+                # Code written but no tests found yet — nudge before the model stops.
+                from pathlib import Path as _Path
+
+                from tools.code.paths import workspace_dir as _ws_dir
+
+                for rel in ok_paths:
+                    parts = _Path(rel.replace("\\", "/")).parts
+                    if len(parts) < 2:
+                        continue
+                    proj = _ws_dir() / parts[0]
+                    tests_dir = proj / "tests"
+                    if not tests_dir.is_dir() or not any(tests_dir.glob("test_*.py")):
+                        nudge = (
+                            f"Project '{parts[0]}/' has code but no pytest tests yet. "
+                            f"Write tests under {parts[0]}/tests/ and call run_tests "
+                            "until they pass before finishing."
+                        )
+                        history.append(ChatMessage(role="system", content=nudge))
+                        break
 
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
