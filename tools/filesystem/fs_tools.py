@@ -142,9 +142,9 @@ def list_directory(
         lim = 200
     lim = max(1, min(lim, 1000))
 
-    root = Path(path)
+    root = resolve_fs_path(path)
     entries: list[dict[str, Any]] = []
-    for name in os.listdir(path):
+    for name in os.listdir(root):
         full = root / name
         try:
             st = full.lstat()
@@ -210,7 +210,9 @@ def _binary_refuse_message(path: Path, label: str, size_bytes: int) -> str:
 
 
 def resolve_fs_path(path: str) -> Path:
-    """Accept normal paths and file:// URIs (common when prompts pass a page URI)."""
+    """Accept normal paths and file:// URIs; expand Desktop/~/Desktop to real folders."""
+    from config.paths import expand_user_path
+
     raw = (path or "").strip()
     if raw.lower().startswith("file:"):
         from urllib.parse import unquote, urlparse
@@ -224,7 +226,7 @@ def resolve_fs_path(path: str) -> Path:
             if parsed.netloc.lower() not in ("", "localhost"):
                 local = "\\\\" + parsed.netloc + local
         raw = local
-    return Path(raw)
+    return expand_user_path(raw)
 
 
 def read_file(path: str) -> str:
@@ -309,34 +311,37 @@ def backup_existing_file(target: Path) -> Path:
 
 
 def create_file(path: str, content: str) -> str:
-    assert_not_protected(path)
+    target = resolve_fs_path(path)
+    shown = str(target)
+    assert_not_protected(shown)
     check_permission(
         action="create_file",
         tier=Tier.CONFIRM,
-        description=f"Create new file: {path}\n---\n{content}\n---",
+        description=f"Create new file: {shown}\n---\n{content}\n---",
     )
-    target = Path(path)
     if target.exists():
         raise FileExistsError(
-            f"File already exists, not overwriting: {path}. "
+            f"File already exists, not overwriting: {shown}. "
             "Use write_file if you intend to replace its contents."
         )
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
-    _commit_if_workspace(path, f"create_file {path}")
-    return f"Created {path} ({len(content.encode('utf-8'))} bytes written)."
+    _commit_if_workspace(shown, f"create_file {shown}")
+    return f"Created {shown} ({len(content.encode('utf-8'))} bytes written)."
 
 
 def write_file(path: str, content: str) -> str:
-    assert_not_protected(path)
-    target = Path(path)
+    target = resolve_fs_path(path)
+    shown = str(target)
+    assert_not_protected(shown)
     if target.exists():
         description = (
-            f"Overwrite existing file: {path}\n"
+            f"Overwrite existing file: {shown}\n"
             f"A backup of the current file will be kept.\n"
             f"---\n{content}\n---"
         )
     else:
-        description = f"Create file (did not exist): {path}\n---\n{content}\n---"
+        description = f"Create file (did not exist): {shown}\n---\n{content}\n---"
     check_permission(
         action="write_file",
         tier=Tier.CONFIRM,
@@ -347,43 +352,45 @@ def write_file(path: str, content: str) -> str:
             backup_path = backup_existing_file(target)
         except Exception as exc:
             raise RuntimeError(
-                f"Backup failed before overwrite of {path}; nothing was written. "
+                f"Backup failed before overwrite of {shown}; nothing was written. "
                 f"({exc})"
             ) from exc
         target.write_text(content, encoding="utf-8")
-        _commit_if_workspace(path, f"write_file {path}")
+        _commit_if_workspace(shown, f"write_file {shown}")
         return (
-            f"Overwrote {path} ({len(content.encode('utf-8'))} bytes written). "
+            f"Overwrote {shown} ({len(content.encode('utf-8'))} bytes written). "
             f"Backup saved at {backup_path}."
         )
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
-    _commit_if_workspace(path, f"write_file {path}")
-    return f"Overwrote {path} ({len(content.encode('utf-8'))} bytes written)."
+    _commit_if_workspace(shown, f"write_file {shown}")
+    return f"Overwrote {shown} ({len(content.encode('utf-8'))} bytes written)."
 
 
 def delete_file(path: str) -> str:
-    assert_not_protected(path)
-    target = Path(path)
+    target = resolve_fs_path(path)
+    shown = str(target)
+    assert_not_protected(shown)
     if not target.exists():
-        raise FileNotFoundError(f"No such file: {path}")
+        raise FileNotFoundError(f"No such file: {shown}")
     # Drive type and size checks before any permission prompt.
     assert_safe_for_recycle_bin(target)
     check_permission(
         action="delete_file",
         tier=Tier.ALWAYS_CONFIRM,
-        description=f"Move to Recycle Bin: {path}",
+        description=f"Move to Recycle Bin: {shown}",
     )
     try:
         send2trash(str(target.resolve()))
     except Exception as exc:
         # Never fall back to a permanent delete.
         raise RuntimeError(
-            f"Could not move {path} to the Recycle Bin ({exc}). "
+            f"Could not move {shown} to the Recycle Bin ({exc}). "
             "The file was left in place."
         ) from exc
-    _commit_if_workspace(path, f"delete_file {path}")
+    _commit_if_workspace(shown, f"delete_file {shown}")
     return (
-        f"Moved {path} to the Recycle Bin. It can be restored from there."
+        f"Moved {shown} to the Recycle Bin. It can be restored from there."
     )
 
 
@@ -394,53 +401,55 @@ def move_file(src: str, dest: str) -> str:
     Prompts at CONFIRM before acting.
     Prefer move_files when organising many files (one confirmation).
     """
-    assert_not_protected(src)
-    assert_not_protected(dest)
-    source = Path(src)
-    destination = Path(dest)
+    source = resolve_fs_path(src)
+    destination = resolve_fs_path(dest)
+    src_s, dest_s = str(source), str(destination)
+    assert_not_protected(src_s)
+    assert_not_protected(dest_s)
     if not source.exists():
-        raise FileNotFoundError(f"No such file: {src}")
+        raise FileNotFoundError(f"No such file: {src_s}")
     if not source.is_file():
         raise IsADirectoryError(
-            f"move_file only moves files, not directories: {src}"
+            f"move_file only moves files, not directories: {src_s}"
         )
     if destination.exists():
         raise FileExistsError(
-            f"Destination already exists, not overwriting: {dest}"
+            f"Destination already exists, not overwriting: {dest_s}"
         )
     check_permission(
         action="move_file",
         tier=Tier.CONFIRM,
-        description=f"Move file:\n  from: {src}\n  to:   {dest}",
+        description=f"Move file:\n  from: {src_s}\n  to:   {dest_s}",
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(source), str(destination))
-    _commit_if_workspace(src, f"move_file {src} -> {dest}")
-    _commit_if_workspace(dest, f"move_file {src} -> {dest}")
-    return f"Moved {src} to {dest}."
+    _commit_if_workspace(src_s, f"move_file {src_s} -> {dest_s}")
+    _commit_if_workspace(dest_s, f"move_file {src_s} -> {dest_s}")
+    return f"Moved {src_s} to {dest_s}."
 
 
 MAX_BATCH_MOVES = 200
 _BATCH_LIST_DISPLAY = 30
 
 
-def _validate_one_move(src: str, dest: str) -> tuple[Path, Path]:
+def _validate_one_move(src: str, dest: str) -> tuple[str, str, Path, Path]:
     """Same protections as move_file; raises before any permission prompt."""
-    assert_not_protected(src)
-    assert_not_protected(dest)
-    source = Path(src)
-    destination = Path(dest)
+    source = resolve_fs_path(src)
+    destination = resolve_fs_path(dest)
+    src_s, dest_s = str(source), str(destination)
+    assert_not_protected(src_s)
+    assert_not_protected(dest_s)
     if not source.exists():
-        raise FileNotFoundError(f"No such file: {src}")
+        raise FileNotFoundError(f"No such file: {src_s}")
     if not source.is_file():
         raise IsADirectoryError(
-            f"move_files only moves files, not directories: {src}"
+            f"move_files only moves files, not directories: {src_s}"
         )
     if destination.exists():
         raise FileExistsError(
-            f"Destination already exists, not overwriting: {dest}"
+            f"Destination already exists, not overwriting: {dest_s}"
         )
-    return source, destination
+    return src_s, dest_s, source, destination
 
 
 def move_files(moves: list[dict[str, str]]) -> str:
@@ -467,13 +476,11 @@ def move_files(moves: list[dict[str, str]]) -> str:
             raise ValueError(
                 f"moves[{i}] requires non-empty string src and dest."
             )
-        source, destination = _validate_one_move(src, dest)
-        planned.append((src, dest, source, destination))
+        planned.append(_validate_one_move(src, dest))
 
     # Detect duplicate destinations in the batch (would overwrite mid-batch).
     seen_dest: set[str] = set()
     for src, dest, _s, _d in planned:
-        key = str(Path(dest).resolve()) if Path(dest).parent.exists() else dest
         key = os.path.normcase(os.path.abspath(dest))
         if key in seen_dest:
             raise FileExistsError(

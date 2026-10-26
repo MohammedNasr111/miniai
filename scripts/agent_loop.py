@@ -1107,14 +1107,19 @@ def run_tool_rounds(
 
 def system_prompt() -> str:
     today = datetime.now().astimezone().strftime("%Y-%m-%d")
+    from config.paths import user_folders_prompt_line
     from prompts.playbook_loader import format_playbook_section, load_playbook_text
 
     playbook_section = format_playbook_section(load_playbook_text())
+    folders_line = user_folders_prompt_line()
     return (
         f"Today's date is {today}. "
         f"You are running on {platform.system()} in the directory "
         f"{os.getcwd()}. When the user refers to \"this project\" or "
         f"\"the project root\" with no path given, use this directory. "
+        f"{folders_line} "
+        f"When the user says Desktop, Documents, Downloads, Pictures, Music, "
+        f"or Videos, use those exact paths (not %USERPROFILE%\\Desktop). "
         f"Always use tools to answer questions about files - never guess "
         f"or answer from assumption. "
         f"For arithmetic, use calculate (no approval) instead of run_code. "
