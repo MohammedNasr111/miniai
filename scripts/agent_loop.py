@@ -921,6 +921,27 @@ def run_tool_rounds(
                         )
                     except Exception:
                         pass
+                # Green tests for this project → stop looping (avoids noop edits).
+                low = auto_msg.lower()
+                if (
+                    "passed" in low
+                    and "failed" not in low
+                    and "error" not in low
+                    and "syntaxerror" not in low
+                ):
+                    early_stop_status = (
+                        "Tests passed. "
+                        + auto_msg[auto_msg.index("Tests:") :]
+                        if "Tests:" in auto_msg
+                        else auto_msg
+                    )
+
+                    class _EarlyPass:
+                        content = early_stop_status
+                        tool_calls = None
+                        thinking = None
+
+                    return _EarlyPass()
 
         if cancel_check is not None and cancel_check():
             raise KeyboardInterrupt()
