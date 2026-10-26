@@ -65,4 +65,4 @@ Capture: `scripts/capture_v11_ui.py`. Summary: `app/design/actual_v11_summary.js
 | `01138c7` | App: chat title, streaming markdown, web sub-steps, footprint pages |
 | `9319f3d` | App: single-instance mutex and idle-only model warm-up |
 | `428f8cb`…`e195543` | Listing honesty, auto-test isolation, syntax note, early-stop, test nudge |
-| _(this)_ | Round 7c: real-use fixes (user folders, trace honesty, streaming markdown, single instance, green self-check) |
+| `184a02e` | Round 7c: real-use fixes (user folders, trace honesty, streaming markdown, single instance, green self-check) |
