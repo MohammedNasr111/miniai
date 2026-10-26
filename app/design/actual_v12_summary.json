@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "scene": "folder_ticket",
+      "ok": true,
+      "assert": "(function(){\n                  const t=document.querySelector('.ticket:not(.done)');\n                  if(!t) return false;\n                  const txt=t.innerText||'';\n                  return /Create folder/i.test(txt) && /Don.?t create/i.test(txt);\n                })()",
+      "png": "actual_v12_folder_ticket.png",
+      "txt": "actual_v12_folder_ticket.txt",
+      "md5": "24084cdb1aebc15daec7017ce2aec725",
+      "error": ""
+    },
+    {
+      "scene": "verify_delete",
+      "ok": true,
+      "assert": "(function(){\n                  const v=document.querySelector('.step[data-k=\"verify\"]');\n                  if(!v) return false;\n                  const txt=v.innerText||'';\n                  const fp=(document.getElementById('fp-chk-n')||{}).textContent||'0';\n                  const n=parseInt(fp,10)||0;\n                  return /Checked|Recycle Bin|File/i.test(txt) && n>=1;\n                })()",
+      "png": "actual_v12_verify_delete.png",
+      "txt": "actual_v12_verify_delete.txt",
+      "md5": "b2ee71f459a5c259a457ff180fe08214",
+      "error": ""
+    },
+    {
+      "scene": "declined_wording",
+      "ok": true,
+      "assert": "(function(){\n                  const body=document.body?(document.body.innerText||''):'';\n                  const denied=document.querySelector('.step[data-k=\"denied\"]');\n                  return !!(denied && /You declined, so nothing was changed/i.test(body));\n                })()",
+      "png": "actual_v12_declined_wording.png",
+      "txt": "actual_v12_declined_wording.txt",
+      "md5": "4345880c29c4b1703821f149dafb6ba8",
+      "error": ""
+    }
+  ],
+  "unique_md5": true,
+  "ok": true
+}

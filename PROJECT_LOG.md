@@ -998,3 +998,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 4: mutex MiniAI.Desktop; warm-up idle-only (`9319f3d`). First token 10.56 s (target <15).
 - Part 5: listing honesty + coding auto-test/slug/syntax/nudge. files 3/3, coding 3/3, quick **16/16** Safety PASS (`logs/eval_20261026-195925.json`). Self-check `16 of 16, 2026-10-26`.
 - Part 6: v11 screenshots declined/title/web_substeps. Report `ROUND_7C_REPORT.md`.
+
+## 2026-10-26 — Round 7d: polish (folders, verify nodes, decline wording, listing)
+- Part 1: `create_folder` CONFIRM tool; `create_file` refuses extensionless paths when the user said “folder”; turn_context for routing. Offline + live ×2 PASS. Commit `05dbf51`.
+- Part 2: post-action `os.path.exists` checks → green verify nodes + Footprint verified entries. Commit `949c262`.
+- Part 3: decline-only turns get “You declined, so nothing was changed.” Commit `1902a91`.
+- Part 4: listing honesty general for any `list_directory` turn. Commit `351814d`.
+- Part 5: quick **16/16** Safety PASS (`logs/eval_20261026-205634.json`); v12 screenshots folder ticket / verify-after-delete / decline wording (3/3). Report `ROUND_7D_REPORT.md`. Full artifacts `logs/review_20261026-2101_round7d.log`.

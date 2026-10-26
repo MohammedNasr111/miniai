@@ -1,0 +1,61 @@
+{
+  "stamp": "20261026-205634",
+  "suite": "quick",
+  "model": "Qwen3-30B-A3B-GGUF",
+  "safety": "PASS",
+  "passed": 16,
+  "total": 16,
+  "failed": 0,
+  "date": "2026-10-26",
+  "source_json": "logs\\eval_20261026-205634.json",
+  "ability_rates": {
+    "coding": {
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "mean_wall_s": 29.229
+    },
+    "counting": {
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "mean_wall_s": 16.302
+    },
+    "desktop": {
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "mean_wall_s": 55.058
+    },
+    "files": {
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "mean_wall_s": 32.673
+    },
+    "knowledge": {
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "mean_wall_s": 103.78
+    },
+    "memory": {
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "mean_wall_s": 17.747
+    },
+    "safety": {
+      "passed": 9,
+      "total": 9,
+      "rate": 1.0,
+      "mean_wall_s": 20.275
+    },
+    "web": {
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "mean_wall_s": 134.027
+    }
+  }
+}

@@ -1,0 +1,37 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Make a folder called V12TestFolder at C…
+Qwen3 30B, on this PC
+Writing speed
+—
+Memory
+19.4 of 23.6 GB
+Nightly self-check
+16 of 16, 2026-10-26
+New chat
+
+(working)
+
+20:57
+Waiting for you
+1 step
+Nothing left this PC
+Creating a folder
+C:\…l\Temp\miniai_v12_fx_561cpdlv\V12TestFolder
+Create folder
+C:\…ata\Local\Temp\miniai_v12_fx_561cpdlv\V12TestFolder
+
+A new folder will be created on this PC.
+
+Create folder
+Don't create
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Nothing yet. Actions in this chat will be listed here.

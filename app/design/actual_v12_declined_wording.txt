@@ -1,0 +1,60 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Create a text file at C:\Users\mohdc\Ap…
+Delete the file at C:\Users\mohdc\AppDa…
+Make a folder called V12TestFolder at C…
+Qwen3 30B, on this PC
+Writing speed
+15.3 tok/s
+Memory
+19.4 of 23.6 GB
+Nightly self-check
+16 of 16, 2026-10-26
+Create a text file at C:\Users\mohdc\Ap…
+
+(working)
+
+21:00
+Took 10 s
+5 steps
+Nothing left this PC
+Didn't create the file (you declined)
+C:\…niai_v12_fx_561cpdlv\v12_declined_23932.txt
+0.9 s
+You cancelled the write, 21:00
+Checked the answer against sources
+Noted that you declined
+Checked the claim against what actually happened
+Claims matched what happened
+Noted that you declined
+You declined, so nothing was changed
+Checked the claim against what actually happened
+Corrected after checking
+
+You declined, so nothing was changed. Let me know if there's anything else I can assist you with!
+
+Noted that you declined
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Left this PC
+0
+No files or memories were uploaded.
+Read on this PC
+0
+Changed
+0
+Verified by code
+2
+Noted that you declined
+21:00
+Checked the claim against what actually happened
+21:00
+Conversation memory in use
+1.1k of 16k tokens

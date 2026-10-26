@@ -1,0 +1,56 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Delete the file at C:\Users\mohdc\AppDa…
+Make a folder called V12TestFolder at C…
+Qwen3 30B, on this PC
+Writing speed
+13.2 tok/s
+Memory
+19.4 of 23.6 GB
+Nightly self-check
+16 of 16, 2026-10-26
+Delete the file at C:\Users\mohdc\AppDa…
+
+(working)
+
+21:00
+Took 11 s
+3 steps
+Nothing left this PC
+Deleted a file
+C:\…iai_v12_fx_561cpdlv\v12_delete_me_23932.txt
+0.7 s
+You approved: delete 1 file, 21:00
+Checked the claim against what actually happened
+Claims matched what happened
+Checked the claim against what actually happened
+File is in the Recycle Bin
+
+The file v12_delete_me_23932.txt has been successfully moved to the Recycle Bin and is no longer present in its original location. You can restore it from the Recycle Bin if needed.
+
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Left this PC
+0
+No files or memories were uploaded.
+Read on this PC
+0
+Changed
+1
+Deleted C:\Users\mohdc\AppData\Local\Temp\miniai_v12_fx_561cpdlv\v12_delete_me_23932.txt to Recycle Bin
+21:00
+Verified by code
+2
+File is in the Recycle Bin
+21:00
+Checked the claim against what actually happened
+21:00
+Conversation memory in use
+1.1k of 16k tokens
