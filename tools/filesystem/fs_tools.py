@@ -371,6 +371,12 @@ def create_folder(path: str) -> str:
             f"Path already exists, not creating folder: {shown}."
         )
     target.mkdir(parents=True, exist_ok=False)
+    try:
+        from agent.action_claim_check import note_fs_verify_target
+
+        note_fs_verify_target("create_folder", shown, was_dir=True)
+    except Exception:
+        pass
     return f"Created folder {shown}."
 
 
@@ -403,6 +409,12 @@ def create_file(path: str, content: str) -> str:
         )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
+    try:
+        from agent.action_claim_check import note_fs_verify_target
+
+        note_fs_verify_target("create_file", shown, was_dir=False)
+    except Exception:
+        pass
     _commit_if_workspace(shown, f"create_file {shown}")
     return f"Created {shown} ({len(content.encode('utf-8'))} bytes written)."
 
@@ -449,13 +461,19 @@ def delete_file(path: str) -> str:
     shown = str(target)
     assert_not_protected(shown)
     if not target.exists():
-        raise FileNotFoundError(f"No such file: {shown}")
+        raise FileNotFoundError(f"No such file or folder: {shown}")
+    is_dir = target.is_dir()
+    kind = "folder" if is_dir else "file"
     # Drive type and size checks before any permission prompt.
     assert_safe_for_recycle_bin(target)
     check_permission(
         action="delete_file",
         tier=Tier.ALWAYS_CONFIRM,
-        description=f"Move to Recycle Bin: {shown}",
+        description=(
+            f"Move folder to Recycle Bin: {shown}"
+            if is_dir
+            else f"Move to Recycle Bin: {shown}"
+        ),
     )
     try:
         send2trash(str(target.resolve()))
@@ -463,11 +481,17 @@ def delete_file(path: str) -> str:
         # Never fall back to a permanent delete.
         raise RuntimeError(
             f"Could not move {shown} to the Recycle Bin ({exc}). "
-            "The file was left in place."
+            f"The {kind} was left in place."
         ) from exc
+    try:
+        from agent.action_claim_check import note_fs_verify_target
+
+        note_fs_verify_target("delete_file", shown, was_dir=is_dir)
+    except Exception:
+        pass
     _commit_if_workspace(shown, f"delete_file {shown}")
     return (
-        f"Moved {shown} to the Recycle Bin. It can be restored from there."
+        f"Moved {kind} {shown} to the Recycle Bin. It can be restored from there."
     )
 
 

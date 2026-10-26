@@ -10,6 +10,7 @@ Classes (match app/design/miniai_v2_concept.html):
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 # tool_name -> class key used as data-k on .step
@@ -121,7 +122,7 @@ _LABELS: dict[str, tuple[str, str]] = {
     "workspace_import": ("Importing a project", "Imported a project"),
     "workspace_export": ("Exporting a project", "Exported a project"),
     "workspace_restore": ("Restoring files", "Restored files"),
-    "delete_file": ("Deleting a file", "Deleted a file"),
+    "delete_file": ("Deleting", "Deleted a file"),
     "quote_check": ("Checking quotes", "Checked every quote against the pages"),
     "run_claim_check": ("Checking the claim", "Checked the claim against what happened"),
     "action_claim_check": (
@@ -156,7 +157,26 @@ def class_for(tool_or_event: str) -> str:
     return TOOL_CLASS.get(tool_or_event, "change")
 
 
-def label_for(tool_or_event: str, *, done: bool) -> str:
+def label_for(
+    tool_or_event: str,
+    *,
+    done: bool,
+    args: Optional[dict[str, Any]] = None,
+) -> str:
+    if tool_or_event == "delete_file":
+        is_folder = False
+        path = (args or {}).get("path")
+        if path:
+            try:
+                from pathlib import Path as _P
+
+                is_folder = _P(str(path)).is_dir()
+            except Exception:
+                is_folder = False
+        if (args or {}).get("was_dir"):
+            is_folder = True
+        noun = "folder" if is_folder else "file"
+        return f"Deleted a {noun}" if done else f"Deleting a {noun}"
     pair = _LABELS.get(tool_or_event)
     if pair is None:
         # Fallback without exposing snake_case if we can help it.
@@ -172,7 +192,7 @@ _DENIED_LABELS: dict[str, str] = {
     "write_file": "Didn't write the file (you declined)",
     "move_file": "Didn't move the file (you declined)",
     "move_files": "Didn't move the files (you declined)",
-    "delete_file": "Didn't delete the file (you declined)",
+    "delete_file": "Didn't delete (you declined)",
     "run_tests": "Didn't run the tests (you declined)",
     "run_file": "Didn't run the file (you declined)",
     "run_code": "Didn't run the code (you declined)",
@@ -186,8 +206,22 @@ _DENIED_LABELS: dict[str, str] = {
 }
 
 
-def denied_label_for(tool_or_event: str) -> str:
+def denied_label_for(
+    tool_or_event: str, args: Optional[dict[str, Any]] = None
+) -> str:
     """Muted label after the user declines a permission ticket."""
+    if tool_or_event == "delete_file":
+        is_folder = bool((args or {}).get("was_dir"))
+        path = (args or {}).get("path")
+        if path and not is_folder:
+            try:
+                from pathlib import Path as _P
+
+                is_folder = _P(str(path)).is_dir()
+            except Exception:
+                pass
+        noun = "folder" if is_folder else "file"
+        return f"Didn't delete the {noun} (you declined)"
     if tool_or_event in _DENIED_LABELS:
         return _DENIED_LABELS[tool_or_event]
     nice = (tool_or_event or "action").replace("_", " ").strip()
@@ -298,15 +332,30 @@ def ticket_copy(action: str, description: str = "") -> dict[str, str]:
     desc = description or ""
     paths = _paths_from_description(desc)
     if a == "delete_file":
+        is_folder = bool(
+            re.search(r"(?i)\bfolder\b", desc)
+            or re.search(r"(?i)^Move folder to Recycle Bin:", desc.strip())
+        )
+        # Path still on disk at ticket time — prefer live check.
+        if not is_folder and paths:
+            try:
+                from pathlib import Path as _P
+
+                p0 = paths[0].strip()
+                if p0 and _P(p0).is_dir():
+                    is_folder = True
+            except Exception:
+                pass
+        noun = "folder" if is_folder else "file"
         return {
             "kind": "danger",
-            "heading": "Delete 1 file",
+            "heading": f"Delete 1 {noun}",
             "consequence": "It goes to the Recycle Bin, so you can restore it.",
-            "approve": "Delete file",
+            "approve": f"Delete {noun}",
             "deny": "Keep it",
             "paths": "\n".join(paths) if paths else desc.strip(),
-            "collapsed_ok": "You approved: delete 1 file",
-            "collapsed_no": "You kept the file",
+            "collapsed_ok": f"You approved: delete 1 {noun}",
+            "collapsed_no": f"You kept the {noun}",
         }
     if a == "move_files":
         n = 0
@@ -416,6 +465,7 @@ def _paths_from_description(desc: str) -> list[str]:
         # Common shapes from fs_tools
         for prefix in (
             "Move to Recycle Bin: ",
+            "Move folder to Recycle Bin: ",
             "Create new file: ",
             "Create new folder: ",
             "Create file (did not exist): ",

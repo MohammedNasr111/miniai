@@ -509,15 +509,17 @@
       });
       run.answer.appendChild(box);
     }
-    if (checkInfo && checkInfo.fixed) {
-      const note = document.createElement("div");
-      note.className = "note";
-      note.textContent = checkInfo.note || "Corrected after checking";
-      run.answer.appendChild(note);
+    if (checkInfo && checkInfo.fixed && !checkInfo.silent) {
+      if (checkInfo.note) {
+        const note = document.createElement("div");
+        note.className = "note";
+        note.textContent = checkInfo.note || "Corrected after checking";
+        run.answer.appendChild(note);
+      }
       appendStep({
         k: "verify",
         name: "Checked the claim against what actually happened",
-        detail: "Corrected after checking",
+        detail: checkInfo.note || "Corrected after checking",
         t: "",
         running: false,
       });
@@ -566,7 +568,20 @@
 
   function showApprovalCard(req) {
     const run = currentRun || startRun("…");
-    // Remove prior pending ticket
+    const reqId = (req && req.id) || "";
+    // Poll can re-deliver the same approval after the user already answered.
+    // Never resurrect a live ticket for an answered nonce.
+    if (reqId) {
+      const answered = run.trace.querySelector(
+        '.ticket.done[data-nonce="' + reqId.replace(/"/g, '\\"') + '"]'
+      );
+      if (answered) return;
+      const liveSame = run.trace.querySelector(
+        '.ticket:not(.done)[data-nonce="' + reqId.replace(/"/g, '\\"') + '"]'
+      );
+      if (liveSame) return;
+    }
+    // Remove prior pending ticket (live only)
     if (pendingApproval && pendingApproval.root && !pendingApproval.root.classList.contains("done")) {
       pendingApproval.root.remove();
     }
@@ -574,7 +589,7 @@
     const kind = copy.kind || (req.action === "delete_file" ? "danger" : "change");
     const li = document.createElement("li");
     li.className = "ticket" + (kind === "danger" ? " danger" : "");
-    li.dataset.nonce = req.id || "";
+    li.dataset.nonce = reqId;
     if (req.action) li.dataset.tool = req.action;
 
     const h4 = document.createElement("h4");
@@ -653,22 +668,29 @@
     }
 
     function settle(text) {
+      // Replace in place: no live buttons may remain on an answered ticket.
       li.className = "ticket done";
       li.innerHTML = "";
       const h = document.createElement("h4");
       h.textContent = text;
       li.appendChild(h);
+      const btns = li.querySelectorAll("button, input");
+      btns.forEach(function (b) {
+        b.disabled = true;
+        b.remove();
+      });
     }
 
     function resolve(value, approved) {
       const nonce = req.id || li.dataset.nonce || "";
       const hm = nowHm();
+      // Collapse BEFORE notifying Python so a poll cannot re-show live buttons.
       if (approved) {
         settle((copy.collapsed_ok || "You approved") + ", " + hm);
       } else {
         settle((copy.collapsed_no || "You denied the action") + ", " + hm);
       }
-      pendingApproval = { root: li };
+      pendingApproval = { root: li, settledId: nonce };
       const a = api();
       if (a && a.approval_reply) a.approval_reply(nonce, value);
     }
