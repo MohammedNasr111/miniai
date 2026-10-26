@@ -162,6 +162,10 @@ def list_project_candidates(hint: str = "") -> list[dict[str, Any]]:
             continue
         if child.name.startswith("."):
             continue
+        # Exact hint match (even empty/new task folders) outranks unrelated projects.
+        if hint_l and child.name.lower() == hint_l:
+            _add(child, "exact_hint")
+            continue
         if _has_project_markers(child) or list(child.glob("*.py")):
             # Prefer dirs with py + tests markers
             if _has_project_markers(child) or _list_test_files(child):
@@ -310,21 +314,50 @@ def ensure_task_slug_folder(user_text: str) -> Optional[str]:
     return slug
 
 
+def _direct_test_files(root: Path) -> list[Path]:
+    """test_*.py directly in root (no walk into sibling project folders)."""
+    if not root.is_dir():
+        return []
+    found: list[Path] = []
+    try:
+        for name in os.listdir(root):
+            if name.startswith("test_") and name.endswith(".py"):
+                found.append(root / name)
+            elif name.endswith("_test.py"):
+                found.append(root / name)
+    except OSError:
+        return []
+    return sorted(found)
+
+
 def infer_test_target(written_paths: list[str]) -> Optional[str]:
-    """Pick a workspace-relative pytest path for edited files, if tests exist."""
+    """Pick a workspace-relative pytest path for edited files, if tests exist.
+
+    Stays inside the written file's project folder — never auto-runs a sibling
+    project's tests (that used to pull in unrelated workspace fixtures).
+    """
     ws = workspace_dir().resolve()
     checked: set[Path] = set()
+    wrote_under_subfolder = False
     for rel in written_paths:
         try:
             p = resolve_in_workspace(rel)
         except Exception:
             continue
-        # Walk up from the file's directory toward workspace
+        try:
+            rel_parts = p.resolve().relative_to(ws).parts
+        except ValueError:
+            continue
+        if len(rel_parts) >= 2:
+            wrote_under_subfolder = True
+        # Walk up from the file's directory toward (but not into) workspace root
         cur = p if p.is_dir() else p.parent
         while True:
             try:
                 cur.relative_to(ws)
             except ValueError:
+                break
+            if cur == ws:
                 break
             if cur in checked:
                 break
@@ -332,14 +365,12 @@ def infer_test_target(written_paths: list[str]) -> Optional[str]:
             tests_dir = cur / "tests"
             if tests_dir.is_dir() and _list_test_files(tests_dir):
                 return str(tests_dir.relative_to(ws)).replace("\\", "/")
-            if _list_test_files(cur):
-                # test_*.py living next to the code
-                return str(cur.relative_to(ws)).replace("\\", "/") or "."
-            if cur == ws:
-                break
+            if _direct_test_files(cur):
+                return str(cur.relative_to(ws)).replace("\\", "/")
             cur = cur.parent
-    # Workspace-root tests (debug fixture layout)
-    root_tests = ws / "tests"
-    if root_tests.is_dir() and _list_test_files(root_tests):
-        return "tests"
+    # Workspace-root tests only for root-level edits (debug fixture layout)
+    if not wrote_under_subfolder:
+        root_tests = ws / "tests"
+        if root_tests.is_dir() and _list_test_files(root_tests):
+            return "tests"
     return None
