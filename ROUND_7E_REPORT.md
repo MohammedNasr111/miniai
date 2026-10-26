@@ -44,4 +44,4 @@
 | `35a77e7` | App: scope verify nodes and Footprint checks to the current turn |
 | `018ff9c` | App: truthful verify wording (Gone from … unless Recycle Bin checked) |
 | `cc5f906` | App: folder delete wording and no stale live tickets after approve |
-| *(final)* | Round 7e: turn-scoped code checks, truthful verify wording, folder wording, no stale tickets |
+| `4f0043a` | Round 7e: turn-scoped code checks, truthful verify wording, folder wording, no stale tickets |
