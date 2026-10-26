@@ -75,6 +75,20 @@ def ws_list(path: str = ".") -> list[str]:
     return sorted(os.listdir(target))
 
 
+def _py_syntax_note(path: str, source: str) -> str:
+    """If path looks like Python, compile and return a warning on SyntaxError."""
+    if not str(path).lower().endswith(".py"):
+        return ""
+    try:
+        compile(source, path, "exec")
+    except SyntaxError as exc:
+        return (
+            f" WARNING: SyntaxError in {path} at line {exc.lineno}: {exc.msg}. "
+            "Fix the syntax before run_tests."
+        )
+    return ""
+
+
 def ws_write(path: str, content: str) -> str:
     # Gate AUTO_ALLOW (no prompt); TOOL_TIERS marks CONFIRM for the guard.
     check_permission(
@@ -91,6 +105,7 @@ def ws_write(path: str, content: str) -> str:
     return (
         f"Wrote {path} ({len(content.encode('utf-8'))} bytes)."
         + (f" Commit {sha}." if sha else "")
+        + _py_syntax_note(path, content)
     )
 
 
@@ -114,9 +129,14 @@ def ws_edit(path: str, old: str, new: str) -> str:
             f"Error: old text occurs {count} time(s) in {path}; "
             "ws_edit requires exactly one match."
         )
-    target.write_text(text.replace(old, new, 1), encoding="utf-8")
+    updated = text.replace(old, new, 1)
+    target.write_text(updated, encoding="utf-8")
     sha = commit_workspace(f"ws_edit {path}")
-    return f"Edited {path} (1 replacement)." + (f" Commit {sha}." if sha else "")
+    return (
+        f"Edited {path} (1 replacement)."
+        + (f" Commit {sha}." if sha else "")
+        + _py_syntax_note(path, updated)
+    )
 
 
 def run_file(path: str, args: Optional[list[str]] = None, timeout_s: float = DEFAULT_TIMEOUT_S) -> str:
