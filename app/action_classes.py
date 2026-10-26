@@ -148,6 +148,34 @@ def label_for(tool_or_event: str, *, done: bool) -> str:
     return pair[1] if done else pair[0]
 
 
+# Denied / declined — never past-tense "done" verbs.
+_DENIED_LABELS: dict[str, str] = {
+    "create_file": "Didn't create the file (you declined)",
+    "write_file": "Didn't write the file (you declined)",
+    "move_file": "Didn't move the file (you declined)",
+    "move_files": "Didn't move the files (you declined)",
+    "delete_file": "Didn't delete the file (you declined)",
+    "run_tests": "Didn't run the tests (you declined)",
+    "run_file": "Didn't run the file (you declined)",
+    "run_code": "Didn't run the code (you declined)",
+    "install_package": "Didn't install the package (you declined)",
+    "ws_write": "Didn't write the workspace file (you declined)",
+    "ws_edit": "Didn't edit the workspace file (you declined)",
+    "save_memory": "Didn't save the memory (you declined)",
+    "workspace_import": "Didn't import the project (you declined)",
+    "workspace_export": "Didn't export the project (you declined)",
+    "workspace_restore": "Didn't restore the files (you declined)",
+}
+
+
+def denied_label_for(tool_or_event: str) -> str:
+    """Muted label after the user declines a permission ticket."""
+    if tool_or_event in _DENIED_LABELS:
+        return _DENIED_LABELS[tool_or_event]
+    nice = (tool_or_event or "action").replace("_", " ").strip()
+    return f"Didn't complete {nice} (you declined)"
+
+
 def format_duration(seconds: float) -> str:
     s = max(0.0, float(seconds))
     if s < 10:
@@ -162,15 +190,43 @@ def format_duration(seconds: float) -> str:
     return f"{h} h {rem_m} m"
 
 
-def _short_path(path: Any) -> str:
-    s = str(path or "").strip()
-    if not s:
-        return ""
-    # Prefer a short tail for display.
-    parts = s.replace("/", "\\").split("\\")
-    if len(parts) <= 3:
+def ellipsis_path(path: Any, *, max_len: int = 48) -> str:
+    """Middle-ellipsis a path; always keep the drive letter / UNC root."""
+    s = str(path or "").strip().replace("/", "\\")
+    if not s or len(s) <= max_len:
         return s
-    return "\\".join(parts[-3:])
+    # Drive letter (C:\) or UNC (\\server\share)
+    if len(s) >= 2 and s[1] == ":":
+        head = s[:3]  # C:\
+        tail = s[3:]
+    elif s.startswith("\\\\"):
+        parts = s.split("\\")
+        # \\server\share\...
+        if len(parts) >= 4:
+            head = "\\\\" + parts[2] + "\\" + parts[3]
+            if not head.endswith("\\"):
+                head += "\\"
+            tail = "\\".join(parts[4:])
+        else:
+            return s
+    else:
+        # Relative or other — ellipsis the middle
+        keep = max(8, max_len // 2 - 1)
+        return s[:keep] + "…" + s[-(max_len - keep - 1) :]
+
+    if not tail:
+        return head.rstrip("\\") if len(head) > 3 else head
+    budget = max_len - len(head) - 1  # for …
+    if budget < 8:
+        budget = 8
+    if len(tail) <= budget:
+        return head + tail
+    # Prefer keeping the final segment(s)
+    return head + "…" + tail[-(budget - 1) :]
+
+
+def _short_path(path: Any) -> str:
+    return ellipsis_path(path)
 
 
 def detail_for(tool: str, args: Optional[dict[str, Any]] = None) -> str:

@@ -332,18 +332,42 @@
     return li;
   }
 
+  function ellipsisPath(path, maxLen) {
+    maxLen = maxLen || 48;
+    var s = String(path || "").replace(/\//g, "\\");
+    if (!s || s.length <= maxLen) return s;
+    var head = "";
+    var tail = s;
+    if (s.length >= 2 && s.charAt(1) === ":") {
+      head = s.slice(0, 3);
+      tail = s.slice(3);
+    } else if (s.indexOf("\\\\") === 0) {
+      var parts = s.split("\\");
+      if (parts.length >= 4) {
+        head = "\\\\" + parts[2] + "\\" + parts[3] + "\\";
+        tail = parts.slice(4).join("\\");
+      } else {
+        return s;
+      }
+    } else {
+      var keep = Math.max(8, Math.floor(maxLen / 2) - 1);
+      return s.slice(0, keep) + "…" + s.slice(-(maxLen - keep - 1));
+    }
+    if (!tail) return head.replace(/\\$/, "") || head;
+    var budget = Math.max(8, maxLen - head.length - 1);
+    if (tail.length <= budget) return head + tail;
+    return head + "…" + tail.slice(-(budget - 1));
+  }
+
   function syncSteps(payload) {
     const run = currentRun || startRun("(working)");
     const steps = payload.steps || [];
-    // Rebuild trace steps that are not tickets / done tickets
-    const keep = [];
-    Array.from(run.trace.children).forEach(function (child) {
-      if (child.classList.contains("ticket")) keep.push(child);
+    // Keep tickets; re-insert each under its matching action node (never above).
+    const tickets = Array.from(run.trace.querySelectorAll(":scope > .ticket"));
+    tickets.forEach(function (t) {
+      t._placed = false;
     });
     run.trace.innerHTML = "";
-    keep.forEach(function (c) {
-      run.trace.appendChild(c);
-    });
     run.stepEls = [];
     run.leftCount = 0;
     steps.forEach(function (s) {
@@ -354,6 +378,19 @@
         t: s.t || "",
         running: !!s.running,
       });
+      const tool = s.tool || "";
+      if (tool) {
+        tickets.forEach(function (t) {
+          if (!t._placed && t.dataset.tool === tool) {
+            run.trace.appendChild(t);
+            t._placed = true;
+          }
+        });
+      }
+    });
+    // Any ticket without a matching step goes after the steps (still below).
+    tickets.forEach(function (t) {
+      if (!t._placed) run.trace.appendChild(t);
     });
     if (payload.checking) {
       appendStep({
@@ -536,6 +573,7 @@
     const li = document.createElement("li");
     li.className = "ticket" + (kind === "danger" ? " danger" : "");
     li.dataset.nonce = req.id || "";
+    if (req.action) li.dataset.tool = req.action;
 
     const h4 = document.createElement("h4");
     h4.textContent = copy.heading || req.title || "Allow action";
@@ -548,7 +586,8 @@
       if (!line.trim()) return;
       const span = document.createElement("span");
       span.className = "path";
-      span.textContent = line;
+      span.textContent = ellipsisPath(line.trim(), 56);
+      span.title = line.trim();
       rows.appendChild(span);
     });
     const cons = document.createElement("p");
@@ -1045,7 +1084,7 @@
       if (selfcheckLabel) {
         let sc = String(s.selfcheck || "not run yet")
           .replace(/^Self-check:\s*/i, "")
-          .replace(/·/g, " of ")
+          .replace(/\u00b7/g, " of ")
           .trim();
         if (!sc || sc === "…" || sc === "...") sc = "not run yet";
         selfcheckLabel.textContent = sc;

@@ -101,6 +101,10 @@ button,input,textarea{font:inherit;color:inherit}
 .step[data-k="change"]{--c:var(--amber)}
 .step[data-k="verify"]{--c:var(--verdigris)}
 .step[data-k="danger"]{--c:var(--brick)}
+.step[data-k="denied"]{--c:var(--faint)}
+.step[data-k="denied"] .node i{border-radius:50%;background:transparent;border-style:solid}
+.step[data-k="denied"] .what{color:var(--faint)}
+.step[data-k="denied"] .what small{color:var(--faint)}
 .step .what{color:var(--text)}
 .step .what small{display:block;color:var(--muted);font-size:var(--s1);margin-top:1px}
 .step .t{font:500 var(--s1)/1.7 var(--display);color:var(--faint);font-variant-numeric:tabular-nums}

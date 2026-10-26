@@ -527,18 +527,26 @@ class AppBridge:
         self._push_live_activity(waiting=False)
 
     def _on_tool_end(self, name: str, elapsed: float, outcome: str) -> None:
+        from app.action_classes import denied_label_for
         from app.chats import save_chat
         from app.footprint import record_tool, ui_payload
 
         args_dict: dict[str, Any] = {}
+        outcome_l = str(outcome or "").lower()
+        denied = outcome_l in ("denied", "deny", "cancelled", "canceled")
+        ok = outcome_l not in ("error", "denied", "deny", "fail", "failed", "cancelled", "canceled")
         for step in reversed(self._turn_steps):
             if step.get("tool") == name and step.get("running"):
                 step["running"] = False
-                step["name"] = label_for(name, done=True)
+                if denied:
+                    step["name"] = denied_label_for(name)
+                    step["k"] = "denied"
+                    step["denied"] = True
+                else:
+                    step["name"] = label_for(name, done=True)
                 step["t"] = format_duration(elapsed)
                 args_dict = step.get("args") or {}
                 break
-        ok = str(outcome or "").lower() not in ("error", "denied", "fail", "failed")
         if self._chat_doc is not None:
             record_tool(self._chat_doc, name, args_dict, ok=ok)
             try:
@@ -557,11 +565,18 @@ class AppBridge:
         total = time.perf_counter() - self._turn_t0 if self._turn_t0 else 0.0
         steps = [
             {
+                "tool": s.get("tool") or "",
                 "name": s["name"],
                 "detail": s.get("detail") or "",
-                "k": s.get("k") or class_for(str(s.get("tool") or "")),
+                "k": s.get("k")
+                or (
+                    "denied"
+                    if s.get("denied")
+                    else class_for(str(s.get("tool") or ""))
+                ),
                 "t": s.get("t") or "",
                 "running": bool(s.get("running")),
+                "denied": bool(s.get("denied")),
             }
             for s in self._turn_steps
         ]
@@ -712,13 +727,20 @@ class AppBridge:
             total = format_duration(time.perf_counter() - self._turn_t0)
             steps = [
                 {
+                    "tool": s.get("tool") or "",
                     "name": s["name"]
                     if not s.get("running")
                     else label_for(s["tool"], done=True),
                     "detail": s.get("detail") or "",
-                    "k": s.get("k") or class_for(str(s.get("tool") or "")),
+                    "k": s.get("k")
+                    or (
+                        "denied"
+                        if s.get("denied")
+                        else class_for(str(s.get("tool") or ""))
+                    ),
                     "t": s.get("t") or "",
                     "running": False,
+                    "denied": bool(s.get("denied")),
                 }
                 for s in self._turn_steps
             ]
