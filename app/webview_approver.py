@@ -628,10 +628,39 @@ class AppBridge:
         if isinstance(inj, dict) and (inj.get("appended") or inj.get("found")):
             _add("injection_notice", "Instructions in a page were ignored")
         claim = check_meta.get("action_claim") or {}
+        # Runs every turn after tools; show green when it ran (pass or correct).
         if isinstance(claim, dict) and (
-            claim.get("corrected") or claim.get("unbacked") or claim.get("reran")
+            claim.get("corrected")
+            or claim.get("unbacked")
+            or claim.get("reran")
+            or claim.get("succeeded") is not None
+            or "fired" in claim
         ):
-            _add("action_claim_check", "Checked claims against tools")
+            detail = "Checked claims against tools"
+            if claim.get("correction_appended"):
+                detail = "Claim did not match tools — corrected"
+            elif not claim.get("fired"):
+                detail = "Claims matched what happened"
+            _add("action_claim_check", detail)
+        fs_v = check_meta.get("post_action_verify") or {}
+        if isinstance(fs_v, dict) and fs_v.get("ran"):
+            summary = str(fs_v.get("summary") or "")
+            if not summary and fs_v.get("checks"):
+                summary = "; ".join(
+                    str(c.get("detail") or "")
+                    for c in fs_v["checks"]
+                    if c.get("ok")
+                )
+            _add(
+                "post_action_verify",
+                summary or "Checked the disk after the action",
+            )
+        listing = check_meta.get("listing_honesty") or {}
+        if isinstance(listing, dict) and listing.get("corrected"):
+            _add("listing_honesty", "Removed names not in the folder listing")
+        decline = check_meta.get("decline_honesty") or {}
+        if isinstance(decline, dict) and decline.get("corrected"):
+            _add("decline_honesty", "You declined, so nothing was changed")
         research = check_meta.get("research_pipeline") or {}
         if isinstance(research, dict) and research.get("price_warning"):
             _add("price_check", "Price estimates may be outdated")
@@ -898,29 +927,51 @@ class AppBridge:
             append_message(self._chat_doc, "assistant", answer or "", sources)
             check_meta = getattr(self._session, "last_check", None)
             check_payload = None
-            if isinstance(check_meta, dict) and check_meta.get("fixed"):
+            if isinstance(check_meta, dict):
                 from app.footprint import record_verify
 
-                changed = [
-                    c.get("claim") or ""
-                    for c in (check_meta.get("claims") or [])
-                    if c.get("status") == "contradicted"
-                ]
-                note = check_meta.get("note") or (
-                    "Corrected after checking"
-                    if check_meta.get("stream_corrected")
-                    else "Corrected after checking sources"
-                )
-                check_payload = {
-                    "fixed": True,
-                    "note": note,
-                    "claims": changed,
-                }
-                record_verify(
-                    self._chat_doc,
-                    note,
-                    status="correction" if changed else "pass",
-                )
+                if check_meta.get("fixed"):
+                    changed = [
+                        c.get("claim") or ""
+                        for c in (check_meta.get("claims") or [])
+                        if c.get("status") == "contradicted"
+                    ]
+                    note = check_meta.get("note") or (
+                        "Corrected after checking"
+                        if check_meta.get("stream_corrected")
+                        else "Corrected after checking sources"
+                    )
+                    check_payload = {
+                        "fixed": True,
+                        "note": note,
+                        "claims": changed,
+                    }
+                    record_verify(
+                        self._chat_doc,
+                        note,
+                        status="correction" if changed else "pass",
+                    )
+                # Independent disk checks → Footprint "Verified by code"
+                fs_v = check_meta.get("post_action_verify") or {}
+                if isinstance(fs_v, dict) and fs_v.get("ran"):
+                    for c in fs_v.get("checks") or []:
+                        if c.get("ok"):
+                            record_verify(
+                                self._chat_doc,
+                                str(c.get("detail") or "Checked the disk"),
+                                status="pass",
+                            )
+                claim = check_meta.get("action_claim") or {}
+                if isinstance(claim, dict) and "fired" in claim and not claim.get(
+                    "correction_appended"
+                ):
+                    # Guard ran and claims were fine (or corrected via rerun without append).
+                    if not claim.get("fired") or claim.get("reran"):
+                        record_verify(
+                            self._chat_doc,
+                            "Checked the claim against what actually happened",
+                            status="pass",
+                        )
             # Context token estimate from session history when available.
             try:
                 from app.footprint import set_context_tokens
