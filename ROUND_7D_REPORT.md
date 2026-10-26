@@ -54,4 +54,4 @@
 | `949c262` | App: post-action disk verify nodes and Footprint verified-by-code entries |
 | `1902a91` | App: replace decline answers with You declined, so nothing was changed |
 | `351814d` | App: general listing honesty for any list_directory turn |
-| *(final)* | Round 7d: create_folder, visible code checks, decline wording, general listing honesty |
+| `8b6a198` | Round 7d: create_folder, visible code checks, decline wording, general listing honesty |
