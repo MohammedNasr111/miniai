@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "scene": "declined",
+      "ok": true,
+      "assert": "(function(){\n                  const denied=document.querySelector('.step[data-k=\"denied\"]');\n                  const ticket=document.querySelector('.ticket.done');\n                  const txt=denied?(denied.innerText||''):'';\n                  const past=/\\bCreated a file\\b/.test(txt);\n                  return !!(denied && ticket && /declined|Didn.?t create/i.test(txt) && !past);\n                })()",
+      "png": "actual_v11_declined.png",
+      "txt": "actual_v11_declined.txt",
+      "md5": "2de1d330ca99538f426512c3f5438c77",
+      "error": ""
+    },
+    {
+      "scene": "chat_title",
+      "ok": true,
+      "assert": "(function(){\n                  const t=(document.getElementById('chat-title')||{}).textContent||'';\n                  return !!(t && t!=='New chat' && t.length>2);\n                })()",
+      "png": "actual_v11_chat_title.png",
+      "txt": "actual_v11_chat_title.txt",
+      "md5": "89c59027685931b5b2aeb6db9b8e0fe4",
+      "error": ""
+    },
+    {
+      "scene": "web_substeps",
+      "ok": true,
+      "assert": "(function(){\n                  const steps=[...document.querySelectorAll('.step')].map(s=>(s.innerText||''));\n                  const searched=steps.some(t=>/Searched the web/i.test(t));\n                  const pages=steps.some(t=>/Read \\d+ pages?/i.test(t));\n                  const lilac=!!document.querySelector('.step[data-k=\"out\"]');\n                  return searched && (pages || lilac);\n                })()",
+      "png": "actual_v11_web_substeps.png",
+      "txt": "actual_v11_web_substeps.txt",
+      "md5": "a5836198791fa98aa6e57e0bfbd13448",
+      "error": ""
+    }
+  ],
+  "unique_md5": true,
+  "ok": true
+}

@@ -1,0 +1,35 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Create a text file at C:\Users\mohdc\Ap…
+Qwen3 30B, on this PC
+Writing speed
+13.7 tok/s
+Memory
+20.4 of 23.6 GB
+Nightly self-check
+16 of 16, 2026-10-26
+What is the current stable Python relea…
+Something went wrong while talking to the model. Try again.
+
+(working)
+
+20:00
+Working
+3 steps
+2 searches left this PC
+Searched the web
+What is the current stable Python release version according to python.org?
+Read 4 pages
+untrusted
+Noted a stale page
+Ordered pages by date for a recency question
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Nothing yet. Actions in this chat will be listed here.

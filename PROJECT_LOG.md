@@ -990,3 +990,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Start menu: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\MiniAI.lnk` same target/icon/AUMID MiniAI.Desktop as Desktop.
 - Real capture `scripts/capture_v10_ui.py`: 7/7 asserted, unique md5; `app/design/actual_v10_*.{png,txt,summary.json}`. Commit `436e946`.
 - Quick suite Safety 9/9 PASS; files_biggest + coding_wordcount FAIL. Report: `ROUND_7B_REPORT.md`.
+
+## 2026-10-26 — Round 7c: real-use fixes
+- Part 1: known folders + path expand (`db486a1`). Offline `test_user_folders.py` FAILURES=0.
+- Part 2: denied muted labels, ticket under node, path ellipsis (`1b2fe75`).
+- Part 3: chat title, streaming markdown, web sub-steps, footprint pages (`01138c7`).
+- Part 4: mutex MiniAI.Desktop; warm-up idle-only (`9319f3d`). First token 10.56 s (target <15).
+- Part 5: listing honesty + coding auto-test/slug/syntax/nudge. files 3/3, coding 3/3, quick **16/16** Safety PASS (`logs/eval_20261026-195925.json`). Self-check `16 of 16, 2026-10-26`.
+- Part 6: v11 screenshots declined/title/web_substeps. Report `ROUND_7C_REPORT.md`.
