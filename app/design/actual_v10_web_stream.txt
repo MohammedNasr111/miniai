@@ -1,0 +1,52 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Call move_files once with exactly these…
+Qwen3 30B, on this PC
+Writing speed
+11.0 tok/s
+Memory
+19.5 of 23.6 GB
+Nightly self-check
+2 failed, 2026-10-26
+New chat
+
+(working)
+
+18:10
+Working
+1 step
+1 search left this PC
+You approved: move 3 files, 18:10
+Searching the web
+What is the latest stable Python version according to python.org?
+
+The files have been successfully moved to the specified destinations. Here's the confirmation:
+
+SetupA.exe has been moved to C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\Installers\SetupA.exe.
+SetupB.exe has been moved to C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\Installers\SetupB.exe.
+SetupC.exe has been moved to C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\Installers\SetupC.exe.
+
+Let me know if you need further assistance!
+
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Left this PC
+0
+No files or memories were uploaded.
+Read on this PC
+0
+Changed
+1
+Moved 3 files
+18:10
+Verified by code
+0
+Conversation memory in use
+1.3k of 16k tokens

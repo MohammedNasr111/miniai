@@ -1,0 +1,26 @@
+M
+MiniAI
+New chat
+Ctrl N
+Qwen3 30B, on this PC
+Writing speed
+—
+Memory
+19.5 of 23.6 GB
+Nightly self-check
+2 failed, 2026-10-26
+New chat
+Try one of these
+Move the installer files in my Downloads folder into a folder called Installers.
+Files
+What changed in the latest Windows 11 update?
+Web
+Write a Python function that counts words in a string, with tests.
+Code
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Nothing yet. Actions in this chat will be listed here.

@@ -1,0 +1,45 @@
+M
+MiniAI
+New chat
+Ctrl N
+Qwen3 30B, on this PC
+Writing speed
+—
+Memory
+19.5 of 23.6 GB
+Nightly self-check
+2 failed, 2026-10-26
+New chat
+
+(working)
+
+18:10
+Waiting for you
+1 step
+Nothing left this PC
+You approved: move 3 files, 18:10
+Moved files
+3 files
+1.5 s
+
+The files have been successfully moved to the specified destinations. Here
+
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Left this PC
+0
+No files or memories were uploaded.
+Read on this PC
+0
+Changed
+1
+Moved 3 files
+18:10
+Verified by code
+0
+Conversation memory in use
+0.0k of 16k tokens

@@ -1,0 +1,55 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Call move_files once with exactly these…
+Qwen3 30B, on this PC
+Writing speed
+10.8 tok/s
+Memory
+19.4 of 23.6 GB
+Nightly self-check
+2 failed, 2026-10-26
+Chats
+New chat
+Footprint
+
+(working)
+
+18:10
+Took 1 m 51 s
+1 step
+1 search left this PC
+You approved: move 3 files, 18:10
+Searched the web
+What is the latest stable Python version according to python.org?
+4 s
+
+The latest stable Python version mentioned in the research is Python 3.15.2, according to the python.org download page (last updated 2026-10-09). However, this information is from late October 2026, and the current date is 2026-10-26. For the most up-to-date details, check python.org directly as new releases may have occurred after the research window.
+
+For context, Python 3.15.2 was noted as a bugfix release on October 25, 2026, but no newer stable versions are explicitly listed in the sources provided.
+
+www.python.org
+www.python.org
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Left this PC
+1
+Search: What is the latest stable Python version according to python.org?
+18:11
+No files or memories were uploaded.
+Read on this PC
+0
+Changed
+1
+Moved 3 files
+18:10
+Verified by code
+0
+Conversation memory in use
+3.2k of 16k tokens

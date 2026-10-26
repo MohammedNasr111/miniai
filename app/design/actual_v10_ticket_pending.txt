@@ -1,0 +1,37 @@
+M
+MiniAI
+New chat
+Ctrl N
+Qwen3 30B, on this PC
+Writing speed
+—
+Memory
+19.5 of 23.6 GB
+Nightly self-check
+2 failed, 2026-10-26
+New chat
+
+(working)
+
+18:10
+Waiting for you
+1 step
+Nothing left this PC
+Moving files
+3 files
+Move 3 files
+C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\SetupA.exe -> C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\Installers\SetupA.exe
+C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\SetupB.exe -> C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\Installers\SetupB.exe
+C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\SetupC.exe -> C:\Users\mohdc\AppData\Local\Temp\miniai_dl_2deqrjrf\Installers\SetupC.exe
+
+Files leave their current folders and appear at the new paths.
+
+Move 3 files
+Don't move
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Nothing yet. Actions in this chat will be listed here.

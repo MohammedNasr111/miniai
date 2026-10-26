@@ -1,0 +1,78 @@
+{
+  "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_dl_2deqrjrf",
+  "results": [
+    {
+      "scene": "empty",
+      "ok": true,
+      "assert": "(function(){\n                  const empty = !!document.querySelector('.empty');\n                  const ticket = !!document.querySelector('.ticket');\n                  const fpEmpty = document.getElementById('fp-empty');\n                  const fpOk = fpEmpty && !fpEmpty.hidden;\n                  const badLabel = !!document.querySelector('label[for=composer]');\n                  return empty && !ticket && fpOk && !badLabel;\n                })()",
+      "png": "actual_v10_empty.png",
+      "txt": "actual_v10_empty.txt",
+      "md5": "97fde3bee8578874983f2adccd57946b",
+      "error": ""
+    },
+    {
+      "scene": "ticket_pending",
+      "ok": true,
+      "assert": "(function(){\n                      const t = document.querySelector('.ticket:not(.done)');\n                      return !!(t && t.querySelector('.btn.primary'));\n                    })()",
+      "png": "actual_v10_ticket_pending.png",
+      "txt": "actual_v10_ticket_pending.txt",
+      "md5": "679d0fdd34f6ac8328da8748c14e95a3",
+      "error": ""
+    },
+    {
+      "scene": "ticket_done",
+      "ok": true,
+      "assert": "(function(){\n                      return !!document.querySelector('.ticket.done')\n                        && (!!document.querySelector('.step[data-k=\"verify\"]')\n                            || !!document.querySelector('.step[data-k=\"change\"]'));\n                    })()",
+      "png": "actual_v10_ticket_done.png",
+      "txt": "actual_v10_ticket_done.txt",
+      "md5": "c40bf2753eaad80786f5f12a7f73c784",
+      "error": ""
+    },
+    {
+      "scene": "web_stream",
+      "ok": true,
+      "assert": "!!document.querySelector('.step[data-k=\"out\"]')",
+      "png": "actual_v10_web_stream.png",
+      "txt": "actual_v10_web_stream.txt",
+      "md5": "a7e476122db6bd89915fea7df48ca9d5",
+      "error": ""
+    },
+    {
+      "scene": "footprint",
+      "ok": true,
+      "assert": "(function(){\n                  const body = document.getElementById('fp-body');\n                  const empty = document.getElementById('fp-empty');\n                  const hasBody = body && !body.hidden;\n                  const text = document.body.innerText || '';\n                  const sample = /Windows 11 October update/.test(text);\n                  return hasBody && !(empty && !empty.hidden) && !sample;\n                })()",
+      "png": "actual_v10_footprint.png",
+      "txt": "actual_v10_footprint.txt",
+      "md5": "e9ed28e90021bd5b271cbaf1d0351b80",
+      "error": ""
+    },
+    {
+      "scene": "palette",
+      "ok": true,
+      "assert": "!(document.getElementById('palette')||{hidden:true}).hidden",
+      "png": "actual_v10_palette.png",
+      "txt": "actual_v10_palette.txt",
+      "md5": "ae137543c60c31e2f061a8c7b689d804",
+      "error": ""
+    },
+    {
+      "scene": "narrow640",
+      "ok": true,
+      "assert": "(function(){\n                  const btn = document.getElementById('open-rail');\n                  const style = btn ? getComputedStyle(btn).display : 'none';\n                  return style !== 'none';\n                })()",
+      "png": "actual_v10_narrow640.png",
+      "txt": "actual_v10_narrow640.txt",
+      "md5": "70dc967563ad0257a9a80e33644701d9",
+      "error": ""
+    }
+  ],
+  "unique_md5": true,
+  "md5s": [
+    "97fde3bee8578874983f2adccd57946b",
+    "679d0fdd34f6ac8328da8748c14e95a3",
+    "c40bf2753eaad80786f5f12a7f73c784",
+    "a7e476122db6bd89915fea7df48ca9d5",
+    "e9ed28e90021bd5b271cbaf1d0351b80",
+    "ae137543c60c31e2f061a8c7b689d804",
+    "70dc967563ad0257a9a80e33644701d9"
+  ]
+}
