@@ -583,6 +583,18 @@ def grade_coding_wordcount(ctx: EvalContext) -> tuple[bool, str]:
     ):
         if p.is_dir() and p not in candidates:
             candidates.append(p)
+    # Product used to invent alternate slug folders; still grade if wordcount lives there.
+    try:
+        for child in ws.iterdir():
+            if not child.is_dir():
+                continue
+            if (child / "wordcount.py").is_file() or (
+                child / "tests"
+            ).is_dir():
+                if child not in candidates:
+                    candidates.append(child)
+    except OSError:
+        pass
     for target in candidates:
         # Prefer a tests subfolder if present
         test_target = target / "tests" if (target / "tests").is_dir() else target

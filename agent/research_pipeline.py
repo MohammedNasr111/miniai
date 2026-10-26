@@ -62,8 +62,21 @@ class PipelineEvidence:
     sub_queries: list[str] = field(default_factory=list)
 
 
+_LOCAL_FILES_RE = re.compile(
+    r"(?i)\b("
+    r"list_directory|files?\s+in\s+|folder|directory|downloads|"
+    r"desktop|documents|\\\\|[a-z]:\\|"
+    r"biggest\s+files|largest\s+files"
+    r")\b"
+)
+
+
 def is_compare_question(text: str) -> bool:
-    return bool(_COMPARE_RE.search(text or ""))
+    """True for product compare/recommend questions — not local file listings."""
+    t = text or ""
+    if _LOCAL_FILES_RE.search(t):
+        return False
+    return bool(_COMPARE_RE.search(t))
 
 
 def extract_items_phrase(question: str) -> str:

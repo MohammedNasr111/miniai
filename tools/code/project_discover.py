@@ -221,6 +221,16 @@ def ws_find_project(hint: str = "") -> str:
     return "\n".join(lines)
 
 
+_EXPLICIT_FOLDER = re.compile(
+    r"(?:under\s+(?:the\s+)?folder|in\s+(?:the\s+)?(?:folder|directory)|"
+    r"folder\s+called|directory\s+called|project\s+folder)\s+"
+    r"[`'\"]?([A-Za-z][\w\-]{1,64})[`'\"]?"
+    r"|"
+    r"\b([A-Za-z][\w\-]{1,64})/(?:[\w.\-]+(?:\.py)?|tests)\b",
+    re.I,
+)
+
+
 def ensure_task_slug_folder(user_text: str) -> Optional[str]:
     """Create workspace/<slug>/ for a new coding request; leave existing files alone.
 
@@ -236,6 +246,16 @@ def ensure_task_slug_folder(user_text: str) -> Optional[str]:
     # Only for clearly-new project requests.
     if not _NEW_PROJECT.search(text):
         return None
+    # Prefer an explicitly named folder (e.g. "under the folder eval_wordcount").
+    # Keep underscores — graders and prompts use literal folder names.
+    m = _EXPLICIT_FOLDER.search(text)
+    if m:
+        raw = next(g for g in m.groups() if g)
+        slug = re.sub(r"[^\w\-]+", "-", raw.strip()).strip("-")[:40] or "project"
+        ws = workspace_dir()
+        target = ws / slug
+        target.mkdir(parents=True, exist_ok=True)
+        return slug
     # If the user clearly names an existing project folder, reuse it.
     cands = list_project_candidates(text)
     if cands:

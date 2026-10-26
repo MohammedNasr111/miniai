@@ -1082,12 +1082,22 @@ def run_tool_rounds(
         shown, cite_meta = append_pdf_citations(
             shown, turn_evidence, tools_used=tools_used
         )
+        from agent.listing_honesty import maybe_correct_biggest_files_answer
+
+        shown, listing_meta = maybe_correct_biggest_files_answer(
+            q, shown, transcript=transcript
+        )
         if check_meta is None:
             check_meta = {}
         check_meta["action_claim"] = claim_meta
         check_meta["injection_notice"] = inj_meta
         check_meta["research_pipeline"] = research_meta
         check_meta["pdf_citations"] = cite_meta
+        check_meta["listing_honesty"] = listing_meta
+        if listing_meta and listing_meta.get("corrected"):
+            check_meta["fixed"] = True
+            if not check_meta.get("note"):
+                check_meta["note"] = "Corrected file listing from list_directory"
         # Guards / notices changed what was streamed → UI replaces the bubble.
         if streamed_snapshot and shown != streamed_snapshot:
             check_meta["stream_corrected"] = True
