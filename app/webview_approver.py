@@ -339,23 +339,17 @@ class AppBridge:
             else:
                 model_label = f"{short}, on this PC"
             model_state = "ready"
-        selfcheck_label = "…"
+        selfcheck_label = "not run yet"
         selfcheck_level = "ok"
         try:
             from config.log_rotation import read_selfcheck_summary
 
             sc = read_selfcheck_summary()
-            raw = sc.get("label") or selfcheck_label
-            # Strip "Self-check: " and any middle dots for the rail.
-            selfcheck_label = (
-                str(raw)
-                .replace("Self-check:", "")
-                .replace("·", " of ")
-                .strip()
-            )
+            selfcheck_label = str(sc.get("label") or "not run yet").strip()
             selfcheck_level = sc.get("level") or "ok"
         except Exception as exc:
             logger.info("selfcheck summary unavailable: %s", exc)
+            selfcheck_label = "not run yet"
         # Memory label: "16.5 of 23.6 GB" (no slash middle-dot)
         mem_label = mem_label.replace(" / ", " of ")
         self._call_js(

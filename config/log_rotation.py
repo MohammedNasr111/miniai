@@ -132,21 +132,61 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
     root = logs_dir or LOGS_DIR
     path = root / "selfcheck_latest.json"
     if not path.is_file():
-        return {"ok": False, "label": "Self-check: none yet"}
+        return {
+            "ok": False,
+            "label": "not run yet",
+            "level": "ok",
+            "passed": 0,
+            "total": 0,
+            "failed": 0,
+        }
     try:
         import json
 
-        data = json.loads(path.read_text(encoding="utf-8"))
+        # Nightly PowerShell may write UTF-8 with BOM.
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
     except Exception as exc:
-        return {"ok": False, "label": "Self-check: unreadable", "error": str(exc)}
-    passed = int(data.get("passed") or 0)
-    total = int(data.get("total") or 0)
-    failed = int(data.get("failed") or max(0, total - passed))
+        return {
+            "ok": False,
+            "label": "unreadable",
+            "level": "danger",
+            "error": str(exc),
+            "passed": 0,
+            "total": 0,
+            "failed": 0,
+        }
+    if not isinstance(data, dict):
+        return {
+            "ok": False,
+            "label": "unreadable",
+            "level": "danger",
+            "error": "not an object",
+            "passed": 0,
+            "total": 0,
+            "failed": 0,
+        }
+    try:
+        passed = int(data.get("passed") or 0)
+        total = int(data.get("total") or 0)
+        failed = int(data.get("failed") or max(0, total - passed))
+    except (TypeError, ValueError):
+        return {
+            "ok": False,
+            "label": "unreadable",
+            "level": "danger",
+            "error": "bad counts",
+            "passed": 0,
+            "total": 0,
+            "failed": 0,
+        }
     date = data.get("date") or data.get("finished") or ""
     if isinstance(date, str) and len(date) >= 10:
         date = date[:10]
+    # No middle-dot separators in UI strings (Round 7+).
     if failed == 0 and total > 0:
-        label = f"Self-check: {passed}/{total} · {date}"
+        label = f"{passed} of {total}"
+        if date:
+            label = f"{label}, {date}"
         return {
             "ok": True,
             "passed": passed,
@@ -156,13 +196,25 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
             "label": label,
             "level": "ok",
         }
-    label = f"Self-check: {failed} failed · {date}" if total else "Self-check: none yet"
+    if total <= 0:
+        return {
+            "ok": False,
+            "label": "not run yet",
+            "level": "ok",
+            "passed": 0,
+            "total": 0,
+            "failed": 0,
+            "date": date,
+        }
+    label = f"{failed} failed"
+    if date:
+        label = f"{label}, {date}"
     return {
-        "ok": failed == 0 and total > 0,
+        "ok": False,
         "passed": passed,
         "total": total,
         "failed": failed,
         "date": date,
         "label": label,
-        "level": "danger" if failed else "ok",
+        "level": "danger",
     }

@@ -78,7 +78,7 @@ def test_selfcheck_label() -> None:
             encoding="utf-8",
         )
         sc = read_selfcheck_summary(root)
-        if sc.get("label") != "Self-check: 16/16 · 2026-10-25":
+        if sc.get("label") != "16 of 16, 2026-10-25":
             _fail(name, repr(sc))
             return
         (root / "selfcheck_latest.json").write_text(
@@ -90,6 +90,27 @@ def test_selfcheck_label() -> None:
         sc2 = read_selfcheck_summary(root)
         if "2 failed" not in sc2.get("label", "") or sc2.get("level") != "danger":
             _fail(name, repr(sc2))
+            return
+        # Missing file
+        (root / "selfcheck_latest.json").unlink()
+        sc3 = read_selfcheck_summary(root)
+        if sc3.get("label") != "not run yet":
+            _fail(name + "_missing", repr(sc3))
+            return
+        # BOM + corrupt
+        (root / "selfcheck_latest.json").write_bytes(
+            b"\xef\xbb\xbf" + json.dumps(
+                {"passed": 16, "total": 16, "failed": 0, "date": "2026-10-26"}
+            ).encode("utf-8")
+        )
+        sc4 = read_selfcheck_summary(root)
+        if sc4.get("label") != "16 of 16, 2026-10-26":
+            _fail(name + "_bom", repr(sc4))
+            return
+        (root / "selfcheck_latest.json").write_text("{not-json", encoding="utf-8")
+        sc5 = read_selfcheck_summary(root)
+        if sc5.get("label") != "unreadable":
+            _fail(name + "_corrupt", repr(sc5))
             return
         _ok(name)
 

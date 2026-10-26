@@ -37,9 +37,10 @@
 
     <div class="composer">
       <form class="cbox" id="composer-form">
-        <label for="composer" style="position:absolute;left:-9999px">Message</label>
-        <textarea id="composer" rows="1" placeholder="Ask MiniAI to find, explain or change something on this PC" autocomplete="off"></textarea>
-        <button class="send" id="btn-send" type="submit" aria-label="Send">↑</button>
+        <textarea id="composer" rows="1" placeholder="Ask MiniAI…" aria-label="Message" autocomplete="off"></textarea>
+        <button class="send" id="btn-send" type="submit" aria-label="Send" title="Send">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
       </form>
       <div class="hint"><span>Runs on this PC. Only web searches go online, and they show up in the footprint.</span><span>Ctrl K for commands</span></div>
     </div>
@@ -48,28 +49,31 @@
   <aside class="foot" id="foot" aria-label="Footprint of this chat">
     <h2>Footprint</h2>
     <p>Everything this chat touched, kept as a ledger.</p>
-    <section class="ledger out">
-      <h3>Left this PC <b id="fp-left-n">0</b></h3>
-      <ul id="fp-left"></ul>
-      <span class="zero" id="fp-no-upload">No files or memories were uploaded.</span>
-    </section>
-    <section class="ledger read">
-      <h3>Read on this PC <b id="fp-read-n">0</b></h3>
-      <ul id="fp-read"></ul>
-    </section>
-    <section class="ledger change">
-      <h3>Changed <b id="fp-chg-n">0</b></h3>
-      <ul id="fp-chg"></ul>
-    </section>
-    <section class="ledger check">
-      <h3>Verified by code <b id="fp-chk-n">0</b></h3>
-      <ul id="fp-chk"></ul>
-    </section>
-    <section class="ctx">
-      <span>Conversation memory in use</span>
-      <div class="gauge" aria-hidden="true"><i id="fp-ctx-meter" style="background:var(--muted)"></i></div>
-      <span id="fp-ctx-label">0 of 16k tokens</span>
-    </section>
+    <p class="fp-empty" id="fp-empty">Nothing yet. Actions in this chat will be listed here.</p>
+    <div id="fp-body" hidden>
+      <section class="ledger out">
+        <h3>Left this PC <b id="fp-left-n">0</b></h3>
+        <ul id="fp-left"></ul>
+        <span class="zero" id="fp-no-upload">No files or memories were uploaded.</span>
+      </section>
+      <section class="ledger read">
+        <h3>Read on this PC <b id="fp-read-n">0</b></h3>
+        <ul id="fp-read"></ul>
+      </section>
+      <section class="ledger change">
+        <h3>Changed <b id="fp-chg-n">0</b></h3>
+        <ul id="fp-chg"></ul>
+      </section>
+      <section class="ledger check">
+        <h3>Verified by code <b id="fp-chk-n">0</b></h3>
+        <ul id="fp-chk"></ul>
+      </section>
+      <section class="ctx">
+        <span>Conversation memory in use</span>
+        <div class="gauge" aria-hidden="true"><i id="fp-ctx-meter" style="background:var(--muted)"></i></div>
+        <span id="fp-ctx-label">0 of 16k tokens</span>
+      </section>
+    </div>
   </aside>
   <div class="scrim" id="scrim"></div>
 </div>

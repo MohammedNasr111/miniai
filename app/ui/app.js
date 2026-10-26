@@ -178,13 +178,11 @@
       btnSend.classList.add("is-stop");
       btnSend.title = "Stop";
       btnSend.setAttribute("aria-label", "Stop");
-      btnSend.textContent = "■";
     } else {
       btnSend.disabled = false;
       btnSend.classList.remove("is-stop");
       btnSend.title = "Send";
       btnSend.setAttribute("aria-label", "Send");
-      btnSend.textContent = "↑";
     }
     void btnSend.offsetWidth;
   }
@@ -654,19 +652,34 @@
   }
 
   function renderFootprint(fp) {
-    if (!fp) return;
-    function fill(ulId, nId, items, rightKey) {
+    const emptyEl = document.getElementById("fp-empty");
+    const bodyEl = document.getElementById("fp-body");
+    const counts = (fp && fp.counts) || {};
+    const nLeft =
+      counts.left != null ? counts.left : ((fp && fp.left) || []).length;
+    const nRead =
+      counts.read != null ? counts.read : ((fp && fp.read) || []).length;
+    const nChg =
+      counts.changed != null ? counts.changed : ((fp && fp.changed) || []).length;
+    const nChk =
+      counts.verified != null
+        ? counts.verified
+        : ((fp && fp.verified) || []).length;
+    const any = nLeft + nRead + nChg + nChk > 0;
+    if (!fp || !any) {
+      if (emptyEl) emptyEl.hidden = false;
+      if (bodyEl) bodyEl.hidden = true;
+      return;
+    }
+    if (emptyEl) emptyEl.hidden = true;
+    if (bodyEl) bodyEl.hidden = false;
+    function fill(ulId, nId, items, n) {
       const ul = document.getElementById(ulId);
-      const n = document.getElementById(nId);
-      if (!ul || !n) return;
+      const el = document.getElementById(nId);
+      if (!ul || !el) return;
       ul.innerHTML = "";
-      const list = items || [];
-      n.textContent = String(
-        (fp.counts && fp.counts[rightKey]) != null
-          ? fp.counts[rightKey]
-          : list.length
-      );
-      list.forEach(function (it) {
+      el.textContent = String(n);
+      (items || []).forEach(function (it) {
         const li = document.createElement("li");
         const a = document.createElement("span");
         a.textContent = it.label || "";
@@ -677,16 +690,26 @@
         ul.appendChild(li);
       });
     }
-    fill("fp-left", "fp-left-n", fp.left, "left");
-    fill("fp-read", "fp-read-n", fp.read, "read");
-    fill("fp-chg", "fp-chg-n", fp.changed, "changed");
-    fill("fp-chk", "fp-chk-n", fp.verified, "verified");
+    fill("fp-left", "fp-left-n", fp.left, nLeft);
+    fill("fp-read", "fp-read-n", fp.read, nRead);
+    fill("fp-chg", "fp-chg-n", fp.changed, nChg);
+    fill("fp-chk", "fp-chk-n", fp.verified, nChk);
     const noUp = document.getElementById("fp-no-upload");
     if (noUp) noUp.textContent = fp.no_upload || "No files or memories were uploaded.";
     const meter = document.getElementById("fp-ctx-meter");
     const lab = document.getElementById("fp-ctx-label");
     if (meter) meter.style.width = (fp.context_pct || 0) + "%";
     if (lab) lab.textContent = fp.context_label || "0 of 16k tokens";
+  }
+
+  function clearFootprint() {
+    renderFootprint({
+      left: [],
+      read: [],
+      changed: [],
+      verified: [],
+      counts: { left: 0, read: 0, changed: 0, verified: 0 },
+    });
   }
 
   function setTainted(on) {
@@ -768,16 +791,7 @@
     chatTitle.textContent = "New chat";
     setTainted(false);
     showEmptyState();
-    renderFootprint({
-      left: [],
-      read: [],
-      changed: [],
-      verified: [],
-      counts: { left: 0, read: 0, changed: 0, verified: 0 },
-      no_upload: "No files or memories were uploaded.",
-      context_pct: 0,
-      context_label: "0 of 16k tokens",
-    });
+    clearFootprint();
     if (res && res.history) renderHistory(res.history);
     composer.focus();
   }
@@ -1029,13 +1043,18 @@
         if (s.memory_level === "danger") memMeter.classList.add("danger");
       }
       if (selfcheckLabel) {
-        selfcheckLabel.textContent = (s.selfcheck || "…").replace(/^Self-check:\s*/i, "");
+        let sc = String(s.selfcheck || "not run yet")
+          .replace(/^Self-check:\s*/i, "")
+          .replace(/·/g, " of ")
+          .trim();
+        if (!sc || sc === "…" || sc === "...") sc = "not run yet";
+        selfcheckLabel.textContent = sc;
         if (s.selfcheck_level === "danger") {
           selfcheckLabel.style.color = "var(--brick)";
-        } else if (s.selfcheck_level === "ok") {
+        } else if (s.selfcheck_level === "ok" && sc !== "not run yet") {
           selfcheckLabel.style.color = "var(--verdigris)";
         } else {
-          selfcheckLabel.style.color = "";
+          selfcheckLabel.style.color = "var(--muted)";
         }
       }
       if (tokSpeed && s.tok_s != null) {
@@ -1109,6 +1128,7 @@
 
   async function boot() {
     showEmptyState();
+    clearFootprint();
     const a = api();
     if (a && a.ready) {
       try {
