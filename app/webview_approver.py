@@ -669,12 +669,20 @@ class AppBridge:
             _add("action_claim_check", detail)
         fs_v = check_meta.get("post_action_verify") or {}
         if isinstance(fs_v, dict) and fs_v.get("ran") and fs_v.get("checks"):
-            # One node per successful check (truthful detail strings).
+            # One delete/create verify node per path (not per alternate wording).
+            seen_paths: set[str] = set()
             for c in fs_v["checks"]:
                 if not c.get("ok"):
                     continue
                 detail = str(c.get("detail") or "")
-                key = f"post_action_verify:{detail}"
+                if "Gone from ." in detail or detail.startswith("Gone from . "):
+                    # Never surface a broken parent label.
+                    continue
+                path_key = str(c.get("path") or detail).replace("/", "\\").lower()
+                if path_key in seen_paths:
+                    continue
+                seen_paths.add(path_key)
+                key = f"post_action_verify:{path_key}"
                 if key in seen:
                     continue
                 seen.add(key)
@@ -686,7 +694,7 @@ class AppBridge:
                         "k": "verify",
                         "t": "",
                         "running": False,
-                        "args": {},
+                        "args": {"path": c.get("path") or ""},
                         "turn_id": turn_id,
                     }
                 )

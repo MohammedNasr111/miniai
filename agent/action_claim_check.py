@@ -104,8 +104,10 @@ CORRECTION_TMPL = (
 _WRITE_TOOLS = frozenset(
     {"create_file", "create_folder", "write_file", "ws_write", "ws_edit"}
 )
+# "Moved folder C:\…" / "Created folder C:\…" — skip the kind word.
 _PATH_FROM_RESULT = re.compile(
-    r"(?i)\b(?:Wrote|Created(?:\s+folder)?|Updated|Edited|Moved)\s+([^\s(]+)"
+    r"(?i)\b(?:Wrote|Created(?:\s+folder)?|Updated|Edited|"
+    r"Moved(?:\s+(?:folder|file))?)\s+(\S+)"
 )
 _MUTATING_FS = frozenset(
     {
@@ -202,6 +204,12 @@ def should_skip_rerun_for_budget() -> bool:
     return remaining_turn_budget_s() < MIN_RERUN_REMAINING_S
 
 
+def _normalize_fs_path_key(path: str) -> str:
+    """Case-fold + slash-normalize for dedupe (Windows paths)."""
+    s = (path or "").strip().rstrip("\\/")
+    return s.replace("/", "\\").lower()
+
+
 def _remember_paths_from_result(name: str, result_text: str) -> None:
     if name not in _WRITE_TOOLS and name != "delete_file":
         return
@@ -209,32 +217,39 @@ def _remember_paths_from_result(name: str, result_text: str) -> None:
         raw = m.group(1).strip().strip("'\"")
         if not raw:
             continue
+        # Skip kind words accidentally captured as paths.
+        if raw.lower() in ("folder", "file", "directory"):
+            continue
         # "Moved X to the Recycle Bin" — keep the path before "to"
         if name == "delete_file" and " to " in raw.lower():
             raw = re.split(r"(?i)\s+to\s+", raw, maxsplit=1)[0].strip()
+        if raw.lower() in ("folder", "file", "directory"):
+            continue
         _succeeded_paths.add(raw.replace("\\", "/"))
         # Also keep Windows-style form for os.path.exists checks.
         _succeeded_paths.add(raw)
         base = raw.replace("\\", "/").rsplit("/", 1)[-1]
         if base:
             _succeeded_paths.add(base)
-        if name in ("create_file", "create_folder", "delete_file"):
-            was_dir = name == "create_folder" or (
-                name == "delete_file"
-                and ("folder" in (result_text or "").lower() or "directory" in (result_text or "").lower())
-            )
-            # Avoid duplicate path entries for the same tool.
-            key = (name, raw)
-            if not any(t == key[0] and p == key[1] for t, p, _ in _fs_verify_targets):
-                _fs_verify_targets.append((name, raw, was_dir))
+        # Disk verify targets come only from note_fs_verify_target (real paths
+        # from the tool). Do not parse result text into _fs_verify_targets —
+        # "Moved folder C:\…" used to register a bogus path "folder".
 
 
 def note_fs_verify_target(name: str, path: str, *, was_dir: bool = False) -> None:
-    """Record a create/delete path for this-turn disk verification."""
+    """Record a create/delete path for this-turn disk verification (one per path)."""
     if not name or not path:
         return
-    if not any(t == name and p == path for t, p, _ in _fs_verify_targets):
-        _fs_verify_targets.append((name, path, was_dir))
+    if path.strip().lower() in ("folder", "file", "directory", ".", ".."):
+        return
+    key = _normalize_fs_path_key(path)
+    for i, (t, p, d) in enumerate(_fs_verify_targets):
+        if t == name and _normalize_fs_path_key(p) == key:
+            # Prefer was_dir=True if either recording says so.
+            if was_dir and not d:
+                _fs_verify_targets[i] = (t, p, True)
+            return
+    _fs_verify_targets.append((name, path, was_dir))
 
 
 def record_tool_outcome(name: str, result_text: str) -> str:

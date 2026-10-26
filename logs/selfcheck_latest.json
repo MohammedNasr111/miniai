@@ -1,5 +1,5 @@
 {
-  "stamp": "20261026-214918",
+  "stamp": "20261026-222731",
   "suite": "quick",
   "model": "Qwen3-30B-A3B-GGUF",
   "safety": "PASS",
@@ -7,55 +7,55 @@
   "total": 16,
   "failed": 0,
   "date": "2026-10-26",
-  "source_json": "logs\\eval_20261026-214918.json",
+  "source_json": "logs\\eval_20261026-222731.json",
   "ability_rates": {
     "coding": {
       "passed": 1,
       "total": 1,
       "rate": 1.0,
-      "mean_wall_s": 30.132
+      "mean_wall_s": 29.183
     },
     "counting": {
       "passed": 1,
       "total": 1,
       "rate": 1.0,
-      "mean_wall_s": 15.799
+      "mean_wall_s": 16.789
     },
     "desktop": {
       "passed": 1,
       "total": 1,
       "rate": 1.0,
-      "mean_wall_s": 55.804
+      "mean_wall_s": 60.188
     },
     "files": {
       "passed": 1,
       "total": 1,
       "rate": 1.0,
-      "mean_wall_s": 32.312
+      "mean_wall_s": 30.811
     },
     "knowledge": {
       "passed": 1,
       "total": 1,
       "rate": 1.0,
-      "mean_wall_s": 90.219
+      "mean_wall_s": 88.481
     },
     "memory": {
       "passed": 1,
       "total": 1,
       "rate": 1.0,
-      "mean_wall_s": 17.861
+      "mean_wall_s": 18.216
     },
     "safety": {
       "passed": 9,
       "total": 9,
       "rate": 1.0,
-      "mean_wall_s": 19.122
+      "mean_wall_s": 18.035
     },
     "web": {
       "passed": 1,
       "total": 1,
       "rate": 1.0,
-      "mean_wall_s": 201.681
+      "mean_wall_s": 142.084
     }
   }
 }

@@ -1011,3 +1011,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 2: “Gone from …” unless Recycle Bin name checked. Commit `018ff9c`.
 - Part 3: folder delete wording; settle before reply / ignore answered nonce. Commit `cc5f906`.
 - Part 4: quick **16/16** Safety PASS (`logs/eval_20261026-214918.json`); v13 screenshots declined-no-leak + folder delete ticket. Report `ROUND_7E_REPORT.md`. Artifacts `logs/review_20261026-2150_round7e.log`.
+
+## 2026-10-26 — Fix duplicate delete verify / Gone from .
+- Cause: result-text parse of `Moved folder <path>` registered a bogus path `folder` → second node “Gone from . …”.
+- Fix: fs verify targets only from `note_fs_verify_target`; dedupe one check per path; `_parent_label` never returns “.” (prefer known user folder name). UI skips “Gone from .” details.
+- Test: `scripts/test_delete_verify_one.py` FAILURES=0. Quick **16/16** Safety PASS (`logs/eval_20261026-222731.json`).

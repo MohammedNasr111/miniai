@@ -8,23 +8,47 @@ from typing import Any, Optional
 
 
 def _parent_label(path: str) -> str:
-    """Short place name for truthful wording (Desktop, Downloads, …)."""
+    """Short place name for truthful wording (Desktop, Downloads, …).
+
+    Never returns "." — walk up until a real name, or match a known user folder.
+    """
     try:
-        parent = Path(path).parent
-        name = parent.name or str(parent)
+        p = Path(path)
+        # Prefer matching a known user folder that contains this path.
+        try:
+            from config.paths import resolve_user_folders
+
+            for folder_name, root in resolve_user_folders().items():
+                try:
+                    p.resolve().relative_to(root.resolve())
+                    return folder_name  # e.g. "Desktop"
+                except (ValueError, OSError):
+                    # Path may not exist after delete — string prefix compare.
+                    pref = str(root).rstrip("\\/").lower()
+                    cand = str(p).rstrip("\\/").lower()
+                    parent = str(p.parent).rstrip("\\/").lower()
+                    if cand == pref or cand.startswith(pref + "\\") or parent == pref:
+                        return folder_name
+        except Exception:
+            pass
+        parent = p.parent
+        name = (parent.name or "").strip()
+        # Path("foo").parent.name can be "" ; Path("C:\\a\\.").name quirks → "."
+        if name in ("", ".", ".."):
+            # Walk up for a usable segment.
+            cur = parent
+            for _ in range(4):
+                cur = cur.parent
+                n = (cur.name or "").strip()
+                if n and n not in (".", ".."):
+                    return n
+            drive = getattr(parent, "drive", None) or getattr(p, "drive", None)
+            if drive:
+                return str(drive).rstrip("\\/") + "\\"
+            return "disk"
+        return name
     except Exception:
         return "disk"
-    known = {
-        "desktop",
-        "documents",
-        "downloads",
-        "pictures",
-        "music",
-        "videos",
-    }
-    if name.lower() in known:
-        return name
-    return name or "disk"
 
 
 def _recycle_bin_has_basename(basename: str) -> bool:
@@ -83,23 +107,40 @@ def verify_create_delete(transcript: Any = None) -> dict[str, Any]:
     # transcript kept for API compat; intentionally unused for scoping.
     _ = transcript
     targets = get_fs_verify_targets()
-    checks: list[dict[str, Any]] = []
+    # One check per normalized path (prefer was_dir=True if any recording says so).
+    by_path: dict[str, tuple[str, str, bool]] = {}
     for tool, path, was_dir in targets:
+        if not path or path.strip() in (".", "..") or path.strip().lower() in (
+            "folder",
+            "file",
+            "directory",
+        ):
+            continue
+        key = path.replace("/", "\\").rstrip("\\").lower()
+        prev = by_path.get(key)
+        if prev is None:
+            by_path[key] = (tool, path, was_dir)
+        else:
+            by_path[key] = (tool, prev[1], prev[2] or was_dir)
+
+    checks: list[dict[str, Any]] = []
+    for tool, path, was_dir in by_path.values():
         exists = os.path.exists(path)
         kind = "folder" if (was_dir or (exists and os.path.isdir(path))) else "file"
         if tool == "delete_file":
             gone = not exists
             place = _parent_label(path)
+            if place in (".", "..", ""):
+                place = "disk"
             base = Path(path).name
             in_bin = False
             if gone:
                 in_bin = _recycle_bin_has_basename(base)
+            # Exactly one detail string per deleted path.
             if gone and in_bin:
                 detail = f"{'Folder' if kind == 'folder' else 'File'} is in the Recycle Bin"
             elif gone:
-                detail = (
-                    f"Gone from {place} (sent to the Recycle Bin)"
-                )
+                detail = f"Gone from {place} (sent to the Recycle Bin)"
             else:
                 detail = f"{'Folder' if kind == 'folder' else 'File'} still present on disk: {path}"
             ok = gone
