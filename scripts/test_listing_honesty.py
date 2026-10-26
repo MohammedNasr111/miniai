@@ -31,6 +31,7 @@ def main() -> int:
     from agent.listing_honesty import (
         is_biggest_files_question,
         maybe_correct_biggest_files_answer,
+        maybe_correct_listing_answer,
     )
     from agent.research_pipeline import is_compare_question
     from tools.code.project_discover import ensure_task_slug_folder
@@ -99,6 +100,52 @@ def main() -> int:
     ):
         check(f"has_{name}", name in fixed, fixed[:200])
     check("no_hallucination", "data.log" not in fixed and "cache.tmp" not in fixed)
+
+    # General listing honesty: hallucinated name removed; real kept; prose untouched
+    general_listing = [
+        {"name": "alpha.txt", "type": "file", "size_bytes": 10},
+        {"name": "beta.txt", "type": "file", "size_bytes": 20},
+        {"name": "Reports", "type": "dir"},
+    ]
+    td2 = Path(tempfile.mkdtemp(prefix="miniai_list_gen_"))
+    tx2 = td2 / "g.jsonl"
+    tx2.write_text(
+        json.dumps(
+            {
+                "type": "tool_call",
+                "name": "list_directory",
+                "args": {"path": "C:\\tmp"},
+                "result": json.dumps(general_listing),
+                "outcome": "ok",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    mixed = (
+        "The folder has `alpha.txt` and `ghost.bin` plus Reports. "
+        "Nothing else to note about the weather."
+    )
+    cleaned, gmeta = maybe_correct_listing_answer(
+        "What is in C:\\tmp?",
+        mixed,
+        transcript=_FakeTx(tx2),
+    )
+    check("gen_corrected", bool(gmeta and gmeta.get("corrected")), str(gmeta))
+    check("gen_keeps_real", "alpha.txt" in cleaned, cleaned)
+    check("gen_removes_fake", "ghost.bin" not in cleaned, cleaned)
+    check(
+        "gen_note",
+        "weren't in the folder listing" in cleaned or "Removed" in cleaned,
+        cleaned,
+    )
+    prose = "The weather looks fine today."
+    same, gmeta2 = maybe_correct_listing_answer(
+        "What is in C:\\tmp?",
+        prose,
+        transcript=_FakeTx(tx2),
+    )
+    check("gen_prose_untouched", same == prose and gmeta2 is None, str(gmeta2))
 
     # Explicit slug
     from tests.support import use_temp_data
