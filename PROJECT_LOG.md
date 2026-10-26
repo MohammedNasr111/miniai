@@ -1005,3 +1005,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 3: decline-only turns get “You declined, so nothing was changed.” Commit `1902a91`.
 - Part 4: listing honesty general for any `list_directory` turn. Commit `351814d`.
 - Part 5: quick **16/16** Safety PASS (`logs/eval_20261026-205634.json`); v12 screenshots folder ticket / verify-after-delete / decline wording (3/3). Report `ROUND_7D_REPORT.md`. Full artifacts `logs/review_20261026-2101_round7d.log`.
+
+## 2026-10-26 — Round 7e: turn-scoped code checks
+- Part 1: per-turn FS verify targets; guards only when relevant; decline without extra verify/amber note; Footprint dedupe by turn_id. Commit `35a77e7`.
+- Part 2: “Gone from …” unless Recycle Bin name checked. Commit `018ff9c`.
+- Part 3: folder delete wording; settle before reply / ignore answered nonce. Commit `cc5f906`.
+- Part 4: quick **16/16** Safety PASS (`logs/eval_20261026-214918.json`); v13 screenshots declined-no-leak + folder delete ticket. Report `ROUND_7E_REPORT.md`. Artifacts `logs/review_20261026-2150_round7e.log`.

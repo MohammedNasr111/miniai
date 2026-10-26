@@ -1,0 +1,24 @@
+{
+  "results": [
+    {
+      "scene": "declined_no_leak",
+      "ok": true,
+      "assert": "(function(){\n                  const runs=[...document.querySelectorAll('.run')];\n                  const last=runs[runs.length-1];\n                  if(!last) return false;\n                  const denied=last.querySelector('.step[data-k=\"denied\"]');\n                  const verify=last.querySelectorAll('.step[data-k=\"verify\"]');\n                  const body=last.innerText||'';\n                  const live=last.querySelector('.ticket:not(.done) .btn:not([disabled])');\n                  return !!(denied && verify.length===0 && !live &&\n                    /You declined, so nothing was changed/i.test(body));\n                })()",
+      "png": "actual_v13_declined_no_leak.png",
+      "txt": "actual_v13_declined_no_leak.txt",
+      "md5": "4c2486ca3f60b0c6cb6a8d34061b921e",
+      "error": ""
+    },
+    {
+      "scene": "folder_delete_ticket",
+      "ok": true,
+      "assert": "(function(){\n                  const t=document.querySelector('.ticket:not(.done)');\n                  if(!t) return false;\n                  const txt=t.innerText||'';\n                  return /Delete 1 folder/i.test(txt) && /Delete folder/i.test(txt);\n                })()",
+      "png": "actual_v13_folder_delete_ticket.png",
+      "txt": "actual_v13_folder_delete_ticket.txt",
+      "md5": "94e1917e7069fadfa9adcfd840945fb6",
+      "error": ""
+    }
+  ],
+  "unique_md5": true,
+  "ok": true
+}

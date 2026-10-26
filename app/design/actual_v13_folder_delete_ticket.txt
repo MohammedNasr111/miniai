@@ -1,0 +1,37 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Delete the file at C:\Users\mohdc\AppDa…
+Qwen3 30B, on this PC
+Writing speed
+2.2 tok/s
+Memory
+19.2 of 23.6 GB
+Nightly self-check
+16 of 16, 2026-10-26
+Delete the folder at C:\Users\mohdc\App…
+
+(working)
+
+21:50
+Waiting for you
+1 step
+Nothing left this PC
+Deleting a folder
+C:\…\Temp\miniai_v13_fx_i8wd1hod\V13Folder_3992
+Delete 1 folder
+C:\…ta\Local\Temp\miniai_v13_fx_i8wd1hod\V13Folder_3992
+
+It goes to the Recycle Bin, so you can restore it.
+
+Delete folder
+Keep it
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Nothing yet. Actions in this chat will be listed here.
