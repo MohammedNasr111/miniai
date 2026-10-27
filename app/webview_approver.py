@@ -382,8 +382,81 @@ class AppBridge:
                 "selfcheck_level": selfcheck_level,
                 "selfcheck_prompt": selfcheck_prompt,
                 "tok_s": self._last_tok_s,
+                "cloud": self._cloud_status_payload(),
             },
         )
+
+    def _cloud_status_payload(self) -> dict[str, Any]:
+        try:
+            from security.gemini_key import ui_status
+
+            st = ui_status()
+            model_name = ""
+            try:
+                from llm.gemini import provider as _gp
+
+                model_name = str(getattr(_gp, "last_chosen_model_name", lambda: "")() or "")
+            except Exception:
+                model_name = ""
+            connected = bool(st.get("connected"))
+            if connected and model_name:
+                label = f"Cloud: {model_name}"
+            elif connected:
+                label = "Cloud: connected"
+            else:
+                label = "Cloud: not connected"
+            return {
+                "connected": connected,
+                "status": st.get("status") or "Not connected",
+                "model": model_name,
+                "label": label,
+            }
+        except Exception as exc:
+            logger.info("cloud status unavailable: %s", exc)
+            return {
+                "connected": False,
+                "status": "Not connected",
+                "model": "",
+                "label": "Cloud: not connected",
+            }
+
+    def gemini_status(self) -> dict[str, Any]:
+        from security.gemini_key import ui_status
+
+        return ui_status()
+
+    def gemini_save_key(self, key: str) -> dict[str, Any]:
+        from security.gemini_key import clear_rejected, save_key
+
+        # Never log or echo the key.
+        result = save_key(str(key or ""))
+        if result.get("ok"):
+            clear_rejected()
+        try:
+            self.push_status()
+        except Exception:
+            pass
+        # UI-safe only
+        return {
+            "ok": bool(result.get("ok")),
+            "connected": bool(result.get("connected")),
+            "status": result.get("status") or "Not connected",
+        }
+
+    def gemini_remove_key(self) -> dict[str, Any]:
+        from security.gemini_key import clear_rejected, remove_key
+
+        clear_rejected()
+        result = remove_key()
+        try:
+            self.push_status()
+        except Exception:
+            pass
+        return {
+            "ok": bool(result.get("ok")),
+            "connected": bool(result.get("connected")),
+            "status": result.get("status") or "Not connected",
+        }
     def open_external(self, url: str) -> dict[str, Any]:
         raw = (url or "").strip()
         self._external_log.append(raw)
@@ -1232,3 +1305,18 @@ class _JsApi:
             return {"ok": False, "error": "clipboard unavailable"}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
+
+    def gemini_status(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "connected": False, "status": "Not connected"}
+        return self._bridge.gemini_status()
+
+    def gemini_save_key(self, key: str) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "connected": False, "status": "Not connected"}
+        return self._bridge.gemini_save_key(str(key or ""))
+
+    def gemini_remove_key(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "connected": False, "status": "Not connected"}
+        return self._bridge.gemini_remove_key()

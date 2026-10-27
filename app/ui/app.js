@@ -16,6 +16,15 @@
   const memLabel = document.getElementById("mem-label");
   const tokSpeed = document.getElementById("tok-speed");
   const selfcheckLabel = document.getElementById("selfcheck-label");
+  const cloudLabel = document.getElementById("cloud-label");
+  const settingsPanel = document.getElementById("settings-panel");
+  const settingsClose = document.getElementById("settings-close");
+  const geminiKeyInput = document.getElementById("gemini-key-input");
+  const geminiSave = document.getElementById("gemini-save");
+  const geminiRemove = document.getElementById("gemini-remove");
+  const geminiStatusLine = document.getElementById("gemini-status-line");
+  const cloudExperimental = document.getElementById("cloud-experimental");
+  const cloudExperimentalWrap = document.getElementById("cloud-experimental-wrap");
   const chatTitle = document.getElementById("chat-title");
   const historyList = document.getElementById("history-list");
   const ctxMenu = document.getElementById("ctx-menu");
@@ -913,6 +922,71 @@
     });
   }
 
+  function setGeminiStatusLine(text) {
+    if (!geminiStatusLine) return;
+    const t = String(text || "Not connected");
+    geminiStatusLine.textContent = t;
+    geminiStatusLine.classList.remove("ok", "bad");
+    if (/rejected/i.test(t)) geminiStatusLine.classList.add("bad");
+    else if (/^connected$/i.test(t.trim())) geminiStatusLine.classList.add("ok");
+  }
+
+  async function refreshGeminiStatus() {
+    const a = api();
+    if (!a || !a.gemini_status) return;
+    try {
+      const st = await a.gemini_status();
+      setGeminiStatusLine((st && st.status) || "Not connected");
+    } catch (e) {
+      setGeminiStatusLine("Not connected");
+    }
+  }
+
+  function openSettings() {
+    if (!settingsPanel) return;
+    settingsPanel.hidden = false;
+    if (geminiKeyInput) {
+      geminiKeyInput.value = "";
+      geminiKeyInput.focus();
+    }
+    refreshGeminiStatus();
+    closePalette();
+  }
+
+  function closeSettings() {
+    if (!settingsPanel) return;
+    settingsPanel.hidden = true;
+    if (geminiKeyInput) geminiKeyInput.value = "";
+  }
+
+  if (settingsClose) {
+    settingsClose.addEventListener("click", closeSettings);
+  }
+  if (settingsPanel) {
+    settingsPanel.addEventListener("click", function (e) {
+      if (e.target === settingsPanel) closeSettings();
+    });
+  }
+  if (geminiSave) {
+    geminiSave.addEventListener("click", async function () {
+      const a = api();
+      if (!a || !a.gemini_save_key) return;
+      const key = geminiKeyInput ? geminiKeyInput.value : "";
+      const st = await a.gemini_save_key(key);
+      if (geminiKeyInput) geminiKeyInput.value = "";
+      setGeminiStatusLine((st && st.status) || "Not connected");
+    });
+  }
+  if (geminiRemove) {
+    geminiRemove.addEventListener("click", async function () {
+      const a = api();
+      if (!a || !a.gemini_remove_key) return;
+      const st = await a.gemini_remove_key();
+      if (geminiKeyInput) geminiKeyInput.value = "";
+      setGeminiStatusLine((st && st.status) || "Not connected");
+    });
+  }
+
   btnNew.addEventListener("click", function () {
     newChat();
   });
@@ -980,6 +1054,13 @@
         run: async function () {
           const a = api();
           if (a && a.run_selfcheck) await a.run_selfcheck();
+        },
+      },
+      {
+        id: "cloud",
+        label: "Cloud brain settings",
+        run: function () {
+          openSettings();
         },
       },
       {
@@ -1142,6 +1223,12 @@
       if (tokSpeed && s.tok_s != null) {
         tokSpeed.textContent =
           s.tok_s > 0 ? Number(s.tok_s).toFixed(1) + " tok/s" : "—";
+      }
+      if (cloudLabel && s.cloud) {
+        cloudLabel.textContent = s.cloud.label || "Cloud: not connected";
+      }
+      if (geminiStatusLine && s.cloud && settingsPanel && !settingsPanel.hidden) {
+        setGeminiStatusLine(s.cloud.status || "Not connected");
       }
       setTainted(!!s.tainted);
     },

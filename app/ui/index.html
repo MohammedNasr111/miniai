@@ -19,6 +19,7 @@
       <div class="mrow"><span>Memory</span><strong id="mem-label">—</strong></div>
       <div class="gauge" aria-hidden="true"><i id="mem-meter"></i></div>
       <div class="mrow"><span>Nightly self-check</span><button type="button" class="selfcheck-btn" id="selfcheck-label" title="Run self-check">…</button></div>
+      <div class="mrow"><span>Cloud</span><strong id="cloud-label">Cloud: not connected</strong></div>
     </section>
   </aside>
 
@@ -86,6 +87,29 @@
   <div class="palette" role="dialog" aria-label="Command palette">
     <input id="palette-input" type="text" placeholder="Type a command…" autocomplete="off" spellcheck="false">
     <ul id="palette-list"></ul>
+  </div>
+</div>
+
+<div class="settings-scrim" id="settings-panel" hidden>
+  <div class="settings" role="dialog" aria-label="Cloud brain settings">
+    <header>
+      <h2>Cloud brain</h2>
+      <button type="button" class="iconbtn" id="settings-close" aria-label="Close">Close</button>
+    </header>
+    <p class="settings-lead">Optional Google Gemini for heavy, non-private jobs. Keys stay on this PC (Windows DPAPI). Cloud turns never receive your files or memories.</p>
+    <label class="settings-field">
+      <span>Paste your Gemini API key</span>
+      <input id="gemini-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+    </label>
+    <div class="settings-actions">
+      <button type="button" class="settings-primary" id="gemini-save">Save</button>
+      <button type="button" class="settings-danger" id="gemini-remove">Remove</button>
+    </div>
+    <p class="settings-status" id="gemini-status-line">Not connected</p>
+    <label class="settings-check" id="cloud-experimental-wrap" hidden>
+      <input type="checkbox" id="cloud-experimental">
+      <span>Experimental: cloud brain (enable Send to cloud)</span>
+    </label>
   </div>
 </div>
 
