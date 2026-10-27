@@ -98,4 +98,4 @@ Table: `logs/round8b_part4_measure.md` (+ JSON). Script: `scripts/measure_round8
 | `36fe2b9` | Round 8b Part 2: agent log redaction, clear toast, run result nodes |
 | `3b980bc` | Round 8b Part 3: importable underscore project slugs and run_tests rootdir/PYTHONPATH |
 | `a9c4ed7` | Round 8b Part 4: live cloud measure via DPAPI; prefer flash-lite-latest; Cloud stays Experimental |
-| *(this)* | Round 8b: real cloud routing with visible fallback, logs, run result nodes, importable project slugs |
+| `2966247` | Round 8b: real cloud routing with visible fallback, logs, run result nodes, importable project slugs |
