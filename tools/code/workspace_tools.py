@@ -217,9 +217,21 @@ def _pytest_import_roots(target: Path) -> list[str]:
     return out
 
 
+def _project_root_for_tests(target: Path) -> Path:
+    """Project folder that should be cwd / rootdir / on PYTHONPATH."""
+    if target.is_dir() and target.name in {"tests", "test"}:
+        return target.parent
+    if target.is_file() and target.parent.name in {"tests", "test"}:
+        return target.parent.parent
+    if target.is_dir():
+        return target
+    return target.parent
+
+
 def run_tests(path: str = "tests", timeout_s: float = DEFAULT_TIMEOUT_S) -> str:
     target = resolve_in_workspace(path, must_exist=True)
     tests = _list_test_files(target)
+    project = _project_root_for_tests(target)
     fw = firewall_rule_status(force=True)
     mem_gb = PROCESS_MEMORY_LIMIT // (1024**3)
     listing = "\n".join(f"  - {p.relative_to(workspace_dir())}" for p in tests) or "  (none found)"
@@ -231,12 +243,24 @@ def run_tests(path: str = "tests", timeout_s: float = DEFAULT_TIMEOUT_S) -> str:
         "Requires pytest installed in the runner venv."
     )
     check_permission(action="run_tests", tier=Tier.CONFIRM, description=description)
+    # Prefer paths relative to the project so pytest rootdir stays clean.
+    try:
+        pytest_target = str(target.relative_to(project))
+    except ValueError:
+        pytest_target = str(target)
     try:
         result = run_argv(
-            ["-m", "pytest", str(target), "-q", "--tb=short"],
+            [
+                "-m",
+                "pytest",
+                pytest_target,
+                "-q",
+                "--tb=short",
+                f"--rootdir={project}",
+            ],
             timeout_s=float(timeout_s),
             script_path=str(target),
-            cwd=workspace_dir(),
+            cwd=project,
             extra_pythonpath=_pytest_import_roots(target),
         )
     except LowIntegrityLaunchError as exc:

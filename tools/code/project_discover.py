@@ -47,11 +47,23 @@ _DEBUG_EXISTING = re.compile(
 
 
 def slugify(text: str, *, max_len: int = 40) -> str:
+    """Return a valid Python identifier: [a-z][a-z0-9_]{0,max_len-1}.
+
+    Existing hyphenated folders on disk are left alone; only *new* slug
+    folders use underscores so ``import <slug>`` works under pytest.
+    """
     s = (text or "").strip().lower()
-    s = _SLUG_RE.sub("-", s).strip("-")
+    s = _SLUG_RE.sub("_", s)
+    s = re.sub(r"_+", "_", s).strip("_")
     if not s:
         s = "project"
-    return s[:max_len].rstrip("-") or "project"
+    # Must start with a letter for importability.
+    if not s[0].isalpha():
+        s = "p_" + s
+    s = re.sub(r"[^a-z0-9_]", "", s)
+    if not s or not s[0].isalpha():
+        s = "project"
+    return (s[:max_len].rstrip("_") or "project")
 
 
 def looks_like_coding_request(text: str) -> bool:
@@ -260,15 +272,24 @@ def ensure_task_slug_folder(user_text: str) -> Optional[str]:
         target = ws / slug
         target.mkdir(parents=True, exist_ok=True)
         return slug
-    # If the user clearly names an existing project folder, reuse it.
+    # If the user clearly names an existing project folder, reuse it —
+    # but only when that folder is already a valid import name. Legacy
+    # hyphen folders stay on disk; a new underscore slug is created so
+    # `import <slug>` works under pytest.
     cands = list_project_candidates(text)
     if cands:
         top = cands[0]
         rel = (top.get("path") or "").replace("\\", "/").strip(".")
-        if rel and top["file_count"] > 0 and any(
-            tok and tok in rel.lower()
-            for tok in re.split(r"[^a-z0-9]+", text.lower())
-            if len(tok) > 3
+        leaf = Path(rel).name if rel else ""
+        if (
+            rel
+            and top["file_count"] > 0
+            and leaf.isidentifier()
+            and any(
+                tok and tok in rel.lower()
+                for tok in re.split(r"[^a-z0-9]+", text.lower())
+                if len(tok) > 3
+            )
         ):
             return None
     # Build slug from distinctive words
@@ -300,15 +321,15 @@ def ensure_task_slug_folder(user_text: str) -> Optional[str]:
         "sqlite",
     }
     picked = [w.lower() for w in words if w.lower() not in skip][:4]
-    slug = slugify("-".join(picked) if picked else "coding-task")
+    slug = slugify("_".join(picked) if picked else "coding_task")
     ws = workspace_dir()
     target = ws / slug
     # Never clobber an existing non-empty tree — pick a free name.
     if target.exists() and any(target.iterdir()):
         n = 2
-        while (ws / f"{slug}-{n}").exists():
+        while (ws / f"{slug}_{n}").exists() or (ws / f"{slug}-{n}").exists():
             n += 1
-        slug = f"{slug}-{n}"
+        slug = f"{slug}_{n}"
         target = ws / slug
     target.mkdir(parents=True, exist_ok=True)
     return slug

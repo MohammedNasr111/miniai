@@ -165,8 +165,13 @@ def main() -> None:
     _check("slug_skip_existing", no_slug is None, str(no_slug))
 
     # --- infer_test_target ---
-    tgt2 = infer_test_target(["buggy/mathy.py"])
+    # Root-level edits may use workspace/tests; subfolder edits must not
+    # steal a sibling/root suite when the project has no local tests/.
+    (ws / "root_mod.py").write_text("x=1\n", encoding="utf-8")
+    tgt2 = infer_test_target(["root_mod.py"])
     _check("infer_tests_root", tgt2 == "tests", str(tgt2))
+    tgt_sub = infer_test_target(["buggy/mathy.py"])
+    _check("infer_tests_sub_no_local", tgt_sub is None, str(tgt_sub))
     tgt3 = infer_test_target(["alpha_app/main.py"])
     _check("infer_tests_nested", tgt3 == "alpha_app/tests", str(tgt3))
 
@@ -288,7 +293,17 @@ def main() -> None:
         and set(TOOL_TIERS) == set(TOOL_FUNCTIONS),
         "",
     )
-    _check("slugify", slugify("Hello World!!") == "hello-world", slugify("Hello World!!"))
+    _check(
+        "slugify",
+        slugify("Hello World!!") == "hello_world",
+        slugify("Hello World!!"),
+    )
+    _check(
+        "slugify_importable",
+        slugify("command-line expense tracker").isidentifier()
+        and slugify("command-line expense tracker")[0].isalpha(),
+        slugify("command-line expense tracker"),
+    )
 
     if FAILURES:
         print(f"\nFAILURES={len(FAILURES)} {FAILURES}")
