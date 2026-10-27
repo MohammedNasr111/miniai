@@ -66,12 +66,16 @@ def _pick_flash_model(models: list[str]) -> str:
     names = [m.split("/")[-1] for m in models if m]
     flash = [n for n in names if re.search(r"(?i)flash", n) and "embed" not in n.lower()]
     # Prefer newer flash (lexicographic on version-ish tokens is weak; rank known prefs)
+    # Prefer stable aliases first — numbered previews (e.g. 3.8) often 503
+    # under free-tier load while *-latest / *-lite-latest still answer.
     prefs = (
+        "gemini-flash-lite-latest",
+        "gemini-flash-latest",
         "gemini-3.8-flash",
         "gemini-3.5-flash",
+        "gemini-2.5-flash-lite",
         "gemini-2.5-flash",
         "gemini-2.0-flash",
-        "gemini-flash-latest",
         "gemini-1.5-flash",
     )
     lower_map = {n.lower(): n for n in flash}
