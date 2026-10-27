@@ -29,12 +29,15 @@ class Transcript:
         self.last_prompt_tokens: Optional[int] = None
 
     def write(self, event_type: str, **fields: Any) -> None:
+        from agent.log_redact import redact_obj
+
         record = {
             "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
             "type": event_type,
         }
         record.update(fields)
-        self._file.write(json.dumps(record, ensure_ascii=False) + "\n")
+        safe = redact_obj(record)
+        self._file.write(json.dumps(safe, ensure_ascii=False) + "\n")
         self._file.flush()
 
     def run_start(self, user_prompt: str, model: str, system_prompt: str) -> None:

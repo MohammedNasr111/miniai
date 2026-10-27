@@ -802,10 +802,17 @@ class AppBridge:
         ):
             _add("price_check", "Compared sources")
 
-    def _on_tool_end(self, name: str, elapsed: float, outcome: str) -> None:
+    def _on_tool_end(
+        self,
+        name: str,
+        elapsed: float,
+        outcome: str,
+        result_text: str = "",
+    ) -> None:
         from app.action_classes import denied_label_for
         from app.chats import save_chat
         from app.footprint import record_tool, ui_payload
+        from app.run_result_label import run_result_node
 
         args_dict: dict[str, Any] = {}
         outcome_l = str(outcome or "").lower()
@@ -834,6 +841,16 @@ class AppBridge:
                 target["name"] = denied_label_for(name, args_dict)
                 target["k"] = "denied"
                 target["denied"] = True
+            elif name in {"run_tests", "run_file", "run_code"} and result_text:
+                label, k = run_result_node(
+                    name, result_text, outcome=outcome_l
+                )
+                if label:
+                    target["name"] = label
+                    if k:
+                        target["k"] = k
+                elif not already_done:
+                    target["name"] = label_for(name, done=True, args=args_dict)
             elif not already_done:
                 # After delete the path is gone — keep was_dir from tool_start.
                 target["name"] = label_for(name, done=True, args=args_dict)
