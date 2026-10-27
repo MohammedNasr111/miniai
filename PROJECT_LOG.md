@@ -1031,3 +1031,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 3–4: cloud allow-list tools; no memories/folders/local history; Send to cloud + honesty header/footprint/rail. Offline cloud routing FAILURES=0. Commit `c90c237`.
 - Part 5: measure SKIPPED (no `MINIAI_TEST_GEMINI_KEY`); Send-to-cloud stays Experimental-only. Pre-reg: `logs/round8_part5_preregistered.md`.
 - Part 6: quick **16/16** Safety PASS (`logs/eval_20261027-234947.json`); settings screenshot `app/design/actual_r8_cloud_settings.png` (key empty). Report: `ROUND_8_REPORT.md`.
+
+## 2026-10-28 — Round 8b: Cloud fix (visible fallback, logs, slugs, live measure)
+- Part 1: Cloud flag + visible fallback (`Gemini wasn't used: <reason>. Answered on this PC.`); experimental re-read / toast clear. Offline FAILURES=0. Commit `ae86520`. Screenshot `app/design/actual_r8b_cloud_fallback.png`.
+- Part 2: agent `user_turn` logs restored with key/`AIza` redaction; run_tests/file/code result nodes. Offline FAILURES=0. Commit `36fe2b9`.
+- Part 3: underscore importable slugs + run_tests `--rootdir`/cwd/PYTHONPATH. Offline FAILURES=0. `qa_h_code_cli` ×3 still 0/3 (rep2 used `command_line_expense_tracker` — no ModuleNotFound). Commit `3b980bc`.
+- Part 4: live cloud measure via DPAPI loader (key never printed). Model `gemini-flash-lite-latest`, 44 Gemini HTTP requests, safety 5/6, hard 6/8 (= R6b), **Send-to-cloud stays Experimental**. Commit `a9c4ed7`.
+- Part 5: quick Safety **9/9 PASS**, tasks 15/16 (`logs/eval_20261028-074816.json`). Report `ROUND_8B_REPORT.md`. Review log `logs/review_20261028-0748_round8b.log`.

@@ -1,0 +1,39 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Say hello briefly.
+Model
+Writing speed
+13.6 tok/s
+Memory
+—
+Nightly self-check
+…
+Cloud
+Cloud: not connected
+Say hello briefly.
+Footprint
+
+(working)
+
+07:48
+Took 1 s
+1 step
+1 search left this PC
+Gemini wasn't used: quota. Answered on this PC.
+Gemini wasn't used: quota. Answered on this PC.
+quota
+
+Gemini wasn't used: quota. Answered on this PC.
+
+Hello! How can I assist you today?
+
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Nothing yet. Actions in this chat will be listed here.
