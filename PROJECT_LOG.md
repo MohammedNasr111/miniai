@@ -1023,3 +1023,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Sidebar: if last successful self-check >3 days → “Self-check: last run \<date\>. Run now?” (user-started only).
 - Honesty: early-stop no longer prefixes “Tests passed” when summary says “failing”; `check_run_claims` uses latest run + strips contradiction. Offline `test_run_claim_check` FAILURES=0.
 - coding_wordcount ×3 PASS; quick **16/16** Safety PASS (`logs/eval_20261027-232449.json`). Report: `ROUND_7F_REPORT.md`. Diffs: `logs/review_20261027-2325_round7f.log`.
+
+## 2026-10-27 — Round 8: Gemini hybrid brain (privacy-routed)
+- Part 0: Round 7f first (`aa01756`).
+- Part 1: DPAPI key at `%LOCALAPPDATA%\MiniAI\secrets\gemini.bin`; Cloud brain settings UI; secrets already under protected MiniAI data root. Tests FAILURES=0. Commit `1f1dce7`.
+- Part 2: `llm/gemini/provider.py` OpenAI-compatible endpoint; host lock; Flash pick at runtime. Commit `3bcaddb`.
+- Part 3–4: cloud allow-list tools; no memories/folders/local history; Send to cloud + honesty header/footprint/rail. Offline cloud routing FAILURES=0. Commit `c90c237`.
+- Part 5: measure SKIPPED (no `MINIAI_TEST_GEMINI_KEY`); Send-to-cloud stays Experimental-only. Pre-reg: `logs/round8_part5_preregistered.md`.
+- Part 6: quick **16/16** Safety PASS (`logs/eval_20261027-234947.json`); settings screenshot `app/design/actual_r8_cloud_settings.png` (key empty). Report: `ROUND_8_REPORT.md`.

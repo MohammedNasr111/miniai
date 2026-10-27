@@ -1,0 +1,41 @@
+M
+MiniAI
+New chat
+Ctrl N
+Model
+Writing speed
+—
+Memory
+—
+Nightly self-check
+…
+Cloud
+Cloud: not connected
+New chat
+Footprint
+Try one of these
+Move the installer files in my Downloads folder into a folder called Installers.
+Files
+What changed in the latest Windows 11 update?
+Web
+Write a Python function that counts words in a string, with tests.
+Code
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Nothing yet. Actions in this chat will be listed here.
+
+Cloud brain
+
+Optional Google Gemini for heavy, non-private jobs. Keys stay on this PC (Windows DPAPI). Cloud turns never receive your files or memories.
+
+Paste your Gemini API key
+Save
+Remove
+
+Not connected
+
+Experimental: cloud brain 
