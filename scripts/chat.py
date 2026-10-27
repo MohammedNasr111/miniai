@@ -153,22 +153,57 @@ def run_user_turn(
     cloud=True: Gemini with restricted tools; no memories / folder paths /
     local-turn history. Falls back to local on quota/auth/5xx exhaustion.
     """
+    from agent.cloud_fallback import (
+        classify_cloud_error,
+        coerce_cloud_flag,
+        fallback_header,
+    )
     from agent.cloud_routing import (
         FORBIDDEN_LOCAL_MESSAGE,
         filter_history_for_cloud,
         footprint_left_pc_line,
-        is_cloud_turn,
         note_cloud_request,
         question_needs_local,
         set_cloud_turn,
     )
 
+    cloud = coerce_cloud_flag(cloud)
     session.ensure_system()
     pre_len = len(session.history)
     session.last_stream_partial = ""  # type: ignore[attr-defined]
     session.last_answered_by = "local"  # type: ignore[attr-defined]
     session.last_cloud_footprint = None  # type: ignore[attr-defined]
+    session.last_fallback_reason = None  # type: ignore[attr-defined]
+    session.last_fallback_header = None  # type: ignore[attr-defined]
     remember_urls_from_text(user_text)
+
+    # Per-turn transcript breadcrumb so app turns always leave a log line.
+    if session.transcript is not None:
+        try:
+            session.transcript.write(
+                "user_turn",
+                cloud=bool(cloud),
+                user_prompt=(user_text or "")[:2000],
+            )
+        except Exception:
+            pass
+
+    _fallback_prefix = ""
+
+    def _mark_fallback(reason: str) -> None:
+        nonlocal _fallback_prefix
+        session.last_answered_by = "local-fallback"  # type: ignore[attr-defined]
+        session.last_fallback_reason = reason  # type: ignore[attr-defined]
+        hdr = fallback_header(reason)
+        session.last_fallback_header = hdr  # type: ignore[attr-defined]
+        _fallback_prefix = hdr + "\n\n"
+        if session.transcript is not None:
+            try:
+                session.transcript.write(
+                    "cloud_fallback", reason=reason, header=hdr
+                )
+            except Exception:
+                pass
 
     if cloud:
         if question_needs_local(user_text):
@@ -179,32 +214,20 @@ def run_user_turn(
             session.turn_count += 1
             session.last_answered_by = "cloud-refused"  # type: ignore[attr-defined]
             return FORBIDDEN_LOCAL_MESSAGE
-        # Build a cloud-only history; do not mutate the local session history
-        # with memory/folder system noise.
         prior_cloud = list(getattr(session, "cloud_history", None) or [])
         cloud_hist = filter_history_for_cloud(
             session.history, user_text, prior_cloud_messages=prior_cloud
         )
+        cloud_provider = None
         try:
-            from llm.gemini.provider import (
-                GeminiAuthError,
-                GeminiProvider,
-                GeminiQuotaError,
-                QUOTA_MESSAGE,
-            )
+            from llm.gemini.provider import GeminiProvider
 
             cloud_provider = GeminiProvider()
-        except GeminiAuthError:
-            # Fall back to local for this turn.
-            cloud = False
-            session.last_answered_by = "local-fallback-auth"  # type: ignore[attr-defined]
         except Exception as exc:
-            # Missing key / config → local
+            _mark_fallback(classify_cloud_error(exc))
             cloud = False
-            session.last_answered_by = "local-fallback"  # type: ignore[attr-defined]
-            _ = exc
 
-        if cloud:
+        if cloud and cloud_provider is not None:
             set_cloud_turn(True)
             try:
 
@@ -232,21 +255,10 @@ def run_user_turn(
                         on_stream_clear=_clear if on_stream_delta else None,
                         question=user_text,
                     )
-                except GeminiQuotaError:
+                except Exception as exc:
                     set_cloud_turn(False)
-                    session.last_answered_by = "local-fallback-quota"  # type: ignore[attr-defined]
-                    # Fall through to local path below with a notice prefix.
-                    session.history.append(ChatMessage(role="user", content=user_text))
-                    # Continue into local branch by re-entering after flag clear
+                    _mark_fallback(classify_cloud_error(exc))
                     cloud = False
-                    _quota_prefix = QUOTA_MESSAGE + "\n\n"
-                except (GeminiAuthError, Exception) as exc:
-                    set_cloud_turn(False)
-                    # One more try locally for 5xx/timeouts already retried in provider
-                    session.last_answered_by = "local-fallback-error"  # type: ignore[attr-defined]
-                    cloud = False
-                    _quota_prefix = ""
-                    _ = exc
                 else:
                     answer = response.content or ""
                     meta = getattr(cloud_provider, "last_request_meta", None) or {}
@@ -265,8 +277,6 @@ def run_user_turn(
                         message_chars=int(meta.get("message_chars") or len(user_text)),
                     )
                     session.last_answered_by = "gemini"  # type: ignore[attr-defined]
-                    # Persist cloud turns separately; also mirror into main history
-                    # so the UI chat log is complete.
                     if not hasattr(session, "cloud_history") or session.cloud_history is None:
                         session.cloud_history = []  # type: ignore[attr-defined]
                     session.cloud_history.append(  # type: ignore[attr-defined]
@@ -291,8 +301,6 @@ def run_user_turn(
         set_auto_recall_hits,
         user_has_recall_intent,
     )
-
-    _quota_prefix = locals().get("_quota_prefix", "") or ""
 
     try:
         from memory.intent_save import code_save_remember_intent
@@ -439,7 +447,7 @@ def run_user_turn(
             on_stream_clear=_clear if on_stream_delta else None,
             question=user_text,
         )
-        answer = (_quota_prefix or "") + (response.content or "")
+        answer = (_fallback_prefix or "") + (response.content or "")
         session.history.append(
             ChatMessage(role="assistant", content=answer)
         )
@@ -447,10 +455,12 @@ def run_user_turn(
         if session.transcript is not None:
             session.last_prompt_tokens = session.transcript.last_prompt_tokens
         session.last_check = getattr(response, "check_meta", None)  # type: ignore[attr-defined]
-        if not getattr(session, "last_answered_by", None) or str(
-            getattr(session, "last_answered_by", "")
-        ).startswith("local"):
+        # Keep fallback / gemini markers; only default plain local when unset.
+        by = str(getattr(session, "last_answered_by", "") or "")
+        if not by:
             session.last_answered_by = "local"  # type: ignore[attr-defined]
+        elif by == "local" and _fallback_prefix:
+            session.last_answered_by = "local-fallback"  # type: ignore[attr-defined]
         if (
             session.last_prompt_tokens is not None
             and session.last_prompt_tokens > CONTEXT_WARN_TOKENS

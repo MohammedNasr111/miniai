@@ -184,6 +184,7 @@ class AppBridge:
         self._stream_t0: float = 0.0
         self._stream_chars: int = 0
         self._web_pages_read: int = 0
+        self._next_cloud: bool = False
 
     def is_cancelled(self) -> bool:
         return self._cancel.is_set()
@@ -474,17 +475,31 @@ class AppBridge:
             logger.warning("open_external failed: %s", exc)
             return {"ok": False, "error": str(exc)}
 
-    def send_message(self, text: str, cloud: bool = False) -> None:
+    def prepare_next_cloud(self, cloud: object = False) -> dict[str, Any]:
+        """JS sets this immediately before send_message (reliable cloud flag)."""
+        from agent.cloud_fallback import coerce_cloud_flag
+
+        self._next_cloud = coerce_cloud_flag(cloud)
+        return {"ok": True, "cloud": bool(self._next_cloud)}
+
+    def send_message(self, text: str, cloud: object = False) -> None:
+        from agent.cloud_fallback import coerce_cloud_flag
+
         text = (text or "").strip()
         if not text:
             return
+        # Prefer explicit prepare_next_cloud; also accept 2nd arg from JS.
+        use_cloud = coerce_cloud_flag(cloud) or bool(
+            getattr(self, "_next_cloud", False)
+        )
+        self._next_cloud = False
         with self._turn_lock:
             if self._busy:
                 return
             self._busy = True
             self._cancel.clear()
         threading.Thread(
-            target=self._run_turn, args=(text, bool(cloud)), daemon=True
+            target=self._run_turn, args=(text, use_cloud), daemon=True
         ).start()
 
     def stop_turn(self) -> None:
@@ -1133,11 +1148,15 @@ class AppBridge:
 
             answered_by = "local"
             cloud_line = None
+            fallback_header = None
+            fallback_reason = None
             if self._session is not None:
                 answered_by = str(
                     getattr(self._session, "last_answered_by", "local") or "local"
                 )
                 cloud_line = getattr(self._session, "last_cloud_footprint", None)
+                fallback_header = getattr(self._session, "last_fallback_header", None)
+                fallback_reason = getattr(self._session, "last_fallback_reason", None)
             if cloud_line and self._chat_doc is not None:
                 try:
                     fp = ensure_footprint(self._chat_doc)
@@ -1154,11 +1173,15 @@ class AppBridge:
                     save_chat(self._chat_doc)
                 except Exception:
                     pass
+            # Brain label must match the provider that produced the final answer.
             if answered_by == "gemini":
                 answered_label = "Answered by Gemini (cloud)"
+            elif answered_by in ("local-fallback",) or fallback_header:
+                answered_label = str(
+                    fallback_header
+                    or "Gemini wasn't used: error. Answered on this PC."
+                )
             else:
-                # Local model name from status
-                answered_label = None
                 try:
                     from config import settings as _set
 
@@ -1167,6 +1190,19 @@ class AppBridge:
                     answered_label = short
                 except Exception:
                     answered_label = "on this PC"
+            # Insert a visible fallback step in the trace when cloud fell back.
+            if fallback_header:
+                steps = [
+                    {
+                        "tool": "cloud_fallback",
+                        "name": str(fallback_header),
+                        "detail": str(fallback_reason or ""),
+                        "k": "out",
+                        "t": "",
+                        "running": False,
+                        "denied": False,
+                    }
+                ] + list(steps)
             fp_ui = ui_payload((self._chat_doc or {}).get("footprint") or {})
             self._call_js(
                 "on_answer",
@@ -1181,6 +1217,7 @@ class AppBridge:
                     "footprint": fp_ui,
                     "answered_by": answered_by,
                     "answered_label": answered_label,
+                    "fallback_reason": fallback_reason,
                 },
             )
             self._call_js("on_history", self.list_chats())
@@ -1265,10 +1302,15 @@ class _JsApi:
             str(value) if value is not None else "",
         )
 
-    def send_message(self, text: str, cloud: bool = False) -> None:
+    def prepare_next_cloud(self, cloud: object = False) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "cloud": False}
+        return self._bridge.prepare_next_cloud(cloud)
+
+    def send_message(self, text: str, cloud: object = False) -> None:
         if not self._require_index():
             return
-        self._bridge.send_message(str(text or ""), cloud=bool(cloud))
+        self._bridge.send_message(str(text or ""), cloud=cloud)
 
     def stop_turn(self) -> None:
         if not self._require_index():

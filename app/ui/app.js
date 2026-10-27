@@ -568,6 +568,12 @@
     maybeScrollBottom();
   }
 
+  function clearSystemNotes() {
+    Array.from(runsEl.querySelectorAll(".sys-note")).forEach(function (el) {
+      el.remove();
+    });
+  }
+
   function clearApproval() {
     if (pendingApproval && pendingApproval.root) {
       // leave collapsed ticket in place if marked done
@@ -888,6 +894,7 @@
 
   function sendMessage(opts) {
     const toCloud = !!(opts && opts.cloud);
+    clearSystemNotes();
     if (readonly) {
       showSystemNote("Continue in a new chat");
       return;
@@ -899,7 +906,18 @@
       if (a && a.stop_turn) a.stop_turn();
       return;
     }
-    if (toCloud && btnCloud && btnCloud.hidden) {
+    // Re-read experimental flag every send (no restart required).
+    if (cloudExperimental) {
+      cloudExperimentalOn = !!cloudExperimental.checked;
+      try {
+        localStorage.setItem(
+          "miniai_cloud_experimental",
+          cloudExperimentalOn ? "1" : "0"
+        );
+      } catch (e) {}
+      updateCloudButton();
+    }
+    if (toCloud && !(cloudEnabledDefault || cloudExperimentalOn)) {
       openSettings();
       showSystemNote("Turn on Experimental: cloud brain in settings first.");
       return;
@@ -915,6 +933,10 @@
       setTurnControls(false);
       return;
     }
+    // Set cloud flag on the bridge before send (pywebview-safe).
+    try {
+      if (a.prepare_next_cloud) a.prepare_next_cloud(!!toCloud);
+    } catch (e) {}
     a.send_message(text, !!toCloud);
   }
 
@@ -951,6 +973,7 @@
           cloudExperimentalOn ? "1" : "0"
         );
       } catch (e) {}
+      clearSystemNotes();
       updateCloudButton();
     });
   }
