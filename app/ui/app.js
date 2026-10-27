@@ -1176,7 +1176,8 @@
       appEl.classList.toggle("show-foot");
       appEl.classList.remove("show-rail");
     } else if (e.key === "Escape") {
-      if (!palette.hidden) closePalette();
+      if (settingsPanel && !settingsPanel.hidden) closeSettings();
+      else if (!palette.hidden) closePalette();
       else appEl.classList.remove("show-rail", "show-foot");
     }
   });
