@@ -474,7 +474,7 @@ class AppBridge:
             logger.warning("open_external failed: %s", exc)
             return {"ok": False, "error": str(exc)}
 
-    def send_message(self, text: str) -> None:
+    def send_message(self, text: str, cloud: bool = False) -> None:
         text = (text or "").strip()
         if not text:
             return
@@ -483,7 +483,9 @@ class AppBridge:
                 return
             self._busy = True
             self._cancel.clear()
-        threading.Thread(target=self._run_turn, args=(text,), daemon=True).start()
+        threading.Thread(
+            target=self._run_turn, args=(text, bool(cloud)), daemon=True
+        ).start()
 
     def stop_turn(self) -> None:
         self._cancel.set()
@@ -906,7 +908,7 @@ class AppBridge:
             return TURN_TIMEOUT_MESSAGE
         return "Something went wrong while talking to the model. Try again."
 
-    def _run_turn(self, text: str) -> None:
+    def _run_turn(self, text: str, cloud: bool = False) -> None:
         from app.chats import append_message, create_chat
         from scripts.chat import run_user_turn
         from security.approver import set_approver
@@ -1015,6 +1017,7 @@ class AppBridge:
                     on_checking=_on_checking,
                     on_stream_delta=_on_stream_delta,
                     on_stream_clear=_on_stream_clear,
+                    cloud=bool(cloud),
                 )
             finally:
                 set_research_progress(None)
@@ -1126,8 +1129,44 @@ class AppBridge:
                 save_chat(self._chat_doc)
             except Exception:
                 pass
-            from app.footprint import ui_payload
+            from app.footprint import ensure_footprint, ui_payload
 
+            answered_by = "local"
+            cloud_line = None
+            if self._session is not None:
+                answered_by = str(
+                    getattr(self._session, "last_answered_by", "local") or "local"
+                )
+                cloud_line = getattr(self._session, "last_cloud_footprint", None)
+            if cloud_line and self._chat_doc is not None:
+                try:
+                    fp = ensure_footprint(self._chat_doc)
+                    left = fp.setdefault("left", [])
+                    left.append(
+                        {
+                            "label": str(cloud_line),
+                            "time": time.strftime("%H:%M"),
+                            "kind": "cloud",
+                        }
+                    )
+                    from app.chats import save_chat
+
+                    save_chat(self._chat_doc)
+                except Exception:
+                    pass
+            if answered_by == "gemini":
+                answered_label = "Answered by Gemini (cloud)"
+            else:
+                # Local model name from status
+                answered_label = None
+                try:
+                    from config import settings as _set
+
+                    short = str(getattr(_set, "LEMONADE_MODEL", "") or "local")
+                    short = short.replace("-GGUF", "").replace("-", " ")
+                    answered_label = short
+                except Exception:
+                    answered_label = "on this PC"
             fp_ui = ui_payload((self._chat_doc or {}).get("footprint") or {})
             self._call_js(
                 "on_answer",
@@ -1140,6 +1179,8 @@ class AppBridge:
                     "check": check_payload,
                     "tok_s": self._last_tok_s,
                     "footprint": fp_ui,
+                    "answered_by": answered_by,
+                    "answered_label": answered_label,
                 },
             )
             self._call_js("on_history", self.list_chats())
@@ -1224,10 +1265,10 @@ class _JsApi:
             str(value) if value is not None else "",
         )
 
-    def send_message(self, text: str) -> None:
+    def send_message(self, text: str, cloud: bool = False) -> None:
         if not self._require_index():
             return
-        self._bridge.send_message(str(text or ""))
+        self._bridge.send_message(str(text or ""), cloud=bool(cloud))
 
     def stop_turn(self) -> None:
         if not self._require_index():

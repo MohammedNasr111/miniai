@@ -8,7 +8,10 @@
   const composer = document.getElementById("composer");
   const composerForm = document.getElementById("composer-form");
   const btnSend = document.getElementById("btn-send");
+  const btnCloud = document.getElementById("btn-cloud");
   const btnNew = document.getElementById("btn-new-chat");
+  let cloudEnabledDefault = false; // Part 5 measure may flip this
+  let cloudExperimentalOn = false;
   const chipTaint = document.getElementById("chip-taint");
   const modelStatus = document.getElementById("model-status");
   const modelLamp = document.getElementById("model-lamp");
@@ -874,7 +877,17 @@
   }
   composer.addEventListener("input", autoSize);
 
-  function sendMessage() {
+  function updateCloudButton() {
+    if (!btnCloud) return;
+    const show = cloudEnabledDefault || cloudExperimentalOn;
+    btnCloud.hidden = !show;
+    if (cloudExperimentalWrap) {
+      cloudExperimentalWrap.hidden = cloudEnabledDefault;
+    }
+  }
+
+  function sendMessage(opts) {
+    const toCloud = !!(opts && opts.cloud);
     if (readonly) {
       showSystemNote("Continue in a new chat");
       return;
@@ -884,6 +897,11 @@
     if (busy) {
       const a = api();
       if (a && a.stop_turn) a.stop_turn();
+      return;
+    }
+    if (toCloud && btnCloud && btnCloud.hidden) {
+      openSettings();
+      showSystemNote("Turn on Experimental: cloud brain in settings first.");
       return;
     }
     composer.value = "";
@@ -897,19 +915,46 @@
       setTurnControls(false);
       return;
     }
-    a.send_message(text);
+    a.send_message(text, !!toCloud);
   }
 
   composerForm.addEventListener("submit", function (e) {
     e.preventDefault();
-    sendMessage();
+    sendMessage({ cloud: false });
   });
+  if (btnCloud) {
+    btnCloud.addEventListener("click", function () {
+      sendMessage({ cloud: true });
+    });
+  }
   composer.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      sendMessage({ cloud: true });
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      sendMessage({ cloud: false });
     }
   });
+  if (cloudExperimental) {
+    try {
+      cloudExperimentalOn = localStorage.getItem("miniai_cloud_experimental") === "1";
+      cloudExperimental.checked = cloudExperimentalOn;
+    } catch (e) {}
+    cloudExperimental.addEventListener("change", function () {
+      cloudExperimentalOn = !!cloudExperimental.checked;
+      try {
+        localStorage.setItem(
+          "miniai_cloud_experimental",
+          cloudExperimentalOn ? "1" : "0"
+        );
+      } catch (e) {}
+      updateCloudButton();
+    });
+  }
+  updateCloudButton();
   if (selfcheckLabel) {
     selfcheckLabel.addEventListener("click", async function () {
       if (!selfcheckLabel.classList.contains("prompt")) return;
@@ -1227,6 +1272,10 @@
       }
       if (cloudLabel && s.cloud) {
         cloudLabel.textContent = s.cloud.label || "Cloud: not connected";
+        if (s.cloud.connected && cloudExperimentalWrap && !cloudEnabledDefault) {
+          cloudExperimentalWrap.hidden = false;
+        }
+        updateCloudButton();
       }
       if (geminiStatusLine && s.cloud && settingsPanel && !settingsPanel.hidden) {
         setGeminiStatusLine(s.cloud.status || "Not connected");
@@ -1279,6 +1328,23 @@
         },
         (payload && payload.check) || null
       );
+      if (currentRun && payload) {
+        const label =
+          payload.answered_by === "gemini"
+            ? "Answered by Gemini (cloud)"
+            : payload.answered_label
+              ? String(payload.answered_label)
+              : null;
+        if (label) {
+          let brain = currentRun.meta.querySelector(".meta-brain");
+          if (!brain) {
+            brain = document.createElement("span");
+            brain.className = "meta-brain";
+            currentRun.meta.appendChild(brain);
+          }
+          brain.textContent = label;
+        }
+      }
       setTainted(!!(payload && payload.tainted));
       if (payload && payload.tok_s != null && tokSpeed) {
         tokSpeed.textContent =

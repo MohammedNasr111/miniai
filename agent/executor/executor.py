@@ -159,6 +159,25 @@ def execute_tool_calls(
                     ChatMessage(role="tool", content=blocked, tool_call_id=call_id)
                 )
                 continue
+        # Cloud privacy allow-list (code-enforced; gate still applies after).
+        try:
+            from agent.cloud_routing import (
+                FORBIDDEN_LOCAL_MESSAGE,
+                is_cloud_tool_allowed,
+                is_cloud_turn,
+            )
+
+            if is_cloud_turn() and not is_cloud_tool_allowed(name):
+                content = FORBIDDEN_LOCAL_MESSAGE
+                print(f"[TOOL RESULT] {content[:200]}")
+                _log_tool(transcript, name, args, content, "denied", started)
+                _end("denied")
+                results.append(
+                    ChatMessage(role="tool", content=content, tool_call_id=call_id)
+                )
+                continue
+        except Exception:
+            pass
         func = TOOL_FUNCTIONS.get(name)
         outcome = "error"
         if func is None:

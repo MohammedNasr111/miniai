@@ -180,11 +180,31 @@ def _feature_tool_enabled(flag_name: str) -> bool:
 
 
 def active_tool_schemas(schemas: list | None = None) -> list:
-    """TOOL_SCHEMAS with feature-gated tools removed when their flag is off."""
+    """TOOL_SCHEMAS with feature-gated tools removed when their flag is off.
+
+    On a cloud turn, only the privacy allow-list is returned.
+    """
     src = schemas if schemas is not None else TOOL_SCHEMAS
+    cloud = False
+    try:
+        from agent.cloud_routing import is_cloud_turn
+
+        cloud = is_cloud_turn()
+    except Exception:
+        cloud = False
+    allowed = None
+    if cloud:
+        try:
+            from agent.cloud_routing import CLOUD_ALLOWED_TOOLS
+
+            allowed = CLOUD_ALLOWED_TOOLS
+        except Exception:
+            allowed = None
     out = []
     for item in src:
         name = (item.get("function") or {}).get("name") or ""
+        if allowed is not None and name not in allowed:
+            continue
         flag = _FEATURE_GATED_TOOLS.get(name)
         if flag and not _feature_tool_enabled(flag):
             continue

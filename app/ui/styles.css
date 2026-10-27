@@ -155,6 +155,10 @@ button,input,textarea{font:inherit;color:inherit}
 .cbox textarea{flex:1;min-width:0;background:none;border:0;outline:0;padding:6px 0;font-size:var(--s3);resize:none;max-height:160px;line-height:1.45;color:var(--text)}
 .cbox textarea::placeholder{color:var(--faint);opacity:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .send{border:0;border-radius:8px;width:36px;height:36px;background:var(--glacier);color:#11161D;cursor:pointer;flex:none;display:grid;place-items:center;opacity:1}
+.send-cloud{border:1px solid var(--line);border-radius:8px;height:36px;padding:0 10px;background:transparent;color:var(--lilac);cursor:pointer;flex:none;font:500 var(--s1)/1 var(--display)}
+.send-cloud:hover{background:color-mix(in srgb,var(--lilac) 12%,transparent)}
+.send-cloud[hidden]{display:none!important}
+.meta-brain{color:var(--lilac)}
 .send svg{display:block}
 .send.is-stop{background:var(--brick);color:#fff}
 .send.is-stop svg{display:none}

@@ -138,6 +138,8 @@ def run_user_turn(
     on_checking=None,
     on_stream_delta=None,
     on_stream_clear=None,
+    *,
+    cloud: bool = False,
 ) -> str:
     """Append one user message, run tools, append cleaned final answer.
 
@@ -147,17 +149,150 @@ def run_user_turn(
     returns TURN_TIMEOUT_MESSAGE so the session can continue.
 
     on_stream_delta / on_stream_clear forward final-answer streaming to the UI.
+
+    cloud=True: Gemini with restricted tools; no memories / folder paths /
+    local-turn history. Falls back to local on quota/auth/5xx exhaustion.
     """
+    from agent.cloud_routing import (
+        FORBIDDEN_LOCAL_MESSAGE,
+        filter_history_for_cloud,
+        footprint_left_pc_line,
+        is_cloud_turn,
+        note_cloud_request,
+        question_needs_local,
+        set_cloud_turn,
+    )
+
     session.ensure_system()
     pre_len = len(session.history)
     session.last_stream_partial = ""  # type: ignore[attr-defined]
+    session.last_answered_by = "local"  # type: ignore[attr-defined]
+    session.last_cloud_footprint = None  # type: ignore[attr-defined]
     remember_urls_from_text(user_text)
+
+    if cloud:
+        if question_needs_local(user_text):
+            session.history.append(ChatMessage(role="user", content=user_text))
+            session.history.append(
+                ChatMessage(role="assistant", content=FORBIDDEN_LOCAL_MESSAGE)
+            )
+            session.turn_count += 1
+            session.last_answered_by = "cloud-refused"  # type: ignore[attr-defined]
+            return FORBIDDEN_LOCAL_MESSAGE
+        # Build a cloud-only history; do not mutate the local session history
+        # with memory/folder system noise.
+        prior_cloud = list(getattr(session, "cloud_history", None) or [])
+        cloud_hist = filter_history_for_cloud(
+            session.history, user_text, prior_cloud_messages=prior_cloud
+        )
+        try:
+            from llm.gemini.provider import (
+                GeminiAuthError,
+                GeminiProvider,
+                GeminiQuotaError,
+                QUOTA_MESSAGE,
+            )
+
+            cloud_provider = GeminiProvider()
+        except GeminiAuthError:
+            # Fall back to local for this turn.
+            cloud = False
+            session.last_answered_by = "local-fallback-auth"  # type: ignore[attr-defined]
+        except Exception as exc:
+            # Missing key / config → local
+            cloud = False
+            session.last_answered_by = "local-fallback"  # type: ignore[attr-defined]
+            _ = exc
+
+        if cloud:
+            set_cloud_turn(True)
+            try:
+
+                def _delta(text: str) -> None:
+                    session.last_stream_partial = text or ""  # type: ignore[attr-defined]
+                    if on_stream_delta is not None:
+                        on_stream_delta(text)
+
+                def _clear() -> None:
+                    session.last_stream_partial = ""  # type: ignore[attr-defined]
+                    if on_stream_clear is not None:
+                        on_stream_clear()
+
+                try:
+                    response = run_tool_rounds(
+                        cloud_provider,
+                        cloud_hist,
+                        session.guard,
+                        session.transcript,
+                        on_tool_start=on_tool_start,
+                        on_tool_end=on_tool_end,
+                        cancel_check=cancel_check,
+                        on_checking=on_checking,
+                        on_stream_delta=_delta if on_stream_delta else None,
+                        on_stream_clear=_clear if on_stream_delta else None,
+                        question=user_text,
+                    )
+                except GeminiQuotaError:
+                    set_cloud_turn(False)
+                    session.last_answered_by = "local-fallback-quota"  # type: ignore[attr-defined]
+                    # Fall through to local path below with a notice prefix.
+                    session.history.append(ChatMessage(role="user", content=user_text))
+                    # Continue into local branch by re-entering after flag clear
+                    cloud = False
+                    _quota_prefix = QUOTA_MESSAGE + "\n\n"
+                except (GeminiAuthError, Exception) as exc:
+                    set_cloud_turn(False)
+                    # One more try locally for 5xx/timeouts already retried in provider
+                    session.last_answered_by = "local-fallback-error"  # type: ignore[attr-defined]
+                    cloud = False
+                    _quota_prefix = ""
+                    _ = exc
+                else:
+                    answer = response.content or ""
+                    meta = getattr(cloud_provider, "last_request_meta", None) or {}
+                    note_cloud_request(
+                        {
+                            **meta,
+                            "question_chars": len(user_text or ""),
+                            "messages": [
+                                m.model_dump(exclude_none=True) for m in cloud_hist
+                            ],
+                        }
+                    )
+                    session.last_cloud_footprint = footprint_left_pc_line(  # type: ignore[attr-defined]
+                        user_text,
+                        web_pages=int(getattr(session, "last_web_pages", 0) or 0),
+                        message_chars=int(meta.get("message_chars") or len(user_text)),
+                    )
+                    session.last_answered_by = "gemini"  # type: ignore[attr-defined]
+                    # Persist cloud turns separately; also mirror into main history
+                    # so the UI chat log is complete.
+                    if not hasattr(session, "cloud_history") or session.cloud_history is None:
+                        session.cloud_history = []  # type: ignore[attr-defined]
+                    session.cloud_history.append(  # type: ignore[attr-defined]
+                        ChatMessage(role="user", content=user_text)
+                    )
+                    session.cloud_history.append(  # type: ignore[attr-defined]
+                        ChatMessage(role="assistant", content=answer)
+                    )
+                    session.history.append(ChatMessage(role="user", content=user_text))
+                    session.history.append(
+                        ChatMessage(role="assistant", content=answer)
+                    )
+                    session.turn_count += 1
+                    return answer
+            finally:
+                set_cloud_turn(False)
+
+    # ---- local path (default) ----
     # Code-path remember-intent: save before the model answers (CONFIRM tier).
     from agent.action_claim_check import (
         note_pre_succeeded_tool,
         set_auto_recall_hits,
         user_has_recall_intent,
     )
+
+    _quota_prefix = locals().get("_quota_prefix", "") or ""
 
     try:
         from memory.intent_save import code_save_remember_intent
@@ -275,7 +410,9 @@ def run_user_turn(
                     set_auto_recall_hits(max(1, len(search_hits)))
         except Exception:
             pass
-    session.history.append(ChatMessage(role="user", content=user_text))
+    # Avoid duplicating the user message if quota fallback already appended it.
+    if not session.history or session.history[-1].role != "user" or session.history[-1].content != user_text:
+        session.history.append(ChatMessage(role="user", content=user_text))
     session.last_check = None  # type: ignore[attr-defined]
 
     def _delta(text: str) -> None:
@@ -302,14 +439,18 @@ def run_user_turn(
             on_stream_clear=_clear if on_stream_delta else None,
             question=user_text,
         )
+        answer = (_quota_prefix or "") + (response.content or "")
         session.history.append(
-            ChatMessage(role="assistant", content=response.content or "")
+            ChatMessage(role="assistant", content=answer)
         )
         session.turn_count += 1
         if session.transcript is not None:
             session.last_prompt_tokens = session.transcript.last_prompt_tokens
         session.last_check = getattr(response, "check_meta", None)  # type: ignore[attr-defined]
-        answer = response.content or ""
+        if not getattr(session, "last_answered_by", None) or str(
+            getattr(session, "last_answered_by", "")
+        ).startswith("local"):
+            session.last_answered_by = "local"  # type: ignore[attr-defined]
         if (
             session.last_prompt_tokens is not None
             and session.last_prompt_tokens > CONTEXT_WARN_TOKENS
