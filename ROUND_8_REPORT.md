@@ -79,6 +79,6 @@ Pre-registered rule file: `logs/round8_part5_preregistered.md`.
 | `1f1dce7` | Round 8 Part 1: DPAPI key + settings |
 | `3bcaddb` | Round 8 Part 2: Gemini provider |
 | `c90c237` | Round 8 Part 3–4: privacy routing + honesty UI |
-| *(this)* | Round 8 report |
+| `0c72777` | Round 8 report |
 
 After this, the user pastes a real key; the architect hand-tests cloud turns.
