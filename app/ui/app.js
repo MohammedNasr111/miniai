@@ -901,6 +901,18 @@
       sendMessage();
     }
   });
+  if (selfcheckLabel) {
+    selfcheckLabel.addEventListener("click", async function () {
+      if (!selfcheckLabel.classList.contains("prompt")) return;
+      const a = api();
+      if (a && a.run_selfcheck) {
+        selfcheckLabel.textContent = "running…";
+        selfcheckLabel.classList.remove("prompt");
+        await a.run_selfcheck();
+      }
+    });
+  }
+
   btnNew.addEventListener("click", function () {
     newChat();
   });
@@ -1107,12 +1119,19 @@
       }
       if (selfcheckLabel) {
         let sc = String(s.selfcheck || "not run yet")
-          .replace(/^Self-check:\s*/i, "")
           .replace(/\u00b7/g, " of ")
           .trim();
         if (!sc || sc === "…" || sc === "...") sc = "not run yet";
+        // Stale prompt keeps "Self-check: last run … Run now?"; otherwise strip prefix.
+        if (!s.selfcheck_prompt) {
+          sc = sc.replace(/^Self-check:\s*/i, "").trim() || "not run yet";
+        }
         selfcheckLabel.textContent = sc;
-        if (s.selfcheck_level === "danger") {
+        selfcheckLabel.classList.toggle("prompt", !!s.selfcheck_prompt);
+        selfcheckLabel.style.color = "";
+        if (s.selfcheck_prompt) {
+          /* color via .prompt */
+        } else if (s.selfcheck_level === "danger") {
           selfcheckLabel.style.color = "var(--brick)";
         } else if (s.selfcheck_level === "ok" && sc !== "not run yet") {
           selfcheckLabel.style.color = "var(--verdigris)";

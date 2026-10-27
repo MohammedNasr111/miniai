@@ -929,13 +929,15 @@ def run_tool_rounds(
                     except Exception:
                         pass
                 # Green tests for this project → stop looping (avoids noop edits).
+                # pytest_summary uses "failing" (not "failed"); treat both as red.
                 low = auto_msg.lower()
-                if (
-                    "passed" in low
-                    and "failed" not in low
-                    and "error" not in low
-                    and "syntaxerror" not in low
-                ):
+                has_fail = bool(
+                    re.search(
+                        r"(?i)\b(?:failing|failed|error|syntaxerror|errors)\b",
+                        auto_msg or "",
+                    )
+                )
+                if "passed" in low and not has_fail:
                     early_stop_status = (
                         "Tests passed. "
                         + auto_msg[auto_msg.index("Tests:") :]
@@ -1016,10 +1018,11 @@ def run_tool_rounds(
         transcript.round_cap_hit = cap
     check_meta = None
     if early_stop_status is not None:
-        shown = early_stop_status
+        # Honesty guard still applies (e.g. contradictory "Tests passed" + failing).
+        shown = check_run_claims(early_stop_status, transcript=transcript)
         response.content = shown
         if transcript is not None:
-            transcript.final(raw=shown, shown=shown)
+            transcript.final(raw=early_stop_status, shown=shown)
     elif cap:
         # Surface a concrete final answer when the round limit stops the loop.
         shown = f"Stopped after {max_rounds} tool rounds without a final answer."

@@ -131,6 +131,34 @@ def main() -> None:
         out5[-180:],
     )
 
+    # 6) Exact Round-7f contradiction: "Tests passed" + "1 failing"
+    # (early-stop status line; may have no run_* record when only auto-test ran)
+    reset_turn_runs()
+    contrad = (
+        "Tests passed. Tests: 4 passed, 1 failing: fail test_punctuation "
+        "— AssertionEr…"
+    )
+    out6 = check_run_claims(contrad)
+    _check(
+        "contradiction_tests_passed_failing",
+        out6.startswith("Tests:")
+        and "Tests passed" not in out6
+        and "1 failing" in out6
+        and "test_punctuation" in out6,
+        repr(out6[:180]),
+    )
+
+    # 7) Earlier pass + later fail: success claim must still correct
+    reset_turn_runs()
+    record_run_tool("run_tests", PASS_WRAPPED)
+    record_run_tool("run_tests", REAL_WRAPPED)
+    out7 = check_run_claims("All tests pass now.")
+    _check(
+        "latest_run_not_any_ok",
+        "⚠ Correction" in out7 and "exit code 1" in out7,
+        out7[-200:],
+    )
+
     if FAILURES:
         print(f"\nFAILURES={len(FAILURES)} {FAILURES}")
         raise SystemExit(1)

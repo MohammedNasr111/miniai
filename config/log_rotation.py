@@ -127,6 +127,26 @@ def rotate_logs(logs_dir: Path | None = None) -> dict[str, Any]:
     return result
 
 
+def _selfcheck_age_days(date_str: str) -> float | None:
+    """Days since YYYY-MM-DD (or ISO datetime); None if unparseable."""
+    from datetime import date, datetime
+
+    raw = (date_str or "").strip()
+    if not raw:
+        return None
+    try:
+        if len(raw) >= 10 and raw[4] == "-" and raw[7] == "-":
+            d = date.fromisoformat(raw[:10])
+            return float((date.today() - d).days)
+    except ValueError:
+        pass
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return (datetime.now(dt.tzinfo) - dt).total_seconds() / 86400.0
+    except ValueError:
+        return None
+
+
 def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
     """Read logs/selfcheck_latest.json for the sidebar footer."""
     root = logs_dir or LOGS_DIR
@@ -139,6 +159,8 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
             "passed": 0,
             "total": 0,
             "failed": 0,
+            "stale": False,
+            "prompt_run": False,
         }
     try:
         import json
@@ -154,6 +176,8 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
             "passed": 0,
             "total": 0,
             "failed": 0,
+            "stale": False,
+            "prompt_run": False,
         }
     if not isinstance(data, dict):
         return {
@@ -164,6 +188,8 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
             "passed": 0,
             "total": 0,
             "failed": 0,
+            "stale": False,
+            "prompt_run": False,
         }
     try:
         passed = int(data.get("passed") or 0)
@@ -178,11 +204,34 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
             "passed": 0,
             "total": 0,
             "failed": 0,
+            "stale": False,
+            "prompt_run": False,
         }
     date = data.get("date") or data.get("finished") or ""
     if isinstance(date, str) and len(date) >= 10:
         date = date[:10]
+    age = _selfcheck_age_days(str(date) if date else "")
+    # Stale when last successful full pass is older than 3 days — user decides.
+    successful = failed == 0 and total > 0
+    stale = bool(successful and age is not None and age > 3.0)
     # No middle-dot separators in UI strings (Round 7+).
+    if stale:
+        label = (
+            f"Self-check: last run {date}. Run now?"
+            if date
+            else "Self-check: last run unknown. Run now?"
+        )
+        return {
+            "ok": True,
+            "passed": passed,
+            "total": total,
+            "failed": 0,
+            "date": date,
+            "label": label,
+            "level": "warn",
+            "stale": True,
+            "prompt_run": True,
+        }
     if failed == 0 and total > 0:
         label = f"{passed} of {total}"
         if date:
@@ -195,6 +244,8 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
             "date": date,
             "label": label,
             "level": "ok",
+            "stale": False,
+            "prompt_run": False,
         }
     if total <= 0:
         return {
@@ -205,6 +256,8 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
             "total": 0,
             "failed": 0,
             "date": date,
+            "stale": False,
+            "prompt_run": False,
         }
     label = f"{failed} failed"
     if date:
@@ -217,4 +270,6 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
         "date": date,
         "label": label,
         "level": "danger",
+        "stale": False,
+        "prompt_run": False,
     }

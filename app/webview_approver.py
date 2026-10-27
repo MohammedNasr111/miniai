@@ -355,12 +355,14 @@ class AppBridge:
             model_state = "ready"
         selfcheck_label = "not run yet"
         selfcheck_level = "ok"
+        selfcheck_prompt = False
         try:
             from config.log_rotation import read_selfcheck_summary
 
             sc = read_selfcheck_summary()
             selfcheck_label = str(sc.get("label") or "not run yet").strip()
             selfcheck_level = sc.get("level") or "ok"
+            selfcheck_prompt = bool(sc.get("prompt_run") or sc.get("stale"))
         except Exception as exc:
             logger.info("selfcheck summary unavailable: %s", exc)
             selfcheck_label = "not run yet"
@@ -378,6 +380,7 @@ class AppBridge:
                 "memory_level": mem_level,
                 "selfcheck": selfcheck_label,
                 "selfcheck_level": selfcheck_level,
+                "selfcheck_prompt": selfcheck_prompt,
                 "tok_s": self._last_tok_s,
             },
         )
@@ -470,37 +473,36 @@ class AppBridge:
         return {"ok": ok, "history": self.list_chats()}
 
     def run_selfcheck_bg(self) -> dict[str, Any]:
-        """Run the quick suite in a background thread; refresh rail when done."""
+        """Run the FULL quick suite (visible windows OK — user started it)."""
 
         def _job() -> None:
             import subprocess
             import sys
             from pathlib import Path
 
+            from config.proc import hidden_subprocess_kwargs
+
             root = Path(__file__).resolve().parents[1]
             py = root / ".venv" / "Scripts" / "python.exe"
             if not py.is_file():
                 py = Path(sys.executable)
             try:
+                # Full quick suite via shared runner (writes selfcheck_latest.json).
+                # Hidden console for the parent; suite itself may open test windows.
                 subprocess.run(
                     [
                         str(py),
                         "-m",
-                        "eval.run",
-                        "--suite",
-                        "quick",
-                        "--ability",
-                        "safety",
-                        "--repeat",
-                        "1",
+                        "scripts.run_selfcheck",
+                        "--mode",
+                        "full",
                         "--model",
                         "Qwen3-30B-A3B-GGUF",
                     ],
                     cwd=str(root),
                     env={**os.environ, "PYTHONPATH": str(root)},
-                    timeout=1800,
-                    capture_output=True,
-                    text=True,
+                    timeout=3600,
+                    **hidden_subprocess_kwargs(),
                 )
             except Exception as exc:
                 logger.warning("selfcheck bg failed: %s", exc)

@@ -1,8 +1,11 @@
 """Run MiniAI evaluation tasks.
 
 Usage:
-    python -m eval.run --suite quick|full [--repeat N] [--model NAME]
+    python -m eval.run --suite quick|full|nightly [--repeat N] [--model NAME]
         [--ability a,b] [--task id1,id2] [--save-baseline]
+
+    nightly = quick suite minus tasks marked needs_display: true
+    (no visible desktop/test windows; used by the scheduled self-check).
 """
 
 from __future__ import annotations
@@ -94,12 +97,16 @@ def _load_tasks(
     task_ids: Optional[set[str]] = None,
 ) -> list[dict[str, Any]]:
     tasks: list[dict[str, Any]] = []
+    # nightly = quick without visible-window tasks
+    suite_filter = "quick" if suite == "nightly" else suite
     for path in sorted(TASKS_DIR.glob("*.yaml")):
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise ValueError(f"Invalid task file: {path}")
         task_suite = data.get("suite", "full")
-        if suite == "quick" and task_suite != "quick":
+        if suite_filter == "quick" and task_suite != "quick":
+            continue
+        if suite == "nightly" and bool(data.get("needs_display")):
             continue
         if abilities is not None and data.get("ability") not in abilities:
             continue
@@ -544,7 +551,9 @@ def write_report(
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="MiniAI Stage 10 evaluation")
-    parser.add_argument("--suite", choices=("quick", "full"), required=True)
+    parser.add_argument(
+        "--suite", choices=("quick", "full", "nightly"), required=True
+    )
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument(
         "--ability",

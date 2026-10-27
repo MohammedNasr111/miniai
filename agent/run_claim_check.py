@@ -111,14 +111,52 @@ def answer_claims_run_success(answer: str) -> bool:
     return bool(_CLAIM_RE.search(answer or ""))
 
 
+_TESTS_PASSED_PREFIX = re.compile(
+    r"(?i)^\s*tests?\s+passed\.?\s*",
+)
+_FAILURE_IN_ANSWER = re.compile(
+    r"(?i)\b(?:\d+\s+failing|\d+\s+failed|\bfailing\b|\bfailed\b|"
+    r"assertion\s*err|error(?:s)?\b)",
+)
+
+
+def strip_contradictory_pass_claim(answer: str) -> str:
+    """Drop a leading 'Tests passed' when the same answer reports failures."""
+    text = answer or ""
+    if not _TESTS_PASSED_PREFIX.search(text):
+        return text
+    # Prefer the honest "Tests: …" clause when present.
+    idx = text.find("Tests:")
+    if idx >= 0 and _FAILURE_IN_ANSWER.search(text[idx:]):
+        return text[idx:].lstrip()
+    if _FAILURE_IN_ANSWER.search(text):
+        return _TESTS_PASSED_PREFIX.sub("", text, count=1).lstrip()
+    return text
+
+
+def _is_compact_tests_summary(text: str) -> bool:
+    """True for our auto-test one-liners (not a fabricated pytest dump)."""
+    p = (text or "").strip()
+    if not p.startswith("Tests:"):
+        return False
+    # Compact summaries stay one short paragraph; dumps have session headers.
+    if "\n" in p and ("platform " in p.lower() or "rootdir" in p.lower()):
+        return False
+    return len(p) < 800
+
+
 def _candidate_blocks(answer: str) -> list[str]:
     """Extract fenced code blocks and dense output-like paragraphs."""
     blocks: list[str] = []
     for m in re.finditer(r"```(?:[a-zA-Z0-9_+-]*)\n(.*?)```", answer or "", re.S):
-        blocks.append(m.group(1).strip())
+        body = m.group(1).strip()
+        if not _is_compact_tests_summary(body):
+            blocks.append(body)
     # Also long indented / multi-line chunks that look like pytest
     for para in re.split(r"\n{2,}", answer or ""):
         p = para.strip()
+        if _is_compact_tests_summary(p):
+            continue
         if len(p) >= 60 and _OUTPUT_HINT_RE.search(p):
             if p not in blocks:
                 blocks.append(p)
@@ -149,18 +187,44 @@ def check_run_claims(
     """Replace fabricated run transcripts and append a correction when needed."""
     if runs is None:
         runs = list(_turn_runs)
+    original = answer or ""
+    # Always strip an internal "Tests passed" + failing contradiction first.
+    answer = strip_contradictory_pass_claim(original)
+    # If we only needed to drop a false "Tests passed" prefix, stop here —
+    # the remaining "Tests: … failing" line is already the honest status.
+    if (
+        answer != original
+        and _is_compact_tests_summary(answer)
+        and _FAILURE_IN_ANSWER.search(answer)
+    ):
+        if transcript is not None:
+            try:
+                transcript.write(
+                    "run_claim_check",
+                    fired=True,
+                    stripped_pass_claim=True,
+                    claims=True,
+                )
+            except Exception:
+                pass
+        return answer.strip()
     claims = answer_claims_run_success(answer)
     blocks = _candidate_blocks(answer) if claims or _OUTPUT_HINT_RE.search(answer or "") else []
     fabricated = [
         b for b in blocks if _OUTPUT_HINT_RE.search(b) and not block_in_records(b, runs)
     ]
+    last = runs[-1] if runs else None
+    # Latest real run in the turn decides — an earlier green run must not
+    # excuse a success claim after a later failure.
+    last_ok = bool(last.get("ok")) if last is not None else False
     any_ok = any(bool(r.get("ok")) for r in runs)
-    # Fabricated output always triggers; success claims need a real exit 0
-    need = bool(fabricated) or (claims and not any_ok)
+    # Fabricated output always triggers; success claims need the *latest* exit 0
+    need = bool(fabricated) or (claims and not last_ok)
     detail = {
         "fired": need,
         "claims": claims,
         "any_ok": any_ok,
+        "last_ok": last_ok,
         "runs": [
             {"tool": r.get("tool"), "exit_code": r.get("exit_code"), "ok": r.get("ok")}
             for r in runs
@@ -176,7 +240,6 @@ def check_run_claims(
         return answer
 
     new_answer = answer
-    last = runs[-1] if runs else None
     real_preview = (
         last.get("output_preview")
         if last and last.get("output_preview")
@@ -192,6 +255,8 @@ def check_run_claims(
             if fenced in new_answer:
                 new_answer = new_answer.replace(fenced, f"```\n{real_preview}\n```", 1)
 
+    new_answer = strip_contradictory_pass_claim(new_answer)
+
     if last is not None and last.get("exit_code") is not None:
         status = "PASS" if last.get("ok") else "FAIL"
         code: Any = last.get("exit_code")
@@ -201,6 +266,15 @@ def check_run_claims(
     else:
         status = "FAIL"
         code = "n/a"
+    # When the answer already carries an honest "Tests: N passed, M failing"
+    # summary, prefer that alone (no "Tests passed", no extra correction note).
+    if (
+        "Tests:" in new_answer
+        and _FAILURE_IN_ANSWER.search(new_answer)
+        and not fabricated
+    ):
+        idx = new_answer.find("Tests:")
+        return new_answer[idx:].strip()
     note = CORRECTION_TMPL.format(status=status, code=code)
     if "⚠ Correction: the last real test run" not in new_answer:
         new_answer = new_answer.rstrip() + note

@@ -1016,3 +1016,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Cause: result-text parse of `Moved folder <path>` registered a bogus path `folder` → second node “Gone from . …”.
 - Fix: fs verify targets only from `note_fs_verify_target`; dedupe one check per path; `_parent_label` never returns “.” (prefer known user folder name). UI skips “Gone from .” details.
 - Test: `scripts/test_delete_verify_one.py` FAILURES=0. Quick **16/16** Safety PASS (`logs/eval_20261026-222731.json`).
+
+## 2026-10-27 — Round 7f: predictable quiet self-check; run-claim contradiction fix
+- Scheduled task `MiniAI-NightlySelfCheck`: StartWhenAvailable=false (03:17 only; no catch-up). WakeToRun=false, idle 10m, current user, no elevation kept.
+- Nightly suite = quick minus `needs_display` tasks (`desktop_read_insert`, `safety_password_field`). Shared runner `scripts/run_selfcheck.py` (hidden subprocess + `selfcheck_history.log`). Palette/stale prompt runs full quick.
+- Sidebar: if last successful self-check >3 days → “Self-check: last run \<date\>. Run now?” (user-started only).
+- Honesty: early-stop no longer prefixes “Tests passed” when summary says “failing”; `check_run_claims` uses latest run + strips contradiction. Offline `test_run_claim_check` FAILURES=0.
+- coding_wordcount ×3 PASS; quick **16/16** Safety PASS (`logs/eval_20261027-232449.json`). Report: `ROUND_7F_REPORT.md`. Diffs: `logs/review_20261027-2325_round7f.log`.

@@ -16,15 +16,15 @@ $trigger = New-ScheduledTaskTrigger -Daily -At 3:17am
 $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
-  -StartWhenAvailable `
   -RunOnlyIfIdle `
   -IdleDuration (New-TimeSpan -Minutes 10) `
   -IdleWaitTimeout (New-TimeSpan -Hours 2) `
   -DontStopOnIdleEnd `
   -MultipleInstances IgnoreNew
 
-# Do not wake the computer to run this task.
+# Do not wake the computer; do not catch up a missed 03:17 run later.
 $settings.WakeToRun = $false
+$settings.StartWhenAvailable = $false
 
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 
