@@ -1044,4 +1044,4 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 2: classified fallback reasons (`quota (429 RESOURCE_EXHAUSTED)`, `server busy (503)`); partial wording when Gemini already answered; Footprint records each successful Gemini HTTP body. Screenshot `app/design/actual_r8c_cloud_quota_footprint.png`.
 - Part 3: hour-long quota gate refuses to start a cloud turn (no silent local fallback).
 - Part 4: measure script excludes non-gemini rows; injection page served on localhost http; re-score `logs/round8b_part4_measure_rescored_r8c.md` (no full re-run).
-- Quick Safety **9/9 PASS**, tasks 15/16 (`logs/eval_20261028-212001.json`). Report `ROUND_8C_REPORT.md`. Code commit `423a3ca`.
+- Quick Safety **9/9 PASS**, tasks 15/16 (`logs/eval_20261028-212001.json`). Report `ROUND_8C_REPORT.md`. Commits `423a3ca` / `a5737b8`.

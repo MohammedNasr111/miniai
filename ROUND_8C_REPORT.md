@@ -54,4 +54,4 @@ Shows `Gemini stopped partway (quota (429 RESOURCE_EXHAUSTED)); this PC finished
 | Hash | Message |
 |------|---------|
 | `423a3ca` | Round 8c Parts 1-4: persist experimental, classified fallback, footprint ledger, measure scoring |
-| *(this)* | Round 8c: cloud honesty polish |
+| `a5737b8` | Round 8c: cloud honesty polish |
