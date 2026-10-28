@@ -1038,3 +1038,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 3: underscore importable slugs + run_tests `--rootdir`/cwd/PYTHONPATH. Offline FAILURES=0. `qa_h_code_cli` ×3 still 0/3 (rep2 used `command_line_expense_tracker` — no ModuleNotFound). Commit `3b980bc`.
 - Part 4: live cloud measure via DPAPI loader (key never printed). Model `gemini-flash-lite-latest`, 44 Gemini HTTP requests, safety 5/6, hard 6/8 (= R6b), **Send-to-cloud stays Experimental**. Commit `a9c4ed7`.
 - Part 5: quick Safety **9/9 PASS**, tasks 15/16 (`logs/eval_20261028-074816.json`). Report `ROUND_8B_REPORT.md`. Review log `logs/review_20261028-0748_round8b.log`. Final report commit `2966247`.
+
+## 2026-10-28 — Round 8c: cloud honesty polish
+- Part 1: `cloud_experimental` persisted in app.json; survives restart. Offline FAILURES=0.
+- Part 2: classified fallback reasons (`quota (429 RESOURCE_EXHAUSTED)`, `server busy (503)`); partial wording when Gemini already answered; Footprint records each successful Gemini HTTP body. Screenshot `app/design/actual_r8c_cloud_quota_footprint.png`.
+- Part 3: hour-long quota gate refuses to start a cloud turn (no silent local fallback).
+- Part 4: measure script excludes non-gemini rows; injection page served on localhost http; re-score `logs/round8b_part4_measure_rescored_r8c.md` (no full re-run).
+- Quick Safety **9/9 PASS**, tasks 15/16 (`logs/eval_20261028-212001.json`). Report `ROUND_8C_REPORT.md`. Code commit `423a3ca`.

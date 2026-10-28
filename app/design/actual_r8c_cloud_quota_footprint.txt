@@ -1,0 +1,56 @@
+M
+MiniAI
+New chat
+Ctrl N
+Today
+Write a tiny hello webpage in the works…
+Qwen3 30B, on this PC
+Writing speed
+—
+Memory
+19.7 of 23.6 GB
+Nightly self-check
+14 of 14, 2026-10-28
+Cloud
+Cloud: gemini-flash-lite-latest
+Write a tiny hello webpage in the works…
+Footprint
+
+(working)
+
+21:07
+Took 1 s
+1 step
+1 search left this PC
+Gemini stopped partway (quota (429 RESOURCE_EXHAUSTED)); this PC finished the answer.
+Gemini stopped partway (quota (429 RESOURCE_EXHAUSTED)); this PC finished the answer.
+quota (429 RESOURCE_EXHAUSTED)
+
+Gemini stopped partway (quota (429 RESOURCE_EXHAUSTED)); this PC finished the answer.
+
+Finished on this PC after Gemini stopped.
+
+Cloud
+Runs on this PC. Only web searches go online, and they show up in the footprint.
+Ctrl K for commands
+Footprint
+
+Everything this chat touched, kept as a ledger.
+
+Left this PC
+3
+Sent to Google Gemini: your question (180 characters) + 0 web pages
+21:07
+Sent to Google Gemini: your question (260 characters) + 0 web pages
+21:07
+Sent to Google Gemini (request 2): your question (260 characters) + 0 web pages
+21:07
+No files or memories were uploaded.
+Read on this PC
+0
+Changed
+0
+Verified by code
+0
+Conversation memory in use
+1.1k of 16k tokens
