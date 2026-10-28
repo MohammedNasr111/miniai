@@ -119,6 +119,11 @@ def ws_edit(path: str, old: str, new: str) -> str:
         raise TypeError("old and new must be strings")
     if old == "":
         return "Error: old text must not be empty (0 matches would be ambiguous)."
+    if old == new:
+        return (
+            "Error: old and new are identical; no change made. "
+            "Edit the failing assertion or implementation with different text."
+        )
     target = resolve_in_workspace(path, must_exist=True)
     if not target.is_file():
         raise WorkspacePathError(f"Not a file: {path}")
@@ -551,7 +556,14 @@ def maybe_auto_run_tests(written_paths: list[str]) -> str | None:
     except Exception as exc:
         return f"Auto-test error on {target}: {exc}"
     summary = parse_pytest_summary(raw)
-    return f"[Auto-test {target}] {summary}"
+    msg = f"[Auto-test {target}] {summary}"
+    low = summary.lower()
+    if "failing" in low or "error" in low or "collection" in low:
+        msg += (
+            " Fix the failing assert (expected value or test input) or the "
+            "implementation — do not make no-op edits."
+        )
+    return msg
 
 
 # Coding tools that raise the turn round cap (Round 6: 16).

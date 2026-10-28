@@ -8,7 +8,7 @@ Qwen3 30B, on this PC
 Writing speed
 —
 Memory
-19.7 of 23.6 GB
+19.5 of 23.6 GB
 Nightly self-check
 14 of 14, 2026-10-28
 Cloud
@@ -16,9 +16,9 @@ Cloud: gemini-flash-lite-latest
 Write a tiny hello webpage in the works…
 Footprint
 
-(working)
+Write a tiny hello webpage in the workspace.
 
-21:07
+23:40
 Took 1 s
 1 step
 1 search left this PC
@@ -40,11 +40,11 @@ Everything this chat touched, kept as a ledger.
 Left this PC
 3
 Sent to Google Gemini: your question (180 characters) + 0 web pages
-21:07
+23:40
 Sent to Google Gemini: your question (260 characters) + 0 web pages
-21:07
+23:40
 Sent to Google Gemini (request 2): your question (260 characters) + 0 web pages
-21:07
+23:40
 No files or memories were uploaded.
 Read on this PC
 0
@@ -54,3 +54,6 @@ Verified by code
 0
 Conversation memory in use
 1.1k of 16k tokens
+
+--- FP_CHECK ---
+{'fpVisible': True, 'emptyHidden': True, 'gemLines': 3, 'ask': 'Write a tiny hello webpage in the workspace.', 'askOk': True, 'notWorking': True, 'leftText': 'Sent to Google Gemini: your question (180 characters) + 0 web pages\n23:40\nSent to Google Gemini: your question (260 characters) + 0 web pages\n23:40\nSent to Google Gemini (request 2): your question (260 characters) + 0 web pages\n23:40'}

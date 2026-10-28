@@ -48,6 +48,7 @@
   let activeChatId = null;
   let ctxChatId = null;
   let currentRun = null;
+  let lastUserAsk = "";
   let pinBottom = true;
   let lastAnswerText = "";
   let streamPending = "";
@@ -372,7 +373,26 @@
   }
 
   function syncSteps(payload) {
-    const run = currentRun || startRun("(working)");
+    const askText = (
+      (payload && (payload.ask || payload.user_text || payload.userText)) ||
+      lastUserAsk ||
+      ""
+    ).trim();
+    if (askText) lastUserAsk = askText;
+    let run = currentRun;
+    if (!run) {
+      // Never use a fake "(working)" heading — prefer the real user ask.
+      run = startRun(askText || "…");
+    } else if (askText) {
+      // Replace placeholder headings from bridge-driven sends / races.
+      const p = run.root && run.root.querySelector(".ask > p");
+      if (p) {
+        const cur = (p.textContent || "").trim();
+        if (!cur || cur === "(working)" || cur === "…" || cur === "...") {
+          p.textContent = askText;
+        }
+      }
+    }
     const steps = payload.steps || [];
     // Keep tickets; re-insert each under its matching action node (never above).
     const tickets = Array.from(run.trace.querySelectorAll(":scope > .ticket"));
@@ -917,6 +937,7 @@
     }
     composer.value = "";
     autoSize();
+    lastUserAsk = text;
     startRun(text);
     setTurnControls(true);
     pinBottom = true;

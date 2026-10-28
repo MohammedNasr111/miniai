@@ -1,4 +1,8 @@
-"""Round 8c: capture forced 429 reason + Footprint entries (mocked HTTP)."""
+"""Round 8c/8d: capture forced 429 reason + Footprint entries (mocked HTTP).
+
+Round 8d: assert #fp-body is visible with ≥1 "Sent to Google Gemini" line
+BEFORE saving the PNG, and that the run heading is the user's request.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +29,8 @@ use_temp_data()
 
 import ctypes
 from ctypes import wintypes
+
+USER_ASK = "Write a tiny hello webpage in the workspace."
 
 
 def _set_size(w: int, h: int) -> None:
@@ -162,20 +168,18 @@ def main() -> int:
         from llm.gemini import provider as gem_mod
         import scripts.chat as chat_mod
 
+        found_reason = False
+        found_fp = False
+        body = ""
         with patch.object(gem_mod, "GeminiProvider", return_value=gem):
             with patch.object(chat_mod, "run_tool_rounds", side_effect=_fake_rounds):
                 try:
                     bridge.prepare_next_cloud(True)
-                    bridge.send_message(
-                        "Write a tiny hello webpage in the workspace.", cloud=True
-                    )
+                    bridge.send_message(USER_ASK, cloud=True)
                 except Exception as exc:
                     print("SEND_ERR", type(exc).__name__, str(exc)[:160])
 
                 deadline = time.time() + 180
-                found_reason = False
-                found_fp = False
-                body = ""
                 while time.time() < deadline:
                     body = _js(
                         win,
@@ -186,34 +190,109 @@ def main() -> int:
                         found_reason = True
                     if "Sent to Google Gemini" in text:
                         found_fp = True
-                    if found_reason and ("stopped partway" in text or "wasn't used" in text):
+                    if found_reason and (
+                        "stopped partway" in text or "wasn't used" in text
+                    ):
                         break
                     time.sleep(1.0)
 
-        # Open footprint panel if present
-        _js(
+        # Open Footprint panel (desktop always shows .foot; mobile needs show-foot).
+        opened = _js(
             win,
             """
             (function(){
-              var b = document.getElementById('btn-footprint')
-                || document.querySelector('[data-footprint]');
+              var app = document.getElementById('app');
+              if (app) app.classList.add('show-foot');
+              var b = document.getElementById('open-foot');
               if (b) b.click();
-              return true;
+              if (app) app.classList.add('show-foot');
+              var body = document.getElementById('fp-body');
+              var empty = document.getElementById('fp-empty');
+              var left = document.getElementById('fp-left');
+              var leftText = (left && left.innerText) || '';
+              var ask = '';
+              var p = document.querySelector('.run .ask > p');
+              if (p) ask = (p.textContent || '').trim();
+              var gemLines = (leftText.match(/Sent to Google Gemini/g) || []).length;
+              return {
+                fpVisible: !!(body && !body.hidden),
+                emptyHidden: !!(empty && empty.hidden),
+                gemLines: gemLines,
+                ask: ask,
+                leftText: leftText.slice(0, 400)
+              };
             })()
             """,
         )
-        time.sleep(0.6)
+        time.sleep(0.5)
+        # Re-check after layout settle
+        check = _js(
+            win,
+            """
+            (function(){
+              var app = document.getElementById('app');
+              if (app) app.classList.add('show-foot');
+              var body = document.getElementById('fp-body');
+              var empty = document.getElementById('fp-empty');
+              var left = document.getElementById('fp-left');
+              var leftText = (left && left.innerText) || '';
+              var ask = '';
+              var p = document.querySelector('.run .ask > p');
+              if (p) ask = (p.textContent || '').trim();
+              var gemLines = (leftText.match(/Sent to Google Gemini/g) || []).length;
+              return {
+                fpVisible: !!(body && !body.hidden),
+                emptyHidden: !!(empty && empty.hidden),
+                gemLines: gemLines,
+                ask: ask,
+                askOk: ask.indexOf('Write a tiny hello webpage') === 0,
+                notWorking: ask !== '(working)' && ask !== '…' && ask !== '...',
+                leftText: leftText.slice(0, 400)
+              };
+            })()
+            """,
+        )
+        print("FP_CHECK", check)
+        print("FP_OPENED", opened)
+
+        ok_fp = False
+        ok_ask = False
+        if isinstance(check, dict):
+            ok_fp = bool(check.get("fpVisible")) and int(check.get("gemLines") or 0) >= 1
+            ok_ask = bool(check.get("askOk")) and bool(check.get("notWorking"))
+        if not ok_fp:
+            print(
+                "ASSERT_FAIL footprint: need #fp-body visible with "
+                ">=1 'Sent to Google Gemini' before save; got",
+                check,
+            )
+            try:
+                win.destroy()
+            except Exception:
+                pass
+            return
+
         path = OUT / "actual_r8c_cloud_quota_footprint.png"
         _capture(path)
         text = body if isinstance(body, str) else str(body)
-        (OUT / "actual_r8c_cloud_quota_footprint.txt").write_text(text, encoding="utf-8")
+        (OUT / "actual_r8c_cloud_quota_footprint.txt").write_text(
+            text
+            + "\n\n--- FP_CHECK ---\n"
+            + str(check)
+            + "\n",
+            encoding="utf-8",
+        )
         print(
             "SCENE_R8C",
-            "PASS" if (found_reason and found_fp) else "FAIL",
+            "PASS" if (found_reason and found_fp and ok_fp and ok_ask) else "FAIL",
             "reason=",
             found_reason,
             "fp=",
             found_fp,
+            "fp_open=",
+            ok_fp,
+            "ask_ok=",
+            ok_ask,
         )
         time.sleep(0.3)
         try:

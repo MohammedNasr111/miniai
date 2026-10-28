@@ -570,6 +570,10 @@ def teardown_coding(ctx: EvalContext) -> None:
 def grade_coding_wordcount(ctx: EvalContext) -> tuple[bool, str]:
     from tools.code.paths import workspace_dir
     from tools.code.runner import run_argv
+    from tools.code.workspace_tools import (
+        _project_root_for_tests,
+        _pytest_import_roots,
+    )
 
     ws = workspace_dir()
     candidates = []
@@ -583,37 +587,51 @@ def grade_coding_wordcount(ctx: EvalContext) -> tuple[bool, str]:
     ):
         if p.is_dir() and p not in candidates:
             candidates.append(p)
-    # Product used to invent alternate slug folders; still grade if wordcount lives there.
+    # Prefer folders that actually contain wordcount.py (product under test).
     try:
         for child in ws.iterdir():
             if not child.is_dir():
                 continue
-            if (child / "wordcount.py").is_file() or (
-                child / "tests"
-            ).is_dir():
+            if (child / "wordcount.py").is_file():
                 if child not in candidates:
-                    candidates.append(child)
+                    candidates.insert(0, child)
+            elif (child / "tests").is_dir() and child not in candidates:
+                candidates.append(child)
     except OSError:
         pass
+    last_out = ""
     for target in candidates:
         # Prefer a tests subfolder if present
         test_target = target / "tests" if (target / "tests").is_dir() else target
-        # Put the project folder on PYTHONPATH so `from wordcount import …` works
-        # when cwd is the workspace root (same as run_tests).
-        extra = [str(target), str(ws)]
+        if not test_target.exists():
+            continue
+        # Match product run_tests: project as cwd/rootdir + PYTHONPATH roots.
+        project = _project_root_for_tests(test_target)
+        try:
+            pytest_target = str(test_target.relative_to(project))
+        except ValueError:
+            pytest_target = str(test_target)
         result = run_argv(
-            ["-m", "pytest", str(test_target), "-q", "--tb=line"],
+            [
+                "-m",
+                "pytest",
+                pytest_target,
+                "-q",
+                "--tb=line",
+                f"--rootdir={project}",
+            ],
             timeout_s=90,
             script_path=str(test_target),
-            cwd=ws,
-            extra_pythonpath=extra,
+            cwd=project,
+            extra_pythonpath=_pytest_import_roots(test_target),
         )
         out = (result.stdout or "") + (result.stderr or "")
+        last_out = out[-400:]
         if result.exit_code == 0 and "passed" in out.lower():
             return True, f"pytest ok at {test_target}"
         if result.exit_code == 0:
             return True, f"pytest exit 0 at {test_target}: {out[-200:]}"
-    return False, "pytest did not pass in workspace candidates"
+    return False, f"pytest did not pass in workspace candidates; last={last_out}"
 
 
 # ---------------------------------------------------------------------------

@@ -913,15 +913,16 @@ class AppBridge:
             }
             for s in self._turn_steps
         ]
-        self._call_js(
-            "on_activity",
-            {
-                "steps": steps,
-                "waiting": waiting,
-                "total": format_duration(total),
-                "running": any(s.get("running") for s in self._turn_steps),
-            },
-        )
+        payload = {
+            "steps": steps,
+            "waiting": waiting,
+            "total": format_duration(total),
+            "running": any(s.get("running") for s in self._turn_steps),
+        }
+        ask = getattr(self, "_turn_ask", "") or ""
+        if ask:
+            payload["ask"] = ask
+        self._call_js("on_activity", payload)
 
     def _push_footprint(self) -> None:
         from app.footprint import ensure_footprint, ui_payload
@@ -969,6 +970,7 @@ class AppBridge:
         from security.gate import is_tainted
 
         try:
+            self._turn_ask = text
             if not self._model_ready.is_set():
                 self._call_js(
                     "on_activity",
@@ -983,6 +985,7 @@ class AppBridge:
                         "waiting": False,
                         "total": "0s",
                         "running": True,
+                        "ask": text,
                     },
                 )
                 if not self._model_ready.wait(timeout=900):
@@ -1009,9 +1012,16 @@ class AppBridge:
             self._turn_steps = []
             self._web_pages_read = 0
             self._turn_t0 = time.perf_counter()
+            self._turn_ask = text
             self._call_js(
                 "on_activity",
-                {"steps": [], "waiting": False, "total": "0s", "running": True},
+                {
+                    "steps": [],
+                    "waiting": False,
+                    "total": "0s",
+                    "running": True,
+                    "ask": text,
+                },
             )
             def _on_checking() -> None:
                 self._call_js(
@@ -1038,6 +1048,7 @@ class AppBridge:
                         ),
                         "running": True,
                         "checking": True,
+                        "ask": getattr(self, "_turn_ask", "") or text,
                     },
                 )
 

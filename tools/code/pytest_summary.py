@@ -74,8 +74,14 @@ def parse_pytest_summary(text: str, *, max_chars: int = MAX_SUMMARY_CHARS) -> st
         assert_m = _ASSERT.search(body)
         bit = ""
         if loc:
-            bit = f"{loc.group(1)}:{loc.group(2)}"
+            bit = _short_loc(f"{loc.group(1)}:{loc.group(2)}")
         amsg = assert_m.group(1).strip() if assert_m else "collection error"
+        # Prefer SyntaxError / ImportError hints from the body
+        syn = re.search(
+            r"(?i)(SyntaxError|ImportError|ModuleNotFoundError)[^\n]*", body
+        )
+        if syn:
+            amsg = re.sub(r"\s+", " ", syn.group(0).strip())[:160]
         failures.append(f"collection — {bit} {amsg}".strip())
 
     if failed is None and errors is None and not failures:
@@ -107,6 +113,45 @@ def parse_pytest_summary(text: str, *, max_chars: int = MAX_SUMMARY_CHARS) -> st
     return _clip(head, max_chars)
 
 
+_ASSERT_SRC = re.compile(r"^\s*(assert\b.+)$", re.MULTILINE)
+
+
+def _short_loc(path_line: str) -> str:
+    """Prefer a workspace-relative or basename:line over huge absolute paths."""
+    if not path_line:
+        return ""
+    # Keep trailing file.py:lineno
+    m = re.search(r"([^\\/]+\.py):(\d+)\s*$", path_line.replace("\\", "/"))
+    if m:
+        return f"{m.group(1)}:{m.group(2)}"
+    parts = path_line.replace("\\", "/").split("/")
+    if len(parts) > 3:
+        return "/".join(parts[-3:])
+    return path_line
+
+
+def _failure_window(body: str, test_id: str, name: str) -> str:
+    """Slice the FAILURES block for this test (not the trailing summary line)."""
+    # Prefer the underlined header pytest prints in the FAILURES section.
+    hdr = re.search(
+        rf"^_+\s*{re.escape(name)}\s*_+\s*$", body, re.MULTILINE
+    )
+    if hdr:
+        return body[hdr.start() : hdr.start() + 900]
+    # Fall back to first file.py:line mention of the test name
+    for m in re.finditer(
+        rf"^.*?\.py:\d+:\s+in\s+{re.escape(name)}\s*$", body, re.MULTILINE
+    ):
+        return body[m.start() : m.start() + 900]
+    idx = body.find(name)
+    if idx >= 0:
+        return body[idx : idx + 900]
+    idx = body.find(test_id)
+    if idx >= 0:
+        return body[max(0, idx - 400) : idx + 200]
+    return body[:900]
+
+
 def _format_one(
     test_id: str,
     short_msg: str,
@@ -114,23 +159,27 @@ def _format_one(
     *,
     kind: str = "fail",
 ) -> str:
-    # Prefer short summary message; enrich with file:line from body near test name
+    # Prefer short summary message; enrich with file:line + assert source
     name = test_id.split("::")[-1] if "::" in test_id else test_id
     loc = ""
-    # Search failure block for this test
-    idx = body.find(test_id)
-    if idx < 0:
-        idx = body.find(name)
-    window = body[idx : idx + 800] if idx >= 0 else body[:800]
+    window = _failure_window(body, test_id, name)
     fl = _FILE_LINE.search(window)
     if fl:
-        loc = f"{fl.group(1)}:{fl.group(2)}"
+        loc = _short_loc(f"{fl.group(1)}:{fl.group(2)}")
     amsg = short_msg
     if not amsg:
         am = _ASSERT.search(window)
         if am:
             amsg = am.group(1).strip()
-    amsg = re.sub(r"\s+", " ", amsg)[:200]
+    src = _ASSERT_SRC.search(window)
+    if src:
+        # Keep internal whitespace — it is often the bug (e.g. "a   b").
+        src_line = src.group(1).strip()[:160]
+        if src_line:
+            amsg = src_line
+    if amsg and not amsg.lstrip().startswith("assert"):
+        amsg = re.sub(r"\s+", " ", amsg).strip()
+    amsg = (amsg or "")[:220]
     bits = [name]
     if loc:
         bits.append(loc)

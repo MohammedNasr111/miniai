@@ -910,12 +910,15 @@ def run_tool_rounds(
                     text.startswith("error")
                     or "denied" in text
                     or "refused" in text
+                    or "blocked duplicate" in text
+                    or "syntaxerror" in text
                 ):
                     continue
                 ok_paths.append(paths[0])
             auto_msg = maybe_auto_run_tests(ok_paths)
             if auto_msg:
                 last_auto_test_summary = auto_msg
+                print(f"[AUTO-TEST] {auto_msg[:300]}")
                 history.append(ChatMessage(role="system", content=auto_msg))
                 append_evidence(auto_msg)
                 turn_evidence.append(auto_msg)
@@ -929,12 +932,19 @@ def run_tool_rounds(
                     except Exception:
                         pass
                 # Green tests for this project → stop looping (avoids noop edits).
-                # pytest_summary uses "failing" (not "failed"); treat both as red.
-                low = auto_msg.lower()
+                # Score the "Tests:" clause only (not the [Auto-test …] prefix /
+                # absolute paths) so a path fragment cannot block a clean pass.
+                tests_clause = (
+                    auto_msg[auto_msg.index("Tests:") :]
+                    if "Tests:" in (auto_msg or "")
+                    else (auto_msg or "")
+                )
+                low = tests_clause.lower()
                 has_fail = bool(
                     re.search(
-                        r"(?i)\b(?:failing|failed|error|syntaxerror|errors)\b",
-                        auto_msg or "",
+                        r"(?i)\b(?:failing|failed|error\(s\)|errors|syntaxerror|"
+                        r"collection)\b|\b\d+\s+error\b",
+                        tests_clause,
                     )
                 )
                 if "passed" in low and not has_fail:

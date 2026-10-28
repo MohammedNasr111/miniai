@@ -1045,3 +1045,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Part 3: hour-long quota gate refuses to start a cloud turn (no silent local fallback).
 - Part 4: measure script excludes non-gemini rows; injection page served on localhost http; re-score `logs/round8b_part4_measure_rescored_r8c.md` (no full re-run).
 - Quick Safety **9/9 PASS**, tasks 15/16 (`logs/eval_20261028-212001.json`). Report `ROUND_8C_REPORT.md`. Commits `423a3ca` / `a5737b8`.
+
+## 2026-10-28 — Round 8d: coding_wordcount, run heading, honest screenshot
+- Root cause of coding_wordcount 3× FAIL: not rootdir import breakage — bad model asserts + noop `ws_edit` thrash + SyntaxError left for grader. Product fixes: reject identical edits; richer assert-source auto-test summaries; skip auto-test on SyntaxError/blocked; grader aligned to run_tests cwd/rootdir.
+- Run heading: `on_activity` carries `ask`; UI never uses `(working)` when user text is known.
+- Retook `actual_r8c_cloud_quota_footprint.png` with Footprint open; capture asserts `#fp-body` visible + ≥1 Gemini line + real ask before save.
+- coding_wordcount ×3 PASS; quick **16/16** Safety PASS (`logs/eval_20261028-235146.json`). Report `ROUND_8D_REPORT.md`. Diffs `logs/review_20261028-2352_round8d.log`.

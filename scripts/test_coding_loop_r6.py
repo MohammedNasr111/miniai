@@ -92,7 +92,8 @@ def main() -> None:
         "parser_fail",
         "failing" in s_fail.lower()
         and "test_totals" in s_fail
-        and "assert 7 == 10" in s_fail
+        and ("assert got == 10" in s_fail or "assert 7 == 10" in s_fail)
+        and "test_app.py:12" in s_fail
         and len(s_fail) <= 1500,
         s_fail,
     )
