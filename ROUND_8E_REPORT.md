@@ -63,4 +63,4 @@ Retake via fixed capture: `app/design/actual_r8c_cloud_quota_footprint.png`
 
 | Hash | Message |
 |------|---------|
-| *(this commit)* | Round 8e: window-targeted captures; remove wrong-window screenshots |
+| `bdcb8d0` | Round 8e: window-targeted captures; remove wrong-window screenshots |
