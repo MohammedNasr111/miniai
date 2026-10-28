@@ -32,12 +32,59 @@ def last_chosen_model_name() -> str:
     return _last_chosen_model
 
 
-class GeminiQuotaError(RuntimeError):
+class GeminiHttpError(RuntimeError):
+    """HTTP error from Gemini with optional Google status/message (no secrets)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        http_status: int | None = None,
+        google_status: str = "",
+        google_message: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.http_status = http_status
+        self.google_status = google_status or ""
+        self.google_message = google_message or ""
+
+
+class GeminiQuotaError(GeminiHttpError):
     """429 / free-tier exhausted — caller should fall back to local."""
 
+    def __init__(
+        self,
+        message: str = QUOTA_MESSAGE,
+        *,
+        http_status: int | None = 429,
+        google_status: str = "RESOURCE_EXHAUSTED",
+        google_message: str = "",
+    ) -> None:
+        super().__init__(
+            message,
+            http_status=http_status,
+            google_status=google_status,
+            google_message=google_message,
+        )
 
-class GeminiAuthError(RuntimeError):
+
+class GeminiAuthError(GeminiHttpError):
     """Key rejected by Google."""
+
+    def __init__(
+        self,
+        message: str = "Key rejected by Google",
+        *,
+        http_status: int | None = 401,
+        google_status: str = "",
+        google_message: str = "",
+    ) -> None:
+        super().__init__(
+            message,
+            http_status=http_status,
+            google_status=google_status,
+            google_message=google_message,
+        )
 
 
 class GeminiConfigError(ValueError):
@@ -174,13 +221,72 @@ class GeminiProvider(LLMProvider):
         payload.update(kwargs)
         return payload
 
+    @staticmethod
+    def _parse_google_error(response: requests.Response) -> tuple[str, str]:
+        """Extract Google status code + message; never return API keys."""
+        gstatus = ""
+        gmsg = ""
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+        err = None
+        if isinstance(data, dict):
+            err = data.get("error")
+        elif isinstance(data, list) and data and isinstance(data[0], dict):
+            err = data[0].get("error")
+        if isinstance(err, dict):
+            gstatus = str(err.get("status") or err.get("code") or "")
+            gmsg = str(err.get("message") or "")
+        elif not gmsg:
+            raw_text = getattr(response, "text", "") or ""
+            gmsg = str(raw_text)[:200]
+        gmsg = str(gmsg or "")
+        gstatus = str(gstatus or "")
+        # Redact key-shaped tokens.
+        gmsg = re.sub(r"AIza[0-9A-Za-z_\-]{10,}", "[REDACTED_API_KEY]", gmsg)
+        return gstatus, gmsg
+
     def _handle_http_error(self, response: requests.Response) -> None:
-        code = response.status_code
+        code = int(getattr(response, "status_code", 0) or 0)
+        if code < 400:
+            return
+        gstatus, gmsg = self._parse_google_error(response)
         if code in (401, 403):
             mark_rejected()
-            raise GeminiAuthError("Key rejected by Google")
+            raise GeminiAuthError(
+                "Key rejected by Google",
+                http_status=code,
+                google_status=gstatus,
+                google_message=gmsg,
+            )
         if code == 429:
-            raise GeminiQuotaError(QUOTA_MESSAGE)
+            try:
+                from agent.cloud_fallback import note_quota_hit
+
+                note_quota_hit()
+            except Exception:
+                pass
+            raise GeminiQuotaError(
+                QUOTA_MESSAGE,
+                http_status=429,
+                google_status=gstatus or "RESOURCE_EXHAUSTED",
+                google_message=gmsg,
+            )
+        if code >= 500:
+            raise GeminiHttpError(
+                gmsg or f"Gemini HTTP {code}",
+                http_status=code,
+                google_status=gstatus or "UNAVAILABLE",
+                google_message=gmsg,
+            )
+        if code >= 400:
+            raise GeminiHttpError(
+                gmsg or f"Gemini HTTP {code}",
+                http_status=code,
+                google_status=gstatus,
+                google_message=gmsg,
+            )
         response.raise_for_status()
 
     def _post_once(
@@ -225,6 +331,8 @@ class GeminiProvider(LLMProvider):
                 raise
             except GeminiAuthError:
                 raise
+            except GeminiHttpError:
+                raise
             except requests.Timeout as exc:
                 last_exc = exc
                 if attempt == 0:
@@ -241,6 +349,37 @@ class GeminiProvider(LLMProvider):
             raise last_exc
         raise RuntimeError("gemini request failed")
 
+    def _build_request_meta(
+        self,
+        payload: dict[str, Any],
+        messages: list[ChatMessage],
+        tools: Optional[list[dict[str, Any]]],
+    ) -> dict[str, Any]:
+        """Capture body size from the actual JSON payload (no secrets)."""
+        try:
+            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+            body_chars = len(body)
+        except Exception:
+            body_chars = sum(len(m.content or "") for m in messages)
+        meta = {
+            "model": self.model,
+            "message_chars": sum(len(m.content or "") for m in messages),
+            "body_chars": body_chars,
+            "tool_count": len(tools or []),
+            "host": ALLOWED_HOST,
+        }
+        self.last_request_meta = meta
+        return meta
+
+    def _note_sent(self, meta: dict[str, Any]) -> None:
+        """Footprint: record only after Google accepted a response (not on 4xx/5xx)."""
+        try:
+            from agent.cloud_routing import note_cloud_http_sent
+
+            note_cloud_http_sent(meta)
+        except Exception:
+            pass
+
     def chat(
         self,
         messages: list[ChatMessage],
@@ -249,14 +388,9 @@ class GeminiProvider(LLMProvider):
     ) -> ChatResponse:
         timeout = float(kwargs.pop("timeout", self.timeout))
         payload = self._build_payload(messages, tools, kwargs, stream=False)
-        # Capture for footprint (no secrets)
-        self.last_request_meta = {
-            "model": self.model,
-            "message_chars": sum(len(m.content or "") for m in messages),
-            "tool_count": len(tools or []),
-            "host": ALLOWED_HOST,
-        }
+        meta = self._build_request_meta(payload, messages, tools)
         resp = self._post_with_retry(payload, stream=False, timeout=timeout)
+        self._note_sent(meta)
         data = resp.json()
         choice = (data.get("choices") or [{}])[0]
         message = choice.get("message") or {}
@@ -280,18 +414,14 @@ class GeminiProvider(LLMProvider):
 
         timeout = float(kwargs.pop("timeout", self.timeout))
         payload = self._build_payload(messages, tools, kwargs, stream=True)
-        self.last_request_meta = {
-            "model": self.model,
-            "message_chars": sum(len(m.content or "") for m in messages),
-            "tool_count": len(tools or []),
-            "host": ALLOWED_HOST,
-        }
+        meta = self._build_request_meta(payload, messages, tools)
         content_parts: list[str] = []
         tool_acc: dict[int, dict[str, Any]] = {}
         finish_reason: Optional[str] = None
         raw_chunks = 0
 
         resp = self._post_with_retry(payload, stream=True, timeout=timeout)
+        self._note_sent(meta)
         try:
             for raw_line in resp.iter_lines(decode_unicode=True):
                 if cancel_check is not None and cancel_check():

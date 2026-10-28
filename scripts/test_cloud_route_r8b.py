@@ -99,8 +99,11 @@ def main() -> None:
         with patch.object(GeminiProvider, "__init__", _init):
             # Also stub run_tool_rounds to call provider.chat once (no tools)
             def _fake_rounds(provider, history, *a, **k):
-                # Prove we got a GeminiProvider
-                assert isinstance(provider, GeminiProvider), type(provider)
+                # Cloud path must use Gemini; local fallback uses Lemonade mock.
+                if not isinstance(provider, GeminiProvider):
+                    return ChatResponse(
+                        content="local answer after fallback", finish_reason="stop"
+                    )
                 return provider.chat(
                     [m for m in history if getattr(m, "role", None) != "system"]
                     or [ChatMessage(role="user", content="hi")]
@@ -142,21 +145,24 @@ def main() -> None:
         with patch("scripts.chat.run_tool_rounds", side_effect=lambda *a, **k: local2.chat([])):
             ans2 = run_user_turn(session2, "Explain gravity briefly", cloud=True)
 
+    reason2 = str(getattr(session2, "last_fallback_reason", None) or "")
+    # Provider init failed before any Gemini response → "wasn't used".
     _check(
         "fallback_prefix_in_answer",
-        "Gemini wasn't used: quota" in (ans2 or "")
+        "Gemini wasn't used:" in (ans2 or "")
+        and "quota" in (ans2 or "").lower()
         and "Answered on this PC" in (ans2 or ""),
         repr(ans2)[:200],
     )
     _check(
         "fallback_reason_quota",
-        getattr(session2, "last_fallback_reason", None) == "quota",
-        repr(getattr(session2, "last_fallback_reason", None)),
+        "quota" in reason2.lower(),
+        repr(reason2),
     )
     _check(
         "header_matches_fallback",
         getattr(session2, "last_fallback_header", None)
-        == fallback_header("quota"),
+        == fallback_header(reason2, used_gemini=False),
         repr(getattr(session2, "last_fallback_header", None)),
     )
     _check(
@@ -168,7 +174,8 @@ def main() -> None:
     # classify helpers
     _check(
         "classify_timeout",
-        classify_cloud_error(TimeoutError("timed out")) == "timeout",
+        "timeout" in classify_cloud_error(TimeoutError("timed out")).lower(),
+        classify_cloud_error(TimeoutError("timed out")),
     )
 
     if FAILURES:

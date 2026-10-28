@@ -59,3 +59,33 @@ def set_checker_pref(value: str) -> str:
     v = "on" if str(value).strip().lower() == "on" else "off"
     settings.CHECKER = v
     return v
+
+
+def get_cloud_experimental() -> bool:
+    """Whether Settings → Experimental: cloud brain is on (survives restart)."""
+    return bool(load_prefs().get("cloud_experimental"))
+
+
+def set_cloud_experimental(on: bool) -> bool:
+    data = load_prefs()
+    data["cloud_experimental"] = bool(on)
+    save_prefs(data)
+    return bool(on)
+
+
+def get_gemini_quota_blocked_until() -> float | None:
+    """Unix time when a recent free-tier quota hit was recorded (or None)."""
+    raw = load_prefs().get("gemini_quota_hit_at")
+    try:
+        return float(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def set_gemini_quota_hit_at(when: float | None) -> None:
+    data = load_prefs()
+    if when is None:
+        data.pop("gemini_quota_hit_at", None)
+    else:
+        data["gemini_quota_hit_at"] = float(when)
+    save_prefs(data)

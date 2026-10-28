@@ -908,14 +908,7 @@
     }
     // Re-read experimental flag every send (no restart required).
     if (cloudExperimental) {
-      cloudExperimentalOn = !!cloudExperimental.checked;
-      try {
-        localStorage.setItem(
-          "miniai_cloud_experimental",
-          cloudExperimentalOn ? "1" : "0"
-        );
-      } catch (e) {}
-      updateCloudButton();
+      persistCloudExperimental(!!cloudExperimental.checked);
     }
     if (toCloud && !(cloudEnabledDefault || cloudExperimentalOn)) {
       openSettings();
@@ -960,21 +953,50 @@
       sendMessage({ cloud: false });
     }
   });
-  if (cloudExperimental) {
+  function persistCloudExperimental(on) {
+    cloudExperimentalOn = !!on;
+    if (cloudExperimental) cloudExperimental.checked = cloudExperimentalOn;
     try {
-      cloudExperimentalOn = localStorage.getItem("miniai_cloud_experimental") === "1";
-      cloudExperimental.checked = cloudExperimentalOn;
+      localStorage.setItem(
+        "miniai_cloud_experimental",
+        cloudExperimentalOn ? "1" : "0"
+      );
     } catch (e) {}
-    cloudExperimental.addEventListener("change", function () {
-      cloudExperimentalOn = !!cloudExperimental.checked;
+    const a = api();
+    try {
+      if (a && a.set_cloud_experimental) a.set_cloud_experimental(!!cloudExperimentalOn);
+    } catch (e) {}
+    updateCloudButton();
+  }
+
+  if (cloudExperimental) {
+    // Prefer app.json (survives restart); fall back to localStorage once.
+    (async function loadCloudExperimental() {
+      let fromDisk = null;
       try {
-        localStorage.setItem(
-          "miniai_cloud_experimental",
-          cloudExperimentalOn ? "1" : "0"
-        );
+        const a = api();
+        if (a && a.get_cloud_experimental) {
+          const st = await a.get_cloud_experimental();
+          if (st && typeof st.on === "boolean") fromDisk = st.on;
+        }
       } catch (e) {}
+      if (fromDisk === null) {
+        try {
+          fromDisk = localStorage.getItem("miniai_cloud_experimental") === "1";
+        } catch (e) {
+          fromDisk = false;
+        }
+        // Migrate localStorage → app.json so the next restart keeps it.
+        try {
+          const a = api();
+          if (a && a.set_cloud_experimental) a.set_cloud_experimental(!!fromDisk);
+        } catch (e) {}
+      }
+      persistCloudExperimental(!!fromDisk);
+    })();
+    cloudExperimental.addEventListener("change", function () {
+      persistCloudExperimental(!!cloudExperimental.checked);
       clearSystemNotes();
-      updateCloudButton();
     });
   }
   updateCloudButton();
@@ -1295,6 +1317,10 @@
       }
       if (cloudLabel && s.cloud) {
         cloudLabel.textContent = s.cloud.label || "Cloud: not connected";
+        if (typeof s.cloud.experimental === "boolean") {
+          cloudExperimentalOn = !!s.cloud.experimental;
+          if (cloudExperimental) cloudExperimental.checked = cloudExperimentalOn;
+        }
         if (s.cloud.connected && cloudExperimentalWrap && !cloudEnabledDefault) {
           cloudExperimentalWrap.hidden = false;
         }

@@ -155,17 +155,26 @@ def request_body_safe_for_cloud(body: dict[str, Any]) -> dict[str, Any]:
 # Per-turn flag (set by the chat/UI layer for cloud turns).
 _cloud_turn_active: bool = False
 _last_cloud_request: Optional[dict[str, Any]] = None
+_cloud_requests_this_turn: list[dict[str, Any]] = []
+_on_cloud_http_sent: Optional[Any] = None  # Callable[[dict], None]
 
 
 def set_cloud_turn(active: bool) -> None:
     global _cloud_turn_active
     _cloud_turn_active = bool(active)
-    if not active:
-        clear_last_cloud_request()
+    if active:
+        # Fresh ledger for this turn; keep prior list readable after deactivate.
+        clear_cloud_requests()
 
 
 def is_cloud_turn() -> bool:
     return bool(_cloud_turn_active)
+
+
+def set_cloud_http_sent_hook(cb: Optional[Any]) -> None:
+    """Optional UI hook: called as each Gemini HTTP body is recorded."""
+    global _on_cloud_http_sent
+    _on_cloud_http_sent = cb
 
 
 def note_cloud_request(meta: dict[str, Any]) -> None:
@@ -175,9 +184,38 @@ def note_cloud_request(meta: dict[str, Any]) -> None:
     _last_cloud_request = safe
 
 
+def note_cloud_http_sent(meta: dict[str, Any]) -> None:
+    """Record one outbound Gemini request as it happens (body char count)."""
+    global _last_cloud_request
+    safe = {k: v for k, v in (meta or {}).items() if "key" not in k.lower()}
+    _cloud_requests_this_turn.append(dict(safe))
+    _last_cloud_request = safe
+    cb = _on_cloud_http_sent
+    if cb is not None:
+        try:
+            cb(dict(safe))
+        except Exception:
+            pass
+
+
 def clear_last_cloud_request() -> None:
     global _last_cloud_request
     _last_cloud_request = None
+
+
+def clear_cloud_requests() -> None:
+    global _last_cloud_request
+    _cloud_requests_this_turn.clear()
+    _last_cloud_request = None
+
+
+def cloud_requests_this_turn() -> list[dict[str, Any]]:
+    return [dict(x) for x in _cloud_requests_this_turn]
+
+
+def gemini_responses_used() -> int:
+    """How many Gemini HTTP bodies were recorded this turn (partial progress)."""
+    return len(_cloud_requests_this_turn)
 
 
 def last_cloud_request() -> Optional[dict[str, Any]]:
@@ -189,11 +227,52 @@ def footprint_left_pc_line(
     *,
     web_pages: int = 0,
     message_chars: int | None = None,
+    body_chars: int | None = None,
+    request_index: int | None = None,
 ) -> str:
     """Honest footprint line from a captured request (counts, not estimates)."""
     q = question or ""
-    n = message_chars if message_chars is not None else len(q)
-    pages = max(0, int(web_pages))
-    return (
-        f"Sent to Google Gemini: your question ({n} characters) + {pages} web pages"
+    n = (
+        body_chars
+        if body_chars is not None
+        else (message_chars if message_chars is not None else len(q))
     )
+    pages = max(0, int(web_pages))
+    prefix = "Sent to Google Gemini"
+    if request_index is not None and int(request_index) > 1:
+        prefix = f"Sent to Google Gemini (request {int(request_index)})"
+    return f"{prefix}: your question ({n} characters) + {pages} web pages"
+
+
+def footprint_lines_for_turn(
+    question: str,
+    *,
+    web_pages: int = 0,
+    requests: Optional[list[dict[str, Any]]] = None,
+) -> list[str]:
+    """One Footprint 'Left this PC' line per recorded Gemini HTTP request."""
+    reqs = requests if requests is not None else cloud_requests_this_turn()
+    if not reqs:
+        return []
+    lines: list[str] = []
+    for i, meta in enumerate(reqs, start=1):
+        body = meta.get("body_chars")
+        msg = meta.get("message_chars")
+        try:
+            body_n = int(body) if body is not None else None
+        except (TypeError, ValueError):
+            body_n = None
+        try:
+            msg_n = int(msg) if msg is not None else None
+        except (TypeError, ValueError):
+            msg_n = None
+        lines.append(
+            footprint_left_pc_line(
+                question,
+                web_pages=web_pages if i == 1 else 0,
+                message_chars=msg_n,
+                body_chars=body_n,
+                request_index=i if len(reqs) > 1 else None,
+            )
+        )
+    return lines

@@ -157,11 +157,15 @@ def run_user_turn(
         classify_cloud_error,
         coerce_cloud_flag,
         fallback_header,
+        quota_block_message,
     )
     from agent.cloud_routing import (
         FORBIDDEN_LOCAL_MESSAGE,
+        clear_cloud_requests,
+        cloud_requests_this_turn,
         filter_history_for_cloud,
-        footprint_left_pc_line,
+        footprint_lines_for_turn,
+        gemini_responses_used,
         note_cloud_request,
         question_needs_local,
         set_cloud_turn,
@@ -173,6 +177,7 @@ def run_user_turn(
     session.last_stream_partial = ""  # type: ignore[attr-defined]
     session.last_answered_by = "local"  # type: ignore[attr-defined]
     session.last_cloud_footprint = None  # type: ignore[attr-defined]
+    session.last_cloud_footprint_lines = []  # type: ignore[attr-defined]
     session.last_fallback_reason = None  # type: ignore[attr-defined]
     session.last_fallback_header = None  # type: ignore[attr-defined]
     remember_urls_from_text(user_text)
@@ -190,22 +195,48 @@ def run_user_turn(
 
     _fallback_prefix = ""
 
+    def _sync_cloud_footprint() -> None:
+        lines = footprint_lines_for_turn(
+            user_text,
+            web_pages=int(getattr(session, "last_web_pages", 0) or 0),
+        )
+        session.last_cloud_footprint_lines = list(lines)  # type: ignore[attr-defined]
+        session.last_cloud_footprint = lines[-1] if lines else None  # type: ignore[attr-defined]
+
     def _mark_fallback(reason: str) -> None:
         nonlocal _fallback_prefix
+        used = gemini_responses_used() > 0
         session.last_answered_by = "local-fallback"  # type: ignore[attr-defined]
         session.last_fallback_reason = reason  # type: ignore[attr-defined]
-        hdr = fallback_header(reason)
+        hdr = fallback_header(reason, used_gemini=used)
         session.last_fallback_header = hdr  # type: ignore[attr-defined]
         _fallback_prefix = hdr + "\n\n"
+        _sync_cloud_footprint()
         if session.transcript is not None:
             try:
                 session.transcript.write(
-                    "cloud_fallback", reason=reason, header=hdr
+                    "cloud_fallback",
+                    reason=reason,
+                    header=hdr,
+                    used_gemini=used,
+                    gemini_requests=len(cloud_requests_this_turn()),
                 )
             except Exception:
                 pass
 
     if cloud:
+        # Fresh per-turn Gemini request ledger (even if provider init fails).
+        clear_cloud_requests()
+        # Recent free-tier quota → refuse to start (never silent local fallback).
+        blocked = quota_block_message()
+        if blocked:
+            session.history.append(ChatMessage(role="user", content=user_text))
+            session.history.append(ChatMessage(role="assistant", content=blocked))
+            session.turn_count += 1
+            session.last_answered_by = "cloud-blocked-quota"  # type: ignore[attr-defined]
+            session.last_fallback_reason = "quota"  # type: ignore[attr-defined]
+            session.last_fallback_header = blocked  # type: ignore[attr-defined]
+            return blocked
         if question_needs_local(user_text):
             session.history.append(ChatMessage(role="user", content=user_text))
             session.history.append(
@@ -256,7 +287,6 @@ def run_user_turn(
                         question=user_text,
                     )
                 except Exception as exc:
-                    set_cloud_turn(False)
                     _mark_fallback(classify_cloud_error(exc))
                     cloud = False
                 else:
@@ -266,16 +296,9 @@ def run_user_turn(
                         {
                             **meta,
                             "question_chars": len(user_text or ""),
-                            "messages": [
-                                m.model_dump(exclude_none=True) for m in cloud_hist
-                            ],
                         }
                     )
-                    session.last_cloud_footprint = footprint_left_pc_line(  # type: ignore[attr-defined]
-                        user_text,
-                        web_pages=int(getattr(session, "last_web_pages", 0) or 0),
-                        message_chars=int(meta.get("message_chars") or len(user_text)),
-                    )
+                    _sync_cloud_footprint()
                     session.last_answered_by = "gemini"  # type: ignore[attr-defined]
                     if not hasattr(session, "cloud_history") or session.cloud_history is None:
                         session.cloud_history = []  # type: ignore[attr-defined]

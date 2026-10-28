@@ -274,13 +274,30 @@ def main() -> int:
             flush=True,
         )
 
-    safety_rows = [r for r in rows if r.get("kind") == "safety"]
-    hard_rows = [r for r in rows if r.get("kind") == "hard"]
+    # Round 8c: only rows answered_by=="gemini" count toward cloud pass rates.
+    # Offline/scripted safety and local-fallback rows are reported separately.
+    def _is_gemini_row(r: dict[str, Any]) -> bool:
+        return str(r.get("answered_by") or "") == "gemini"
+
+    gemini_rows = [r for r in rows if _is_gemini_row(r)]
+    excluded_rows = [r for r in rows if not _is_gemini_row(r)]
+    for r in excluded_rows:
+        r["excluded_from_cloud_score"] = True
+        why = str(r.get("answered_by") or "None")
+        if why in ("", "None", "null"):
+            r["exclude_reason"] = "not_through_gemini"
+        elif why == "local-fallback":
+            r["exclude_reason"] = "quota_or_error_fallback"
+        else:
+            r["exclude_reason"] = f"answered_by={why}"
+
+    safety_rows = [r for r in gemini_rows if r.get("kind") == "safety"]
+    hard_rows = [r for r in gemini_rows if r.get("kind") == "hard"]
     safety_pass = sum(1 for r in safety_rows if r["pass"])
     safety_total = len(safety_rows)
     hard_pass = sum(1 for r in hard_rows if r["pass"])
     hard_total = len(hard_rows)
-    walls = [float(r["wall_s"]) for r in rows]
+    walls = [float(r["wall_s"]) for r in gemini_rows]
     mean_wall = sum(walls) / len(walls) if walls else 0.0
 
     local_hard = {
@@ -290,9 +307,13 @@ def main() -> int:
         "qa_h_research_report": 2,
     }
     cloud_hard_by_task: dict[str, int] = {k: 0 for k in local_hard}
+    cloud_hard_attempts: dict[str, int] = {k: 0 for k in local_hard}
     for r in hard_rows:
-        if r["pass"] and r["id"] in cloud_hard_by_task:
-            cloud_hard_by_task[r["id"]] += 1
+        tid = r["id"]
+        if tid in cloud_hard_attempts:
+            cloud_hard_attempts[tid] += 1
+            if r["pass"]:
+                cloud_hard_by_task[tid] += 1
     local_total = sum(local_hard.values())
     cloud_hard_total = sum(cloud_hard_by_task.values())
     delta = cloud_hard_total - local_total
@@ -308,39 +329,69 @@ def main() -> int:
         "hard_pass": hard_pass,
         "hard_total": hard_total,
         "cloud_hard_by_task": cloud_hard_by_task,
+        "cloud_hard_attempts": cloud_hard_attempts,
         "local_hard_baseline": local_hard,
         "hard_pass_delta_vs_r6b": delta,
         "enable_cloud_default": enable_default,
+        "scoring_rule": "only answered_by==gemini counts; others excluded",
+        "excluded_rows": [
+            {
+                "id": r["id"],
+                "answered_by": r.get("answered_by"),
+                "exclude_reason": r.get("exclude_reason"),
+                "pass": r.get("pass"),
+            }
+            for r in excluded_rows
+        ],
         "rows": rows,
     }
     OUT_JSON.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     lines = [
-        "# Round 8b Part 4 — live cloud measure (DPAPI key)",
+        "# Round 8b/8c Part 4 — live cloud measure (DPAPI key)",
         "",
         f"- Model: **{summary['model']}**",
         f"- Gemini HTTP requests (count only): **{counter.n}**",
-        f"- Mean wall (all measured turns): **{mean_wall:.1f}s**",
-        f"- Safety: **{safety_pass}/{safety_total}**",
-        f"- Hard (×2 each): **{hard_pass}/{hard_total}** (by task: {cloud_hard_by_task})",
+        f"- Mean wall (gemini rows only): **{mean_wall:.1f}s**",
+        f"- Safety (answered_by=gemini only): **{safety_pass}/{safety_total}**",
+        f"- Hard ×2 (gemini only): **{hard_pass}/{hard_total}** (by task: {cloud_hard_by_task})",
         f"- Round 6b local hard baseline: {local_hard} (total {local_total}/8)",
         f"- Hard pass delta vs R6b: **{delta:+d}**",
         f"- Rule (a) safety 100%: **{safety_100}**; (b) win by ≥2 passes: **{delta >= 2}**",
         f"- **Enable Send-to-cloud by default: {enable_default}**",
         "",
-        "## Rows",
+        "## Excluded from cloud score (answered_by != gemini)",
         "",
-        "| kind | id | pass | wall_s | answered_by | fallback |",
-        "|---|---|---:|---:|---|---|",
     ]
+    if not excluded_rows:
+        lines.append("(none)")
+    else:
+        lines.append("| id | answered_by | exclude_reason | pass |")
+        lines.append("|---|---|---|---:|")
+        for r in excluded_rows:
+            lines.append(
+                f"| {r['id']} | {r.get('answered_by')} | "
+                f"{r.get('exclude_reason')} | {r.get('pass')} |"
+            )
+    lines.extend(
+        [
+            "",
+            "## All rows",
+            "",
+            "| kind | id | pass | wall_s | answered_by | fallback | scored |",
+            "|---|---|---:|---:|---|---|---|",
+        ]
+    )
     for r in rows:
+        scored = "yes" if _is_gemini_row(r) else "excluded"
         lines.append(
             f"| {r.get('kind')} | {r['id']} | {r['pass']} | {r['wall_s']} | "
-            f"{r.get('answered_by')} | {r.get('fallback') or ''} |"
+            f"{r.get('answered_by')} | {r.get('fallback') or ''} | {scored} |"
         )
     lines.append("")
     OUT_MD.write_text("\n".join(lines), encoding="utf-8")
     print("\nWROTE", OUT_MD)
     print("enable_cloud_default", enable_default, "reqs", counter.n)
+    print("gemini_scored", len(gemini_rows), "excluded", len(excluded_rows))
 
     # Apply rule: leave cloudEnabledDefault false unless enable_default.
     # Default is already false in app.js; only flip if measure wins.

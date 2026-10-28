@@ -406,11 +406,14 @@ class AppBridge:
                 label = "Cloud: connected"
             else:
                 label = "Cloud: not connected"
+            from app.prefs import get_cloud_experimental
+
             return {
                 "connected": connected,
                 "status": st.get("status") or "Not connected",
                 "model": model_name,
                 "label": label,
+                "experimental": bool(get_cloud_experimental()),
             }
         except Exception as exc:
             logger.info("cloud status unavailable: %s", exc)
@@ -419,6 +422,7 @@ class AppBridge:
                 "status": "Not connected",
                 "model": "",
                 "label": "Cloud: not connected",
+                "experimental": False,
             }
 
     def gemini_status(self) -> dict[str, Any]:
@@ -458,6 +462,24 @@ class AppBridge:
             "connected": bool(result.get("connected")),
             "status": result.get("status") or "Not connected",
         }
+
+    def get_cloud_experimental(self) -> dict[str, Any]:
+        from app.prefs import get_cloud_experimental
+
+        on = bool(get_cloud_experimental())
+        return {"ok": True, "on": on}
+
+    def set_cloud_experimental(self, on: object = False) -> dict[str, Any]:
+        from agent.cloud_fallback import coerce_cloud_flag
+        from app.prefs import set_cloud_experimental
+
+        saved = set_cloud_experimental(coerce_cloud_flag(on))
+        try:
+            self.push_status()
+        except Exception:
+            pass
+        return {"ok": True, "on": bool(saved)}
+
     def open_external(self, url: str) -> dict[str, Any]:
         raw = (url or "").strip()
         self._external_log.append(raw)
@@ -1037,8 +1059,50 @@ class AppBridge:
             self._stream_t0 = 0.0
             self._stream_chars = 0
             from tools.web.research_progress import set_research_progress
+            from agent.cloud_routing import (
+                footprint_left_pc_line,
+                set_cloud_http_sent_hook,
+            )
+
+            def _on_cloud_http(meta: dict) -> None:
+                """Append a Footprint 'Left this PC' row as each Gemini request succeeds."""
+                if self._chat_doc is None:
+                    return
+                try:
+                    from app.footprint import ensure_footprint
+                    from app.chats import save_chat
+
+                    body = meta.get("body_chars")
+                    msg = meta.get("message_chars")
+                    try:
+                        body_n = int(body) if body is not None else None
+                    except (TypeError, ValueError):
+                        body_n = None
+                    try:
+                        msg_n = int(msg) if msg is not None else None
+                    except (TypeError, ValueError):
+                        msg_n = None
+                    label = footprint_left_pc_line(
+                        text,
+                        message_chars=msg_n,
+                        body_chars=body_n,
+                    )
+                    fp = ensure_footprint(self._chat_doc)
+                    left = fp.setdefault("left", [])
+                    left.append(
+                        {
+                            "label": label,
+                            "time": time.strftime("%H:%M"),
+                            "kind": "cloud",
+                        }
+                    )
+                    save_chat(self._chat_doc)
+                    self._push_footprint()
+                except Exception:
+                    pass
 
             set_research_progress(self._on_research_progress)
+            set_cloud_http_sent_hook(_on_cloud_http if cloud else None)
             try:
                 answer = run_user_turn(
                     self._session,
@@ -1053,6 +1117,7 @@ class AppBridge:
                 )
             finally:
                 set_research_progress(None)
+                set_cloud_http_sent_hook(None)
             check_meta_early = getattr(self._session, "last_check", None)
             self._append_guard_verify_steps(check_meta_early)
             total = format_duration(time.perf_counter() - self._turn_t0)
@@ -1165,6 +1230,7 @@ class AppBridge:
 
             answered_by = "local"
             cloud_line = None
+            cloud_lines: list[str] = []
             fallback_header = None
             fallback_reason = None
             if self._session is not None:
@@ -1172,27 +1238,49 @@ class AppBridge:
                     getattr(self._session, "last_answered_by", "local") or "local"
                 )
                 cloud_line = getattr(self._session, "last_cloud_footprint", None)
+                raw_lines = getattr(self._session, "last_cloud_footprint_lines", None)
+                if isinstance(raw_lines, list):
+                    cloud_lines = [str(x) for x in raw_lines if x]
+                elif cloud_line:
+                    cloud_lines = [str(cloud_line)]
                 fallback_header = getattr(self._session, "last_fallback_header", None)
                 fallback_reason = getattr(self._session, "last_fallback_reason", None)
-            if cloud_line and self._chat_doc is not None:
+            # Live hook usually already wrote these; fill any missing labels.
+            if cloud_lines and self._chat_doc is not None:
                 try:
                     fp = ensure_footprint(self._chat_doc)
                     left = fp.setdefault("left", [])
-                    left.append(
-                        {
-                            "label": str(cloud_line),
-                            "time": time.strftime("%H:%M"),
-                            "kind": "cloud",
-                        }
-                    )
+                    existing = {
+                        str(e.get("label") or "")
+                        for e in left
+                        if isinstance(e, dict)
+                    }
                     from app.chats import save_chat
 
-                    save_chat(self._chat_doc)
+                    added = False
+                    for lab in cloud_lines:
+                        if lab in existing:
+                            continue
+                        left.append(
+                            {
+                                "label": lab,
+                                "time": time.strftime("%H:%M"),
+                                "kind": "cloud",
+                            }
+                        )
+                        added = True
+                    if added:
+                        save_chat(self._chat_doc)
                 except Exception:
                     pass
             # Brain label must match the provider that produced the final answer.
             if answered_by == "gemini":
                 answered_label = "Answered by Gemini (cloud)"
+            elif answered_by == "cloud-blocked-quota":
+                answered_label = str(
+                    fallback_header
+                    or "Gemini's free limit was reached. Try later or send normally."
+                )
             elif answered_by in ("local-fallback",) or fallback_header:
                 answered_label = str(
                     fallback_header
@@ -1420,3 +1508,13 @@ class _JsApi:
         if not self._require_index():
             return {"ok": False, "connected": False, "status": "Not connected"}
         return self._bridge.gemini_remove_key()
+
+    def get_cloud_experimental(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "on": False}
+        return self._bridge.get_cloud_experimental()
+
+    def set_cloud_experimental(self, on: object = False) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "on": False}
+        return self._bridge.set_cloud_experimental(on)
