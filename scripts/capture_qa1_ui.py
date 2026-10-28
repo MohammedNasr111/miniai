@@ -29,65 +29,9 @@ PROMPTS = [
 
 
 def _capture_window(path: Path) -> bool:
-    import ctypes
-    from ctypes import wintypes
+    from scripts.miniai_capture import capture_miniai_window
 
-    user32 = ctypes.windll.user32
-    gdi32 = ctypes.windll.gdi32
-    hwnd = user32.FindWindowW(None, "MiniAI")
-    if not hwnd:
-        print("CAPTURE_ERR=window not found")
-        return False
-    rect = wintypes.RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-    w = rect.right - rect.left
-    h = rect.bottom - rect.top
-    if w <= 0 or h <= 0:
-        return False
-    hdc = user32.GetWindowDC(hwnd)
-    mem = gdi32.CreateCompatibleDC(hdc)
-    bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
-    gdi32.SelectObject(mem, bmp)
-    if not user32.PrintWindow(hwnd, mem, 2):
-        desk = user32.GetDC(0)
-        gdi32.BitBlt(mem, 0, 0, w, h, desk, rect.left, rect.top, 0x00CC0020)
-        user32.ReleaseDC(0, desk)
-    try:
-        from PIL import Image
-
-        class BITMAPINFOHEADER(ctypes.Structure):
-            _fields_ = [
-                ("biSize", wintypes.DWORD),
-                ("biWidth", wintypes.LONG),
-                ("biHeight", wintypes.LONG),
-                ("biPlanes", wintypes.WORD),
-                ("biBitCount", wintypes.WORD),
-                ("biCompression", wintypes.DWORD),
-                ("biSizeImage", wintypes.DWORD),
-                ("biXPelsPerMeter", wintypes.LONG),
-                ("biYPelsPerMeter", wintypes.LONG),
-                ("biClrUsed", wintypes.DWORD),
-                ("biClrImportant", wintypes.DWORD),
-            ]
-
-        bmi = BITMAPINFOHEADER()
-        bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-        bmi.biWidth = w
-        bmi.biHeight = -h
-        bmi.biPlanes = 1
-        bmi.biBitCount = 32
-        buf = (ctypes.c_char * (w * h * 4))()
-        gdi32.GetDIBits(mem, bmp, 0, h, buf, ctypes.byref(bmi), 0)
-        img = Image.frombuffer("RGB", (w, h), bytes(buf), "raw", "BGRX", 0, 1)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        img.save(path)
-        print(f"SAVED={path} size={w}x{h}")
-        return True
-    finally:
-        gdi32.DeleteObject(bmp)
-        gdi32.DeleteDC(mem)
-        user32.ReleaseDC(hwnd, hdc)
-
+    return capture_miniai_window(path)
 
 def _probe(js: str):
     import webview

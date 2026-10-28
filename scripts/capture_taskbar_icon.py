@@ -16,13 +16,10 @@ OUT_ICON = PROJECT_ROOT / "app" / "design" / "actual_v5_taskbar_icon.png"
 
 
 def _capture_screen(path: Path) -> bool:
-    from PIL import ImageGrab
+    # Round 8e: never grab the whole desktop (wrong-window risk).
+    from scripts.miniai_capture import capture_miniai_window
 
-    img = ImageGrab.grab(all_screens=False)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path)
-    print(f"SAVED={path} size={img.size}")
-    return True
+    return capture_miniai_window(path)
 
 
 def _crop_taskbar_icon(full: Path, out: Path) -> bool:

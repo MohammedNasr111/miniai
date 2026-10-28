@@ -42,30 +42,10 @@ def _set_size(w: int, h: int) -> None:
 
 
 def _capture(path: Path) -> bool:
-    from PIL import ImageGrab
+    from scripts.miniai_capture import capture_miniai_window
 
-    user32 = ctypes.windll.user32
-    hwnd = user32.FindWindowW(None, "MiniAI")
-    if not hwnd:
-        print("CAPTURE_ERR=no hwnd", path.name)
-        return False
-    rect = wintypes.RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-    box = (rect.left, rect.top, rect.right, rect.bottom)
-    try:
-        user32.SetForegroundWindow(hwnd)
-    except Exception:
-        pass
-    time.sleep(0.25)
-    try:
-        img = ImageGrab.grab(bbox=box, all_screens=True)
-    except TypeError:
-        img = ImageGrab.grab(bbox=box)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path)
-    digest = hashlib.md5(path.read_bytes()).hexdigest()
-    print(f"SAVED={path} size={img.size} md5={digest}")
-    return True
+    return capture_miniai_window(path)
+
 
 
 def _js(win, code: str):
@@ -273,18 +253,27 @@ def main() -> int:
             return
 
         path = OUT / "actual_r8c_cloud_quota_footprint.png"
-        _capture(path)
+        captured = False
+        for attempt in range(1, 6):
+            captured = bool(_capture(path)) and path.is_file()
+            if captured:
+                break
+            print(f"CAPTURE_RETRY {attempt}")
+            time.sleep(0.6)
         text = body if isinstance(body, str) else str(body)
         (OUT / "actual_r8c_cloud_quota_footprint.txt").write_text(
             text
-            + "\n\n--- FP_CHECK ---\n"
+            + "\n\n--- FP_CHECK (DOM text, not the PNG) ---\n"
             + str(check)
             + "\n",
             encoding="utf-8",
         )
+        scene_ok = bool(
+            found_reason and found_fp and ok_fp and ok_ask and captured
+        )
         print(
             "SCENE_R8C",
-            "PASS" if (found_reason and found_fp and ok_fp and ok_ask) else "FAIL",
+            "PASS" if scene_ok else "FAIL",
             "reason=",
             found_reason,
             "fp=",
@@ -293,6 +282,8 @@ def main() -> int:
             ok_fp,
             "ask_ok=",
             ok_ask,
+            "png=",
+            captured,
         )
         time.sleep(0.3)
         try:

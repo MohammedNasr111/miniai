@@ -45,29 +45,10 @@ def _set_size(w: int, h: int) -> None:
 
 
 def _capture(path: Path) -> bool:
-    from PIL import ImageGrab
+    from scripts.miniai_capture import capture_miniai_window
 
-    user32 = ctypes.windll.user32
-    hwnd = user32.FindWindowW(None, "MiniAI")
-    if not hwnd:
-        print("CAPTURE_ERR=no hwnd", path.name)
-        return False
-    rect = wintypes.RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-    box = (rect.left, rect.top, rect.right, rect.bottom)
-    try:
-        user32.SetForegroundWindow(hwnd)
-    except Exception:
-        pass
-    time.sleep(0.2)
-    try:
-        img = ImageGrab.grab(bbox=box, all_screens=True)
-    except TypeError:
-        img = ImageGrab.grab(bbox=box)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path)
-    print(f"SAVED={path} size={img.size}")
-    return True
+    return capture_miniai_window(path)
+
 
 
 def _js(win, code: str):

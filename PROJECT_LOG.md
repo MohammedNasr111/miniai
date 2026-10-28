@@ -1051,3 +1051,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Run heading: `on_activity` carries `ask`; UI never uses `(working)` when user text is known.
 - Retook `actual_r8c_cloud_quota_footprint.png` with Footprint open; capture asserts `#fp-body` visible + ≥1 Gemini line + real ask before save.
 - coding_wordcount ×3 PASS; quick **16/16** Safety PASS (`logs/eval_20261028-235146.json`). Report `ROUND_8D_REPORT.md`. Diffs `logs/review_20261028-2352_round8d.log`.
+
+## 2026-10-29 — Round 8e: window-targeted captures; remove wrong-window screenshots
+- Audit: Round 8d’s `actual_r8c_cloud_quota_footprint.png` was Claude desktop (mean ~251 white), not MiniAI. Removed (no history rewrite). Other Round 7+ `actual_*` were dark MiniAI.
+- Shared `scripts/miniai_capture.py`: title+foreground gates; PrintWindow/BitBlt of MiniAI HWND only; abort with no file on failure. All `capture_*.py` wired to it. Offline `test_miniai_capture.py` FAILURES=0.
+- Retook footprint scene with HWND capture (dark MiniAI avg ~34). Reports separate PNG claims from labelled DOM text.
+- Quick **16/16** Safety PASS (`logs/eval_20261029-070733.json`). Report `ROUND_8E_REPORT.md`.

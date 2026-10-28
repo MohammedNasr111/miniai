@@ -74,68 +74,14 @@ def main() -> int:
         )
         time.sleep(0.8)
         try:
-            import ctypes
-            from ctypes import wintypes
+            from scripts.miniai_capture import capture_miniai_window
 
-            user32 = ctypes.windll.user32
-            gdi32 = ctypes.windll.gdi32
-            hwnd = user32.FindWindowW(None, "MiniAI")
-            if not hwnd:
-                raise RuntimeError("window not found")
-            rect = wintypes.RECT()
-            user32.GetClientRect(hwnd, ctypes.byref(rect))
-            w, h = rect.right - rect.left, rect.bottom - rect.top
-            hdc = user32.GetDC(hwnd)
-            mem = gdi32.CreateCompatibleDC(hdc)
-            bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
-            gdi32.SelectObject(mem, bmp)
-            user32.PrintWindow(hwnd, mem, 2)
-            try:
-                from PIL import Image
-
-                class BITMAPINFOHEADER(ctypes.Structure):
-                    _fields_ = [
-                        ("biSize", wintypes.DWORD),
-                        ("biWidth", wintypes.LONG),
-                        ("biHeight", wintypes.LONG),
-                        ("biPlanes", wintypes.WORD),
-                        ("biBitCount", wintypes.WORD),
-                        ("biCompression", wintypes.DWORD),
-                        ("biSizeImage", wintypes.DWORD),
-                        ("biXPelsPerMeter", wintypes.LONG),
-                        ("biYPelsPerMeter", wintypes.LONG),
-                        ("biClrUsed", wintypes.DWORD),
-                        ("biClrImportant", wintypes.DWORD),
-                    ]
-
-                bmi = BITMAPINFOHEADER()
-                bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-                bmi.biWidth = w
-                bmi.biHeight = -h
-                bmi.biPlanes = 1
-                bmi.biBitCount = 32
-                buf = (ctypes.c_char * (w * h * 4))()
-                gdi32.GetDIBits(mem, bmp, 0, h, buf, ctypes.byref(bmi), 0)
-                img = Image.frombuffer("RGB", (w, h), bytes(buf), "raw", "BGRX", 0, 1)
-                OUT.parent.mkdir(parents=True, exist_ok=True)
-                img.save(OUT)
+            if capture_miniai_window(OUT):
                 seeded["done"] = True
-            finally:
-                gdi32.DeleteObject(bmp)
-                gdi32.DeleteDC(mem)
-                user32.ReleaseDC(hwnd, hdc)
+            else:
+                seeded["err"] = "capture_miniai_window failed"
         except Exception as exc:
             seeded["err"] = str(exc)
-            try:
-                from PIL import ImageGrab
-
-                img = ImageGrab.grab()
-                OUT.parent.mkdir(parents=True, exist_ok=True)
-                img.save(OUT)
-                seeded["done"] = True
-                seeded["fallback"] = "ImageGrab"
-            except Exception as exc2:
-                seeded["err2"] = str(exc2)
         win.destroy()
 
     webview.create_window(
