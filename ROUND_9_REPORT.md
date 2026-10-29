@@ -112,7 +112,7 @@ Assumptions documented in that file. Apps left open. Restored 30B-A3B; Hi ok in 
 | 4 | `642cad1` | Round 9 Part 4 — cache-stable prompt history compression |
 | 5 | `ab0d754` | Round 9 Part 5 — warm-up with system prompt and tools |
 | 6 | `749df9f` | Round 9 Part 6 — bandwidth probe for 14B and 30B-A3B |
-| 7 | *(this commit)* | Round 9 Part 7 — final measure, flags, report |
+| 7 | `4f13214` | Round 9 Part 7 — final measure, flags, and ROUND_9_REPORT |
 
 ## Restart / Hi
 
