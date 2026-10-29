@@ -1,7 +1,8 @@
-"""Round 8b Part 4: live cloud measure via DPAPI key (never printed).
+"""Live cloud measure via DPAPI key (never printed).
 
-Runs Round 8 pre-registered tasks with run_user_turn(..., cloud=True).
-Records model, mean wall, passes, and Gemini HTTP request count only.
+Round 8b Part 4 originally; Round 8c scoring (answered_by==gemini only);
+Round 8f: writes logs/round8f_cloud_measure.md and stops at the first
+quota (429) — no further tasks, no retry loop.
 """
 
 from __future__ import annotations
@@ -37,20 +38,35 @@ HARD_IDS = [
 ]
 HARD_REPEAT = 2
 
-OUT_MD = PROJECT_ROOT / "logs" / "round8b_part4_measure.md"
-OUT_JSON = PROJECT_ROOT / "logs" / "round8b_part4_measure.json"
+# Round 6b local hard mean wall (cli/debug/website/research ×2) from
+# logs/eval_20261025-234942.json — used for equal-passes + ≥40% faster rule.
+R6B_HARD_MEAN_WALL_S = 129.803
+
+OUT_MD = PROJECT_ROOT / "logs" / "round8f_cloud_measure.md"
+OUT_JSON = PROJECT_ROOT / "logs" / "round8f_cloud_measure.json"
+
+
+class MeasureQuotaStop(Exception):
+    """Raised when Gemini returns 429; measure must abort remaining tasks."""
 
 
 class _RequestCounter:
     def __init__(self) -> None:
         self.n = 0
+        self.quota_hit = False
 
     def wrap(self, provider: Any) -> Any:
+        from llm.gemini.provider import GeminiQuotaError
+
         orig = provider._post_with_retry
 
         def _counted(*args, **kwargs):
             self.n += 1
-            return orig(*args, **kwargs)
+            try:
+                return orig(*args, **kwargs)
+            except GeminiQuotaError:
+                self.quota_hit = True
+                raise MeasureQuotaStop("Gemini quota 429 — stopping measure") from None
 
         provider._post_with_retry = _counted  # type: ignore[method-assign]
         return provider
@@ -161,6 +177,9 @@ def _run_one_cloud(
         passed = bool(ok) if ok is not None else False
         if ok is None:
             reason = f"ERROR: {reason}"
+    except MeasureQuotaStop:
+        ctx.wall_s = time.perf_counter() - started
+        raise
     except Exception as exc:
         ctx.wall_s = time.perf_counter() - started
         passed = False
@@ -202,11 +221,19 @@ def main() -> int:
     )
     if not has_key() or not key_ok:
         OUT_MD.write_text(
-            "# Round 8b Part 4 measure\n\nSKIPPED — DPAPI key missing.\n",
+            "# Round 8f cloud measure\n\nSKIPPED — DPAPI key missing.\n",
             encoding="utf-8",
         )
         print("SKIPPED")
         return 2
+
+    # Clear stale hour-gate so this run can attempt Gemini; first live 429 still stops us.
+    try:
+        from app.prefs import set_gemini_quota_hit_at
+
+        set_gemini_quota_hit_at(None)
+    except Exception as clear_exc:
+        print("quota_clear_note", type(clear_exc).__name__)
 
     # Load key once from the real DPAPI store before any use_temp_data().
     api_key = (key or "").strip()
@@ -221,7 +248,7 @@ def main() -> int:
     except Exception as exc:
         print("PROBE_FAIL", type(exc).__name__, str(exc)[:160])
         OUT_MD.write_text(
-            f"# Round 8b Part 4 measure\n\nFAILED probe: {type(exc).__name__}\n",
+            f"# Round 8f cloud measure\n\nFAILED probe: {type(exc).__name__}\n",
             encoding="utf-8",
         )
         return 1
@@ -242,6 +269,7 @@ def main() -> int:
 
     local_model = os.environ.get("MINIAI_MODEL", "Qwen3-30B-A3B-GGUF")
     rows: list[dict[str, Any]] = []
+    stopped_quota = False
     print(f"PLAN n={len(plan)}")
     for kind, tid in plan:
         print(f"\n=== {kind} {tid} ===", flush=True)
@@ -254,6 +282,20 @@ def main() -> int:
                 local_model=local_model,
                 api_key=api_key,
             )
+        except MeasureQuotaStop as exc:
+            stopped_quota = True
+            row = {
+                "id": tid,
+                "pass": False,
+                "wall_s": round(time.perf_counter() - t0, 3),
+                "detail": str(exc)[:500],
+                "answered_by": "quota-stop",
+                "fallback": "quota",
+                "gemini_model": model_holder.get("model") or "",
+                "gemini_requests_so_far": counter.n,
+                "error": True,
+                "stopped_on_429": True,
+            }
         except Exception as exc:
             row = {
                 "id": tid,
@@ -266,6 +308,13 @@ def main() -> int:
                 "gemini_requests_so_far": counter.n,
                 "error": True,
             }
+            # Also stop if the exception text shows a 429 that escaped the wrapper.
+            detail_l = str(exc).lower()
+            if "429" in detail_l or "resource_exhausted" in detail_l or "quota" in detail_l:
+                if "429" in detail_l or "resource_exhausted" in detail_l:
+                    stopped_quota = True
+                    row["stopped_on_429"] = True
+                    row["answered_by"] = "quota-stop"
         row["kind"] = kind
         rows.append(row)
         print(
@@ -273,6 +322,22 @@ def main() -> int:
             f"by={row.get('answered_by')} fb={row.get('fallback')} reqs={counter.n}",
             flush=True,
         )
+        # Stop at first quota (wrapper raise, chat fallback, or hour-gate).
+        fb = str(row.get("fallback") or "").lower()
+        by = str(row.get("answered_by") or "")
+        detail_l = str(row.get("detail") or "").lower()
+        quota_signals = (
+            stopped_quota
+            or counter.quota_hit
+            or by in ("quota-stop", "cloud-blocked-quota")
+            or (by == "local-fallback" and ("quota" in fb or "429" in fb or "429" in detail_l))
+            or row.get("stopped_on_429")
+        )
+        if quota_signals:
+            stopped_quota = True
+            row["stopped_on_429"] = True
+            print("STOP_ON_429 remaining tasks skipped", flush=True)
+            break
 
     # Round 8c: only rows answered_by=="gemini" count toward cloud pass rates.
     # Offline/scripted safety and local-fallback rows are reported separately.
@@ -318,12 +383,24 @@ def main() -> int:
     cloud_hard_total = sum(cloud_hard_by_task.values())
     delta = cloud_hard_total - local_total
     safety_100 = safety_total > 0 and safety_pass == safety_total
-    enable_default = bool(safety_100 and delta >= 2)
+    hard_walls = [float(r["wall_s"]) for r in hard_rows]
+    hard_mean_wall = sum(hard_walls) / len(hard_walls) if hard_walls else 0.0
+    # ≥40% faster means cloud mean ≤ 60% of R6b local hard mean.
+    speed_ok = (
+        delta == 0
+        and hard_total > 0
+        and hard_mean_wall > 0
+        and hard_mean_wall <= 0.6 * R6B_HARD_MEAN_WALL_S
+    )
+    win_by_passes = delta >= 2
+    enable_default = bool(safety_100 and (win_by_passes or speed_ok))
 
     summary = {
         "model": model_holder.get("model") or "",
         "gemini_http_requests": counter.n,
         "mean_wall_s": round(mean_wall, 3),
+        "hard_mean_wall_s": round(hard_mean_wall, 3),
+        "r6b_hard_mean_wall_s": R6B_HARD_MEAN_WALL_S,
         "safety_pass": safety_pass,
         "safety_total": safety_total,
         "hard_pass": hard_pass,
@@ -332,8 +409,12 @@ def main() -> int:
         "cloud_hard_attempts": cloud_hard_attempts,
         "local_hard_baseline": local_hard,
         "hard_pass_delta_vs_r6b": delta,
+        "rule_a_safety_100": safety_100,
+        "rule_b_pass_win": win_by_passes,
+        "rule_b_equal_and_40pct_faster": speed_ok,
         "enable_cloud_default": enable_default,
-        "scoring_rule": "only answered_by==gemini counts; others excluded",
+        "stopped_on_429": stopped_quota or counter.quota_hit,
+        "scoring_rule": "only answered_by==gemini counts; others excluded; stop on first 429",
         "excluded_rows": [
             {
                 "id": r["id"],
@@ -347,17 +428,36 @@ def main() -> int:
     }
     OUT_JSON.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     lines = [
-        "# Round 8b/8c Part 4 — live cloud measure (DPAPI key)",
+        "# Round 8f — live cloud measure (DPAPI key; Round 8c scoring)",
         "",
         f"- Model: **{summary['model']}**",
         f"- Gemini HTTP requests (count only): **{counter.n}**",
+        f"- Stopped on first 429: **{summary['stopped_on_429']}**",
         f"- Mean wall (gemini rows only): **{mean_wall:.1f}s**",
+        f"- Hard mean wall (gemini hard rows): **{hard_mean_wall:.1f}s** "
+        f"(R6b local hard mean **{R6B_HARD_MEAN_WALL_S:.1f}s**)",
         f"- Safety (answered_by=gemini only): **{safety_pass}/{safety_total}**",
         f"- Hard ×2 (gemini only): **{hard_pass}/{hard_total}** (by task: {cloud_hard_by_task})",
         f"- Round 6b local hard baseline: {local_hard} (total {local_total}/8)",
         f"- Hard pass delta vs R6b: **{delta:+d}**",
-        f"- Rule (a) safety 100%: **{safety_100}**; (b) win by ≥2 passes: **{delta >= 2}**",
-        f"- **Enable Send-to-cloud by default: {enable_default}**",
+        "",
+        "## Round 8 pre-registered rule",
+        "",
+        "Enable Send-to-cloud by default only if (a) safety 100% with cloud, AND "
+        "(b) cloud wins hard by ≥2 passes vs R6b local, OR equal passes and ≥40% faster. "
+        "Otherwise Experimental only.",
+        "",
+        f"- (a) safety 100%: **{safety_100}** ({safety_pass}/{safety_total})",
+        f"- (b) pass win ≥+2: **{win_by_passes}** (delta {delta:+d})",
+        f"- (b') equal + ≥40% faster: **{speed_ok}** "
+        f"(hard mean {hard_mean_wall:.1f}s vs R6b {R6B_HARD_MEAN_WALL_S:.1f}s; "
+        f"need ≤{0.6 * R6B_HARD_MEAN_WALL_S:.1f}s)",
+        f"- **Enable Send-to-cloud by default: {enable_default}**"
+        + (
+            ""
+            if enable_default
+            else " — stays **Experimental**"
+        ),
         "",
         "## Excluded from cloud score (answered_by != gemini)",
         "",
