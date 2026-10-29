@@ -338,8 +338,49 @@ def capture_miniai_window(path: Path | str, *, hwnd: Optional[int] = None) -> bo
         print(f"CAPTURE_ERR=save {exc}", path.name)
         return False
     digest = hashlib.md5(path.read_bytes()).hexdigest()
+    # Sibling provenance so check_design_pngs can prove HWND title == MiniAI.
+    write_capture_provenance(
+        path,
+        hwnd=int(target),
+        title=EXPECTED_TITLE,
+        size=img.size,
+        md5=digest,
+        method="printwindow" if used_printwindow else "verified_grab",
+    )
     print(f"SAVED={path} size={img.size} md5={digest} hwnd={int(target)}")
     return True
+
+
+def provenance_path_for(png: Path | str) -> Path:
+    png = Path(png)
+    return png.with_name(png.stem + ".capture.json")
+
+
+def write_capture_provenance(
+    png: Path | str,
+    *,
+    hwnd: int,
+    title: str,
+    size: tuple[int, int] | list[int],
+    md5: str,
+    method: str,
+) -> Path:
+    import json
+    from datetime import datetime, timezone
+
+    png = Path(png)
+    meta = {
+        "png": png.name,
+        "hwnd": int(hwnd),
+        "title": title,
+        "size": [int(size[0]), int(size[1])],
+        "md5": md5,
+        "method": method,
+        "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    out = provenance_path_for(png)
+    out.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    return out
 
 
 # Alias used by older capture scripts.

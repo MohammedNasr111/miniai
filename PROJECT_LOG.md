@@ -1057,3 +1057,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Shared `scripts/miniai_capture.py`: title+foreground gates; PrintWindow/BitBlt of MiniAI HWND only; abort with no file on failure. All `capture_*.py` wired to it. Offline `test_miniai_capture.py` FAILURES=0.
 - Retook footprint scene with HWND capture (dark MiniAI avg ~34). Reports separate PNG claims from labelled DOM text.
 - Quick **16/16** Safety PASS (`logs/eval_20261029-070733.json`). Report `ROUND_8E_REPORT.md`.
+
+## 2026-10-29 — Round 8f: privacy PNGs + design provenance gate
+- Part 1: Architect eye audit found two non-MiniAI captures. `git rm app/design/actual_v5_taskbar.png` (full desktop + Claude sidebar). Untracked `actual_v5_taskbar_icon_tight.png` (weather widget / account label) deleted from disk. Commit `2abe13f`.
+- Part 2: `scripts/miniai_capture.py` writes sibling `<stem>.capture.json` with HWND title == MiniAI. `scripts/check_design_pngs.py` requires provenance JSON, summary entry, or `app/design/legacy_manual_ok.txt` (all remaining eye-verified PNGs). `.git/hooks/pre-commit` runs the check when `app/design/` is staged.
+- Verified: `python -m scripts.check_design_pngs` → OK (54 pngs). No secrets. Gate/tiers unchanged.
