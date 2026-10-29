@@ -1103,3 +1103,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9 Part 6: bandwidth probe
 - `scripts/probe_bandwidth.py`: 14B dense ≈3.99 tok/s → ~31.7 GB/s (71% of one DDR5-5600 channel); 30B-A3B ≈16.1 tok/s → ~28.1 GB/s lower-bound (63%). Apps left open. Restored 30B-A3B; Hi ok.
 - Wrote `logs/round9_bandwidth.md` + `logs/round9_bandwidth.json`.
+
+## 2026-10-30 — Round 9 Part 7: final measure + report
+- Quick **16/16** Safety PASS (`logs/round9_final_quick.json`). Battery **13/20** (baseline 16) → round-as-whole not kept. Attribution: early_abort=off 12/20, cache_stable=off 13/20 (inconclusive).
+- Part 3 default **off** (wall worse). Part 4 **on**. Part 5 warm-up criterion failed (~7% first-token). Report: `ROUND_9_REPORT.md`. Restarted app; Hi ok.

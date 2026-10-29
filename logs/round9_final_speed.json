@@ -1,0 +1,2004 @@
+{
+  "repeats": [
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_itpe8rgq",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_itpe8rgq? Use list_directory.",
+          "wall_s": 35.373,
+          "first_token_s": 28.869,
+          "answer_head": "The three largest files in the directory are:\n\n1. `huge.zip` (47.7 MB)\n2. `big.bin` (19.1 MB)\n3. `setup.exe` (4.8 MB)",
+          "free_ram_gb": 3.426,
+          "top_processes": [
+            {
+              "pid": 17328,
+              "name": "llama-server.exe",
+              "rss_gb": 11.563
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.548
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.46
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.454
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.335
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6133,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 4.656,
+          "stall_s_sum": 4.722,
+          "tok_s": 6.883,
+          "calls": [
+            {
+              "wall_s": 10.973,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6133,
+              "stall_s": 0.066,
+              "free_ram_gb": {
+                "before": 3.303,
+                "after": 3.287
+              },
+              "lemonade_page_faults_delta": 7248,
+              "predicted_per_second": 6.513310140840753
+            },
+            {
+              "wall_s": 23.328,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6185,
+              "stall_s": 4.656,
+              "free_ram_gb": {
+                "before": 3.286,
+                "after": 3.429
+              },
+              "lemonade_page_faults_delta": 81746,
+              "predicted_per_second": 7.25304836363513
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 26.968,
+          "first_token_s": 17.988,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory used by a computer to temporarily store data that is actively being used, allowing for quick access by the CPU. Storage, on the other hand, refers to non-volatile memory such as hard drives or solid-state drives, which retain data even when the",
+          "free_ram_gb": 3.222,
+          "top_processes": [
+            {
+              "pid": 17328,
+              "name": "llama-server.exe",
+              "rss_gb": 11.594
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.549
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.474
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.46
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.327
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6307,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 4.863,
+          "stall_s_sum": 4.863,
+          "tok_s": 7.485,
+          "calls": [
+            {
+              "wall_s": 25.918,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6307,
+              "stall_s": 4.863,
+              "free_ram_gb": {
+                "before": 3.411,
+                "after": 3.227
+              },
+              "lemonade_page_faults_delta": 89759,
+              "predicted_per_second": 7.485167916335933
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 3.708,
+            "first_token_s": 1.834,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 3.271,
+            "top_processes": [
+              {
+                "pid": 17328,
+                "name": "llama-server.exe",
+                "rss_gb": 11.593
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.533
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.472
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.46
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.333
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6133,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.068,
+            "stall_s_sum": 0.068,
+            "tok_s": 6.492,
+            "calls": [
+              {
+                "wall_s": 2.613,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6133,
+                "stall_s": 0.068,
+                "free_ram_gb": {
+                  "before": 3.22,
+                  "after": 3.274
+                },
+                "lemonade_page_faults_delta": 818,
+                "predicted_per_second": 6.491946740068944
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 4.895,
+            "first_token_s": 4.588,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 3.459,
+            "top_processes": [
+              {
+                "pid": 17328,
+                "name": "llama-server.exe",
+                "rss_gb": 11.594
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.532
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.46
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.451
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.339
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6171,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.083,
+            "stall_s_sum": 0.083,
+            "tok_s": 14.651,
+            "calls": [
+              {
+                "wall_s": 3.429,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6171,
+                "stall_s": 0.083,
+                "free_ram_gb": {
+                  "before": 3.471,
+                  "after": 3.458
+                },
+                "lemonade_page_faults_delta": 525,
+                "predicted_per_second": 14.651263305178489
+              }
+            ]
+          },
+          "wall_s": 8.603
+        },
+        "d": {
+          "turns": [
+            {
+              "prompt": "Say the number one.",
+              "wall_s": 2.946,
+              "first_token_s": 2.785,
+              "answer_head": "One.",
+              "free_ram_gb": 3.477,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.497
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.453
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.342
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6135,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.129,
+              "stall_s_sum": 0.129,
+              "tok_s": 14.384,
+              "calls": [
+                {
+                  "wall_s": 0.715,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6135,
+                  "stall_s": 0.129,
+                  "free_ram_gb": {
+                    "before": 3.444,
+                    "after": 3.479
+                  },
+                  "lemonade_page_faults_delta": 455,
+                  "predicted_per_second": 14.38393602025258
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number two.",
+              "wall_s": 2.05,
+              "first_token_s": 1.885,
+              "answer_head": "Two.",
+              "free_ram_gb": 3.471,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.497
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.456
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.342
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6145,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.066,
+              "stall_s_sum": 0.066,
+              "tok_s": 14.482,
+              "calls": [
+                {
+                  "wall_s": 0.699,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6145,
+                  "stall_s": 0.066,
+                  "free_ram_gb": {
+                    "before": 3.477,
+                    "after": 3.472
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.48173491184244
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number three.",
+              "wall_s": 1.895,
+              "first_token_s": 1.743,
+              "answer_head": "Three.",
+              "free_ram_gb": 3.475,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.498
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.458
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.344
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6162,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.075,
+              "stall_s_sum": 0.075,
+              "tok_s": 14.342,
+              "calls": [
+                {
+                  "wall_s": 0.683,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6162,
+                  "stall_s": 0.075,
+                  "free_ram_gb": {
+                    "before": 3.475,
+                    "after": 3.476
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.342263782915495
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number four.",
+              "wall_s": 1.933,
+              "first_token_s": 1.756,
+              "answer_head": "Four.",
+              "free_ram_gb": 3.47,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.499
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.461
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.337
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6179,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.082,
+              "stall_s_sum": 0.082,
+              "tok_s": 14.19,
+              "calls": [
+                {
+                  "wall_s": 0.686,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6179,
+                  "stall_s": 0.082,
+                  "free_ram_gb": {
+                    "before": 3.474,
+                    "after": 3.467
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.189630218236513
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number five.",
+              "wall_s": 1.939,
+              "first_token_s": 1.779,
+              "answer_head": "Five.",
+              "free_ram_gb": 3.461,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.5
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.464
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.338
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6196,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.068,
+              "stall_s_sum": 0.068,
+              "tok_s": 14.439,
+              "calls": [
+                {
+                  "wall_s": 0.77,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6196,
+                  "stall_s": 0.068,
+                  "free_ram_gb": {
+                    "before": 3.475,
+                    "after": 3.463
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.43876519680037
+                }
+              ]
+            },
+            {
+              "prompt": "What numbers have I asked you to say so far? List them.",
+              "wall_s": 6.289,
+              "first_token_s": 3.664,
+              "answer_head": "So far, you have asked me to say the numbers: one, two, three, four, and five.",
+              "free_ram_gb": 3.468,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.5
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.472
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.341
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6213,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.073,
+              "stall_s_sum": 0.073,
+              "tok_s": 8.799,
+              "calls": [
+                {
+                  "wall_s": 5.092,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6213,
+                  "stall_s": 0.073,
+                  "free_ram_gb": {
+                    "before": 3.467,
+                    "after": 3.47
+                  },
+                  "lemonade_page_faults_delta": 449,
+                  "predicted_per_second": 8.798742162424778
+                }
+              ]
+            }
+          ],
+          "wall_s": 17.052,
+          "cache_ratios": [
+            {
+              "i": 1,
+              "cache_n": 6135,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 2,
+              "cache_n": 6145,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 3,
+              "cache_n": 6162,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 4,
+              "cache_n": 6179,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 5,
+              "cache_n": 6196,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 6,
+              "cache_n": 6213,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_d47gre1b",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_d47gre1b? Use list_directory.",
+          "wall_s": 34.58,
+          "first_token_s": 28.161,
+          "answer_head": "The three biggest files in the directory are:\n1. `huge.zip` (47.7 MB)\n2. `big.bin` (19.1 MB)\n3. `setup.exe` (4.8 MB)",
+          "free_ram_gb": 3.507,
+          "top_processes": [
+            {
+              "pid": 17328,
+              "name": "llama-server.exe",
+              "rss_gb": 11.563
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.494
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.46
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.456
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.331
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6133,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 4.619,
+          "stall_s_sum": 4.68,
+          "tok_s": 6.974,
+          "calls": [
+            {
+              "wall_s": 10.661,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6133,
+              "stall_s": 0.061,
+              "free_ram_gb": {
+                "before": 3.464,
+                "after": 3.478
+              },
+              "lemonade_page_faults_delta": 7243,
+              "predicted_per_second": 6.606289416203474
+            },
+            {
+              "wall_s": 22.852,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6212,
+              "stall_s": 4.619,
+              "free_ram_gb": {
+                "before": 3.477,
+                "after": 3.51
+              },
+              "lemonade_page_faults_delta": 81816,
+              "predicted_per_second": 7.342700223327446
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 26.732,
+          "first_token_s": 17.675,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory used by a computer's CPU to store data temporarily for quick access, while storage (such as hard drives or SSDs) is non-volatile and used for long-term data retention. RAM is faster but loses data when the computer is turned off, whereas storag",
+          "free_ram_gb": 3.47,
+          "top_processes": [
+            {
+              "pid": 17328,
+              "name": "llama-server.exe",
+              "rss_gb": 11.594
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.494
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.461
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.46
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.33
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6308,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 4.904,
+          "stall_s_sum": 4.904,
+          "tok_s": 7.751,
+          "calls": [
+            {
+              "wall_s": 25.734,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6308,
+              "stall_s": 4.904,
+              "free_ram_gb": {
+                "before": 3.499,
+                "after": 3.472
+              },
+              "lemonade_page_faults_delta": 89811,
+              "predicted_per_second": 7.750839305170474
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 3.612,
+            "first_token_s": 1.65,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 3.465,
+            "top_processes": [
+              {
+                "pid": 17328,
+                "name": "llama-server.exe",
+                "rss_gb": 11.594
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.496
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.462
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.46
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.333
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6133,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.062,
+            "stall_s_sum": 0.062,
+            "tok_s": 6.2,
+            "calls": [
+              {
+                "wall_s": 2.623,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6133,
+                "stall_s": 0.062,
+                "free_ram_gb": {
+                  "before": 3.461,
+                  "after": 3.466
+                },
+                "lemonade_page_faults_delta": 451,
+                "predicted_per_second": 6.199621616427343
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 4.435,
+            "first_token_s": 4.133,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 3.473,
+            "top_processes": [
+              {
+                "pid": 17328,
+                "name": "llama-server.exe",
+                "rss_gb": 11.594
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.497
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.46
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.456
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.334
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6171,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.078,
+            "stall_s_sum": 0.078,
+            "tok_s": 14.607,
+            "calls": [
+              {
+                "wall_s": 3.022,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6171,
+                "stall_s": 0.078,
+                "free_ram_gb": {
+                  "before": 3.475,
+                  "after": 3.475
+                },
+                "lemonade_page_faults_delta": 458,
+                "predicted_per_second": 14.606589762971565
+              }
+            ]
+          },
+          "wall_s": 8.047
+        },
+        "d": {
+          "turns": [
+            {
+              "prompt": "Say the number one.",
+              "wall_s": 1.522,
+              "first_token_s": 1.367,
+              "answer_head": "One.",
+              "free_ram_gb": 3.463,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.496
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.339
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6135,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.069,
+              "stall_s_sum": 0.069,
+              "tok_s": 14.095,
+              "calls": [
+                {
+                  "wall_s": 0.549,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6135,
+                  "stall_s": 0.069,
+                  "free_ram_gb": {
+                    "before": 3.462,
+                    "after": 3.464
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.095326694434462
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number two.",
+              "wall_s": 2.133,
+              "first_token_s": 1.971,
+              "answer_head": "Two.",
+              "free_ram_gb": 3.455,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.497
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.463
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.339
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6145,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.081,
+              "stall_s_sum": 0.081,
+              "tok_s": 14.24,
+              "calls": [
+                {
+                  "wall_s": 0.755,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6145,
+                  "stall_s": 0.081,
+                  "free_ram_gb": {
+                    "before": 3.463,
+                    "after": 3.456
+                  },
+                  "lemonade_page_faults_delta": 448,
+                  "predicted_per_second": 14.24034860373382
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number three.",
+              "wall_s": 1.857,
+              "first_token_s": 1.696,
+              "answer_head": "Three.",
+              "free_ram_gb": 3.458,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.498
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.464
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.34
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6162,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.066,
+              "stall_s_sum": 0.066,
+              "tok_s": 14.434,
+              "calls": [
+                {
+                  "wall_s": 0.669,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6162,
+                  "stall_s": 0.066,
+                  "free_ram_gb": {
+                    "before": 3.453,
+                    "after": 3.46
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.434180138568129
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number four.",
+              "wall_s": 1.906,
+              "first_token_s": 1.751,
+              "answer_head": "Four.",
+              "free_ram_gb": 3.444,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.499
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.467
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.342
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6179,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.055,
+              "stall_s_sum": 0.055,
+              "tok_s": 14.433,
+              "calls": [
+                {
+                  "wall_s": 0.721,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6179,
+                  "stall_s": 0.055,
+                  "free_ram_gb": {
+                    "before": 3.451,
+                    "after": 3.446
+                  },
+                  "lemonade_page_faults_delta": 459,
+                  "predicted_per_second": 14.433450965958706
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number five.",
+              "wall_s": 2.161,
+              "first_token_s": 1.998,
+              "answer_head": "Five.",
+              "free_ram_gb": 3.453,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.5
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.46
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.456
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.333
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6196,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.169,
+              "stall_s_sum": 0.169,
+              "tok_s": 14.236,
+              "calls": [
+                {
+                  "wall_s": 0.83,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6196,
+                  "stall_s": 0.169,
+                  "free_ram_gb": {
+                    "before": 3.45,
+                    "after": 3.455
+                  },
+                  "lemonade_page_faults_delta": 449,
+                  "predicted_per_second": 14.23609133876203
+                }
+              ]
+            },
+            {
+              "prompt": "What numbers have I asked you to say so far? List them.",
+              "wall_s": 7.803,
+              "first_token_s": 3.685,
+              "answer_head": "The numbers you have asked me to say so far are: 1, 2, 3, 4, and 5.",
+              "free_ram_gb": 3.462,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.5
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.468
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.336
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6213,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.065,
+              "stall_s_sum": 0.065,
+              "tok_s": 6.819,
+              "calls": [
+                {
+                  "wall_s": 6.63,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6213,
+                  "stall_s": 0.065,
+                  "free_ram_gb": {
+                    "before": 3.457,
+                    "after": 3.464
+                  },
+                  "lemonade_page_faults_delta": 459,
+                  "predicted_per_second": 6.818573111297865
+                }
+              ]
+            }
+          ],
+          "wall_s": 17.382,
+          "cache_ratios": [
+            {
+              "i": 1,
+              "cache_n": 6135,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 2,
+              "cache_n": 6145,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 3,
+              "cache_n": 6162,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 4,
+              "cache_n": 6179,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 5,
+              "cache_n": 6196,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 6,
+              "cache_n": 6213,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_1irqckvs",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_1irqckvs? Use list_directory.",
+          "wall_s": 34.864,
+          "first_token_s": 28.507,
+          "answer_head": "The three largest files in the directory are:\n\n1. `huge.zip` (47.7 MB)\n2. `big.bin` (19.1 MB)\n3. `setup.exe` (4.8 MB)",
+          "free_ram_gb": 3.504,
+          "top_processes": [
+            {
+              "pid": 17328,
+              "name": "llama-server.exe",
+              "rss_gb": 11.564
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.494
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.459
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.459
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.33
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6133,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 4.575,
+          "stall_s_sum": 4.653,
+          "tok_s": 7.093,
+          "calls": [
+            {
+              "wall_s": 10.482,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6133,
+              "stall_s": 0.078,
+              "free_ram_gb": {
+                "before": 3.445,
+                "after": 3.436
+              },
+              "lemonade_page_faults_delta": 7246,
+              "predicted_per_second": 6.761567251741103
+            },
+            {
+              "wall_s": 22.965,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6185,
+              "stall_s": 4.575,
+              "free_ram_gb": {
+                "before": 3.435,
+                "after": 3.506
+              },
+              "lemonade_page_faults_delta": 81927,
+              "predicted_per_second": 7.423855723208331
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 28.522,
+          "first_token_s": 18.062,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory used by a computer's processor to temporarily store data that is actively being used, allowing for fast access and processing. Storage, on the other hand, refers to non-volatile memory such as hard drives or SSDs, which retain data even when th",
+          "free_ram_gb": 3.47,
+          "top_processes": [
+            {
+              "pid": 17328,
+              "name": "llama-server.exe",
+              "rss_gb": 11.594
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.494
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.465
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.459
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.327
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6321,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 4.919,
+          "stall_s_sum": 4.919,
+          "tok_s": 7.29,
+          "calls": [
+            {
+              "wall_s": 27.438,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6321,
+              "stall_s": 4.919,
+              "free_ram_gb": {
+                "before": 3.501,
+                "after": 3.468
+              },
+              "lemonade_page_faults_delta": 89945,
+              "predicted_per_second": 7.2904909550907675
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 4.086,
+            "first_token_s": 2.192,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 3.445,
+            "top_processes": [
+              {
+                "pid": 17328,
+                "name": "llama-server.exe",
+                "rss_gb": 11.594
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.496
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.469
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.459
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.331
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6133,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.082,
+            "stall_s_sum": 0.082,
+            "tok_s": 6.4,
+            "calls": [
+              {
+                "wall_s": 2.661,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6133,
+                "stall_s": 0.082,
+                "free_ram_gb": {
+                  "before": 3.454,
+                  "after": 3.447
+                },
+                "lemonade_page_faults_delta": 461,
+                "predicted_per_second": 6.3998566432111925
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 4.298,
+            "first_token_s": 3.99,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 3.449,
+            "top_processes": [
+              {
+                "pid": 17328,
+                "name": "llama-server.exe",
+                "rss_gb": 11.594
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.496
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.459
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.455
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.335
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6171,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.085,
+            "stall_s_sum": 0.085,
+            "tok_s": 14.503,
+            "calls": [
+              {
+                "wall_s": 3.001,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6171,
+                "stall_s": 0.085,
+                "free_ram_gb": {
+                  "before": 3.445,
+                  "after": 3.451
+                },
+                "lemonade_page_faults_delta": 452,
+                "predicted_per_second": 14.5032632342277
+              }
+            ]
+          },
+          "wall_s": 8.384
+        },
+        "d": {
+          "turns": [
+            {
+              "prompt": "Say the number one.",
+              "wall_s": 1.559,
+              "first_token_s": 1.401,
+              "answer_head": "One.",
+              "free_ram_gb": 3.452,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.496
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.457
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.334
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6135,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.074,
+              "stall_s_sum": 0.074,
+              "tok_s": 14.271,
+              "calls": [
+                {
+                  "wall_s": 0.548,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6135,
+                  "stall_s": 0.074,
+                  "free_ram_gb": {
+                    "before": 3.456,
+                    "after": 3.46
+                  },
+                  "lemonade_page_faults_delta": 448,
+                  "predicted_per_second": 14.271137338290176
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number two.",
+              "wall_s": 1.982,
+              "first_token_s": 1.831,
+              "answer_head": "Two.",
+              "free_ram_gb": 3.436,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.497
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.475
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.336
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6145,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.063,
+              "stall_s_sum": 0.063,
+              "tok_s": 14.31,
+              "calls": [
+                {
+                  "wall_s": 0.681,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6145,
+                  "stall_s": 0.063,
+                  "free_ram_gb": {
+                    "before": 3.445,
+                    "after": 3.438
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.310246136233545
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number three.",
+              "wall_s": 1.943,
+              "first_token_s": 1.78,
+              "answer_head": "Three.",
+              "free_ram_gb": 3.433,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.496
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.474
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.338
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6162,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.062,
+              "stall_s_sum": 0.062,
+              "tok_s": 14.282,
+              "calls": [
+                {
+                  "wall_s": 0.709,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6162,
+                  "stall_s": 0.062,
+                  "free_ram_gb": {
+                    "before": 3.43,
+                    "after": 3.435
+                  },
+                  "lemonade_page_faults_delta": 448,
+                  "predicted_per_second": 14.281939773059976
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number four.",
+              "wall_s": 1.843,
+              "first_token_s": 1.676,
+              "answer_head": "Four.",
+              "free_ram_gb": 3.422,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.499
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.478
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.341
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6179,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.069,
+              "stall_s_sum": 0.069,
+              "tok_s": 14.405,
+              "calls": [
+                {
+                  "wall_s": 0.68,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6179,
+                  "stall_s": 0.069,
+                  "free_ram_gb": {
+                    "before": 3.43,
+                    "after": 3.424
+                  },
+                  "lemonade_page_faults_delta": 447,
+                  "predicted_per_second": 14.404551838380929
+                }
+              ]
+            },
+            {
+              "prompt": "Say the number five.",
+              "wall_s": 1.915,
+              "first_token_s": 1.748,
+              "answer_head": "Five.",
+              "free_ram_gb": 3.42,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.5
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.471
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.341
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6196,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.065,
+              "stall_s_sum": 0.065,
+              "tok_s": 14.446,
+              "calls": [
+                {
+                  "wall_s": 0.693,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6196,
+                  "stall_s": 0.065,
+                  "free_ram_gb": {
+                    "before": 3.422,
+                    "after": 3.422
+                  },
+                  "lemonade_page_faults_delta": 459,
+                  "predicted_per_second": 14.445961270377834
+                }
+              ]
+            },
+            {
+              "prompt": "What numbers have I asked you to say so far? List them.",
+              "wall_s": 6.335,
+              "first_token_s": 3.671,
+              "answer_head": "So far, you have asked me to say the numbers: one, two, three, four, and five.",
+              "free_ram_gb": 3.446,
+              "top_processes": [
+                {
+                  "pid": 17328,
+                  "name": "llama-server.exe",
+                  "rss_gb": 11.594
+                },
+                {
+                  "pid": 19824,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.5
+                },
+                {
+                  "pid": 13208,
+                  "name": "Cursor.exe",
+                  "rss_gb": 0.463
+                },
+                {
+                  "pid": 11220,
+                  "name": "claude.exe",
+                  "rss_gb": 0.459
+                },
+                {
+                  "pid": 12380,
+                  "name": "MsMpEng.exe",
+                  "rss_gb": 0.335
+                }
+              ],
+              "llm_calls": 1,
+              "generated_tokens": 0,
+              "prefill_tokens": 0,
+              "cache_n": 6213,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null,
+              "stall_s_max": 0.07,
+              "stall_s_sum": 0.07,
+              "tok_s": 8.723,
+              "calls": [
+                {
+                  "wall_s": 5.155,
+                  "discarded": false,
+                  "enable_thinking": false,
+                  "prompt_tokens": null,
+                  "completion_tokens": null,
+                  "cache_n": 6213,
+                  "stall_s": 0.07,
+                  "free_ram_gb": {
+                    "before": 3.431,
+                    "after": 3.448
+                  },
+                  "lemonade_page_faults_delta": 449,
+                  "predicted_per_second": 8.723038226629084
+                }
+              ]
+            }
+          ],
+          "wall_s": 15.577,
+          "cache_ratios": [
+            {
+              "i": 1,
+              "cache_n": 6135,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 2,
+              "cache_n": 6145,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 3,
+              "cache_n": 6162,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 4,
+              "cache_n": 6179,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 5,
+              "cache_n": 6196,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            },
+            {
+              "i": 6,
+              "cache_n": 6213,
+              "prompt_tokens_last": null,
+              "cache_n_over_prompt": null
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "n": 3,
+  "six_turn": true
+}

@@ -1,0 +1,11 @@
+{
+  "first_token_s": 22.8298995999794,
+  "total_s": 33.49902909999946,
+  "ping_s": 13.278918199997861,
+  "warmup": true,
+  "warmup_s": 1.4174547999864444,
+  "downloads": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_dl_m8dqld_j",
+  "temp_root": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_test_pthn8zt4",
+  "answer_head": "The 5 biggest files in the specified folder are:\n\n1. `huge.zip` - 47.7 MB\n2. `big.bin` - 19.1 MB\n3. `setup.exe` - 4.8 MB\n4. `notes_large.txt` - 488 KB\n5. `archive.dat` - 195 KB",
+  "ok": false
+}

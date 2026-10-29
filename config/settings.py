@@ -36,7 +36,8 @@ THINKING_POLICY = (
 )
 # Round 9 Part 3: cancel thinking-off draft once ≥24 non-ws content chars
 # arrive with no tool-call delta (when a thinking second pass is planned).
-_EARLY_ABORT_RAW = os.environ.get("MINIAI_EARLY_ABORT", "on").strip().lower()
+# Round 9 Part 7: default off — battery wall did not improve ≥8% (see ROUND_9_REPORT).
+_EARLY_ABORT_RAW = os.environ.get("MINIAI_EARLY_ABORT", "off").strip().lower()
 EARLY_ABORT = _EARLY_ABORT_RAW not in ("0", "off", "false", "no")
 EARLY_ABORT_CONTENT_CHARS = 24
 # Round 9 Part 4: only rewrite history when over 70% of context budget,

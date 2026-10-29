@@ -1,0 +1,11 @@
+{
+  "first_token_s": 24.566940900025656,
+  "total_s": 39.07286120002391,
+  "ping_s": 79.19619970000349,
+  "warmup": false,
+  "warmup_s": null,
+  "downloads": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_dl_gw67258j",
+  "temp_root": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_test_ivvbjfcw",
+  "answer_head": "Here are the 5 biggest files (from list_directory, largest first):\n1. huge.zip \u2014 47.7 MB\n2. big.bin \u2014 19.1 MB\n3. setup.exe \u2014 4.8 MB\n4. notes_large.txt \u2014 488 KB\n5. archive.dat \u2014 195 KB",
+  "ok": false
+}
