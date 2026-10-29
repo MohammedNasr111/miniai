@@ -147,6 +147,77 @@ def main() -> int:
     )
     check("gen_prose_untouched", same == prose and gmeta2 is None, str(gmeta2))
 
+    # Two-turn chat: turn 1 listed Downloads; turn 2 declined create on Desktop.
+    # Honesty must NOT use the prior turn's listing to strip test-note.txt.
+    td3 = Path(tempfile.mkdtemp(prefix="miniai_list_2turn_"))
+    tx3 = td3 / "two.jsonl"
+    downloads_listing = [
+        {"name": "report.pdf", "type": "file", "size_bytes": 1000, "size": "1000 B"},
+        {"name": "photo.png", "type": "file", "size_bytes": 2000, "size": "2.0 KB"},
+    ]
+    tx3.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_start",
+                        "user_prompt": "(chat session)",
+                        "model": "test",
+                        "system_prompt": "",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "user_turn",
+                        "user_prompt": "What is in my Downloads?",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "tool_call",
+                        "name": "list_directory",
+                        "args": {"path": r"C:\Users\me\Downloads"},
+                        "result": json.dumps(downloads_listing),
+                        "outcome": "ok",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "final",
+                        "raw": "Downloads has report.pdf and photo.png.",
+                        "shown": "Downloads has report.pdf and photo.png.",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "user_turn",
+                        "user_prompt": (
+                            "Create a file called test-note.txt on my Desktop "
+                            "saying hello."
+                        ),
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    q2 = "Create a file called test-note.txt on my Desktop saying hello."
+    declined = (
+        "You declined, so nothing was changed. I did not create `test-note.txt` "
+        "on your Desktop."
+    )
+    kept, meta2 = maybe_correct_listing_answer(
+        q2, declined, transcript=_FakeTx(tx3)
+    )
+    check("two_turn_no_correct", meta2 is None, str(meta2))
+    check("two_turn_keeps_name", "test-note.txt" in kept, kept)
+    check(
+        "two_turn_no_removed_note",
+        "Removed" not in kept and "weren't in the folder listing" not in kept,
+        kept,
+    )
+
     # Explicit slug
     from tests.support import use_temp_data
 

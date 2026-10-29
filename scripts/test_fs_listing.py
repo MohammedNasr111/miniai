@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from tools.filesystem.fs_tools import (  # noqa: E402
+    format_local_mtime,
     human_size,
     list_directory,
     read_file,
@@ -78,6 +81,27 @@ def main() -> int:
         _check("human_640kb", "640" in human_size(640 * 1024), human_size(640 * 1024))
         _check("human_4mb", "4.2" in human_size(int(4.2 * 1024 * 1024)) or "4" in human_size(int(4.2 * 1024 * 1024)), human_size(int(4.2 * 1024 * 1024)))
 
+        # Local-time mtimes for answers (e.g. "28 Oct, 11:04 pm"), not UTC Zulu.
+        sample_ts = datetime(2026, 10, 28, 23, 4, 0).timestamp()
+        local_s = format_local_mtime(sample_ts)
+        _check(
+            "local_mtime_format",
+            bool(re.match(r"^\d{1,2} [A-Z][a-z]{2}, \d{1,2}:\d{2} [ap]m$", local_s)),
+            local_s,
+        )
+        _check("local_mtime_no_zulu", "Z" not in local_s and "T" not in local_s, local_s)
+        # Touch one file so list_directory.modified matches format_local_mtime.
+        target = root / "a_small.txt"
+        os.utime(target, (sample_ts, sample_ts))
+        listed = list_directory(str(root), sort_by="name", limit=1000)
+        by_name = {e["name"]: e for e in listed}
+        mod = (by_name.get("a_small.txt") or {}).get("modified") or ""
+        _check(
+            "list_modified_local",
+            mod == format_local_mtime(sample_ts),
+            f"mod={mod!r} expect={format_local_mtime(sample_ts)!r}",
+        )
+
         z = read_file(str(root / "pack.zip"))
         _check(
             "refuse_zip",
@@ -93,7 +117,11 @@ def main() -> int:
         n = read_file(str(root / "nulled.bin"))
         _check("refuse_nul_probe", "binary" in n.lower(), n[:200])
         ok_txt = read_file(str(root / "a_small.txt"))
-        _check("read_text_ok", ok_txt == "hi", repr(ok_txt))
+        _check(
+            "read_text_ok",
+            ok_txt == "hi" or ("<<<BEGIN UNTRUSTED FILE CONTENT>>>" in ok_txt and "\nhi\n" in ok_txt),
+            repr(ok_txt)[:200],
+        )
         long = read_file(str(root / "long.txt"))
         _check(
             "truncate_40k",

@@ -1,4 +1,9 @@
-"""Answers that name files/folders from list_directory must match the listing."""
+"""Answers that name files/folders from list_directory must match the listing.
+
+Only listings from the *current* user turn count. Names the user asked to
+create/write are never stripped. Only names presented as inside the listed
+folder are checked.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +25,35 @@ _FOLDERISH = re.compile(
 )
 _REMOVED_NOTE = "⚠ Removed {n} name(s) that weren't in the folder listing."
 
+# "Create a file called test-note.txt …" / "make a folder named Foo" / etc.
+_CREATE_NAME_RE = re.compile(
+    r"(?:create|make|write|new|save|add)\s+(?:a\s+|an\s+)?"
+    r"(?:file|folder|directory|note|document)?\s*"
+    r"(?:called|named|titled|=|:)?\s*"
+    r"[`\"']?([A-Za-z0-9_\-. ]+?\.[A-Za-z0-9]{1,12})[`\"']?"
+    r"|"
+    r"(?:file|folder|directory)\s+(?:called|named)\s+"
+    r"[`\"']?([A-Za-z0-9_\-. ]+?\.[A-Za-z0-9]{1,12})[`\"']?",
+    re.IGNORECASE,
+)
+
+# Answer claims a name is *in* the listed folder (not merely mentioned).
+_IN_FOLDER_CLAIM = re.compile(
+    r"(?i)(?:"
+    r"(?:^|\n)\s*(?:\d+[\.\)]\s*|[-*•]\s*)`([^`\n]{1,120})`"  # list item
+    r"|"
+    r"(?:in|inside|under|from)\s+(?:the\s+)?(?:folder|directory|listing|"
+    r"downloads|desktop|documents|pictures)?[^.\n]{0,40}"
+    r"[`\"']([A-Za-z0-9_\-. ]+?\.[A-Za-z0-9]{1,12})[`\"']"
+    r"|"
+    r"(?:contains?|includes?|has|found)\s+(?:the\s+)?(?:file\s+)?"
+    r"[`\"']([A-Za-z0-9_\-. ]+?\.[A-Za-z0-9]{1,12})[`\"']"
+    r"|"
+    r"(?:file|folder)\s+[`\"']([A-Za-z0-9_\-. ]+?\.[A-Za-z0-9]{1,12})[`\"']"
+    r"\s+(?:is|was)\s+(?:in|there|present)"
+    r")"
+)
+
 
 def is_biggest_files_question(text: str) -> bool:
     return bool(_BIGGEST_RE.search(text or ""))
@@ -40,8 +74,7 @@ def _entries_from_tool_result(result: Any) -> list[dict[str, Any]]:
     return []
 
 
-def last_list_directory_entries(transcript: Any) -> list[dict[str, Any]]:
-    """Return entries from the latest list_directory tool_call."""
+def _transcript_events(transcript: Any) -> list[dict[str, Any]]:
     from pathlib import Path
 
     if transcript is None:
@@ -53,41 +86,64 @@ def last_list_directory_entries(transcript: Any) -> list[dict[str, Any]]:
         text = Path(path).read_text(encoding="utf-8")
     except Exception:
         return []
-    best: list[dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for line in text.splitlines():
         try:
             ev = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if ev.get("type") != "tool_call" or ev.get("name") != "list_directory":
-            continue
+        if isinstance(ev, dict):
+            out.append(ev)
+    return out
+
+
+def _this_turn_events(transcript: Any) -> list[dict[str, Any]]:
+    """Events after the latest user_turn / run_start boundary (same turn only)."""
+    events = _transcript_events(transcript)
+    if not events:
+        return []
+    boundary = -1
+    for i, ev in enumerate(events):
+        if ev.get("type") in ("user_turn", "run_start"):
+            boundary = i
+    if boundary < 0:
+        return events
+    return events[boundary + 1 :]
+
+
+def list_directory_calls_this_turn(transcript: Any) -> list[dict[str, Any]]:
+    """list_directory tool_call events from the current turn only."""
+    out: list[dict[str, Any]] = []
+    for ev in _this_turn_events(transcript):
+        if ev.get("type") == "tool_call" and ev.get("name") == "list_directory":
+            out.append(ev)
+    return out
+
+
+def last_list_directory_entries(transcript: Any) -> list[dict[str, Any]]:
+    """Return entries from the latest *same-turn* list_directory tool_call."""
+    best: list[dict[str, Any]] = []
+    for ev in list_directory_calls_this_turn(transcript):
         entries = _entries_from_tool_result(ev.get("result"))
         if entries:
             best = entries
     return best
 
 
-def last_size_sorted_listing(transcript: Any) -> list[dict[str, Any]]:
-    """Return file entries from the latest list_directory tool_call, largest first."""
-    from pathlib import Path
+def last_list_directory_path(transcript: Any) -> str:
+    """Path argument of the latest same-turn list_directory (or '')."""
+    path = ""
+    for ev in list_directory_calls_this_turn(transcript):
+        args = ev.get("args") or {}
+        if isinstance(args, dict) and args.get("path"):
+            path = str(args.get("path") or "")
+    return path
 
-    if transcript is None:
-        return []
-    path = getattr(transcript, "path", None)
-    if path is None:
-        return []
-    try:
-        text = Path(path).read_text(encoding="utf-8")
-    except Exception:
-        return []
+
+def last_size_sorted_listing(transcript: Any) -> list[dict[str, Any]]:
+    """File entries from the latest same-turn list_directory, largest first."""
     best: list[dict[str, Any]] = []
-    for line in text.splitlines():
-        try:
-            ev = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if ev.get("type") != "tool_call" or ev.get("name") != "list_directory":
-            continue
+    for ev in list_directory_calls_this_turn(transcript):
         args = ev.get("args") or {}
         sort_by = str(args.get("sort_by") or "name").lower()
         entries = _entries_from_tool_result(ev.get("result"))
@@ -116,8 +172,21 @@ def names_in_listing(entries: list[dict[str, Any]]) -> set[str]:
     }
 
 
+def names_user_asked_to_create(question: str) -> set[str]:
+    """Basenames the user asked to create/write — never strip these."""
+    names: set[str] = set()
+    for m in _CREATE_NAME_RE.finditer(question or ""):
+        raw = next((g for g in m.groups() if g), None)
+        if not raw:
+            continue
+        base = raw.replace("\\", "/").split("/")[-1].strip().strip("`\"'")
+        if base:
+            names.add(base.lower())
+    return names
+
+
 def names_claimed_in_answer(answer: str) -> set[str]:
-    """File/folder names the answer presents as being in the listed folder."""
+    """All file-like names mentioned in the answer (legacy / biggest-files)."""
     names: set[str] = set()
     for m in _NAME_IN_BACKTICKS.finditer(answer or ""):
         base = m.group(1).replace("\\", "/").split("/")[-1].strip()
@@ -126,6 +195,68 @@ def names_claimed_in_answer(answer: str) -> set[str]:
     for m in _NAME_AS_PATH.finditer(answer or ""):
         names.add(m.group(1).lower())
     return names
+
+
+_FOLDER_TALK = re.compile(
+    r"(?i)\b("
+    r"folder|directory|listing|downloads|desktop|documents|pictures|"
+    r"contains?|includes?|files?\s+in|inside\s+that|in\s+that\s+folder|"
+    r"in\s+the\s+folder|listed|listing"
+    r")\b"
+)
+
+
+def _names_from_text_span(span: str) -> set[str]:
+    names: set[str] = set()
+    for m in _NAME_IN_BACKTICKS.finditer(span or ""):
+        base = m.group(1).replace("\\", "/").split("/")[-1].strip()
+        if base:
+            names.add(base.lower())
+    for m in _NAME_AS_PATH.finditer(span or ""):
+        names.add(m.group(1).lower())
+    return names
+
+
+def names_claimed_in_listed_folder(
+    answer: str,
+    *,
+    question: str = "",
+    listed_path: str = "",
+) -> set[str]:
+    """Names the answer presents as being inside the listed folder.
+
+    Excludes names the user asked to create. Numbered/bulleted listing lines
+    and sentences that talk about the folder's contents count; bare mentions
+    of a create-target do not.
+    """
+    create = names_user_asked_to_create(question)
+    folder_leaf = ""
+    if listed_path:
+        folder_leaf = listed_path.replace("\\", "/").rstrip("/").split("/")[-1].lower()
+
+    claimed: set[str] = set()
+
+    # Numbered/bulleted lines (typical listing / biggest-files answer).
+    for line in (answer or "").splitlines():
+        if re.match(r"^\s*(?:\d+[\.\)]\s*|[-*•]\s*)", line):
+            claimed |= _names_from_text_span(line)
+
+    # Sentences that talk about folder contents.
+    for sentence in re.split(r"(?<=[.!?])\s+", answer or ""):
+        if _FOLDER_TALK.search(sentence):
+            claimed |= _names_from_text_span(sentence)
+        elif folder_leaf and re.search(rf"(?i)\b{re.escape(folder_leaf)}\b", sentence):
+            claimed |= _names_from_text_span(sentence)
+
+    for m in _IN_FOLDER_CLAIM.finditer(answer or ""):
+        raw = next((g for g in m.groups() if g), None)
+        if not raw:
+            continue
+        base = raw.replace("\\", "/").split("/")[-1].strip()
+        if base:
+            claimed.add(base.lower())
+
+    return {n for n in claimed if n not in create}
 
 
 def format_top_listing(files: list[dict[str, Any]], *, n: int = 10) -> str:
@@ -145,17 +276,29 @@ def format_top_listing(files: list[dict[str, Any]], *, n: int = 10) -> str:
     return "\n".join(lines)
 
 
-def _strip_unknown_names(answer: str, known: set[str]) -> tuple[str, list[str]]:
-    """Remove backtick / extension-looking names not in known; return (text, removed)."""
+def _strip_unknown_names(
+    answer: str,
+    known: set[str],
+    *,
+    only: Optional[set[str]] = None,
+) -> tuple[str, list[str]]:
+    """Remove backtick / extension-looking names not in known; return (text, removed).
+
+    If ``only`` is set, only those basenames (lower) may be stripped.
+    """
     removed: list[str] = []
     text = answer or ""
+    only_l = {x.lower() for x in only} if only is not None else None
 
     def _bt(m: re.Match[str]) -> str:
         raw = m.group(1)
         base = raw.replace("\\", "/").split("/")[-1].strip()
         if not base:
             return m.group(0)
-        if base.lower() in known:
+        low = base.lower()
+        if low in known:
+            return m.group(0)
+        if only_l is not None and low not in only_l:
             return m.group(0)
         # Only strip when it looks like a file/folder name claim
         # (has extension, or no spaces / short token).
@@ -168,7 +311,10 @@ def _strip_unknown_names(answer: str, known: set[str]) -> tuple[str, list[str]]:
 
     def _ext(m: re.Match[str]) -> str:
         name = m.group(1)
-        if name.lower() in known:
+        low = name.lower()
+        if low in known:
+            return m.group(0)
+        if only_l is not None and low not in only_l:
             return m.group(0)
         removed.append(name)
         return ""
@@ -195,16 +341,19 @@ def maybe_correct_listing_answer(
     *,
     top_n: int = 10,
 ) -> tuple[str, Optional[dict[str, Any]]]:
-    """General rule: names presented as in the folder must appear in list_directory.
+    """Same-turn rule: names presented as in the listed folder must appear there.
 
-    Biggest-files questions still get a full rewrite from the size-sorted listing
-    when names are invented or the top-N is mostly missing.
+    Skips entirely when this turn did not call list_directory. Never strips
+    names the user asked to create. Biggest-files questions still get a full
+    rewrite from the size-sorted listing when needed.
     """
     entries = last_list_directory_entries(transcript)
     if not entries:
         return answer, None
 
     known = names_in_listing(entries)
+    listed_path = last_list_directory_path(transcript)
+    create_names = names_user_asked_to_create(question)
 
     # Special case: biggest/largest → prefer size-sorted rewrite when needed.
     if is_biggest_files_question(question):
@@ -215,7 +364,7 @@ def maybe_correct_listing_answer(
                 for e in files[:top_n]
                 if e.get("name")
             }
-            claimed = names_claimed_in_answer(answer)
+            claimed = names_claimed_in_answer(answer) - create_names
             if not claimed:
                 fixed = format_top_listing(files, n=top_n)
                 return fixed, {"corrected": True, "reason": "missing_names"}
@@ -230,13 +379,15 @@ def maybe_correct_listing_answer(
                     "reason": "biggest_rewrite",
                 }
 
-    claimed = names_claimed_in_answer(answer)
+    claimed = names_claimed_in_listed_folder(
+        answer, question=question, listed_path=listed_path
+    )
     if not claimed:
         return answer, None
     invented = sorted(c for c in claimed if c not in known)
     if not invented:
         return answer, None
-    cleaned, removed = _strip_unknown_names(answer, known)
+    cleaned, removed = _strip_unknown_names(answer, known, only=set(invented))
     # Ensure we count every invented name we intended to remove.
     n = len(removed) or len(invented)
     note = _REMOVED_NOTE.format(n=n)

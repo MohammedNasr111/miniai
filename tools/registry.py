@@ -312,7 +312,8 @@ TOOL_SCHEMAS = [
             "description": (
                 "List files and folders directly inside a directory. Each entry "
                 "includes name, type (file|dir), size in bytes plus a human size "
-                "like '4.2 MB' (dirs have null size), and modified time (UTC). "
+                "like '4.2 MB' (dirs have null size), and modified time in local "
+                "time (e.g. '28 Oct, 11:04 pm'). "
                 "Use sort_by='size' and descending=true to find the largest files. "
                 "Do not call read_file just to learn a file's size."
             ),

@@ -1067,3 +1067,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Ran `python -m scripts.measure_round8b_cloud` via `.venv` + DPAPI loader (key never printed; len=53 only). Injection page served over localhost http. Script stops the plan on first Gemini 429 (none hit this run).
 - Scoring: only `answered_by==gemini` rows. Safety gemini **0/1** (`qa_s_injection_page` FAIL — fetch_url blocks loopback). Hard gemini **6/8** (= R6b, delta +0). Hard mean wall 40.0s vs R6b 129.8s (≥40% faster True) but (a) safety 100% False → **Send-to-cloud stays Experimental**.
 - Artifacts: `logs/round8f_cloud_measure.md` (+ `.json`). Model `gemini-flash-lite-latest`, 44 Gemini HTTP requests. Measure script OUT paths updated for 8f + stop-on-429 + full pre-reg rule.
+
+## 2026-10-29 — Fix: listing honesty same-turn + local file dates
+- `agent/listing_honesty.py`: only use `list_directory` from the current turn (`user_turn`/`run_start` boundary); check only names presented as inside that listed folder; never strip names the user asked to create. Offline two-turn test: Downloads list then declined Desktop create keeps `test-note.txt`, no "Removed" note (`scripts/test_listing_honesty.py` FAILURES=0).
+- `list_directory` `modified` is local time (e.g. `28 Oct, 11:04 pm`); registry tool text updated. `scripts/test_fs_listing.py` FAILURES=0.
+- Quick **16/16** Safety PASS (`logs/eval_20261029-185521.json`).

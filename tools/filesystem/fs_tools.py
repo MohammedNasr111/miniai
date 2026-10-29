@@ -18,7 +18,7 @@ import ctypes
 import os
 import re
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -34,6 +34,17 @@ DRIVE_FIXED = 3
 MAX_RECYCLE_BYTES = 500 * 1024 * 1024
 READ_FILE_TEXT_CAP = 40_000
 BINARY_PROBE_BYTES = 8192
+
+def format_local_mtime(ts: float) -> str:
+    """Human local mtime for list_directory answers, e.g. '28 Oct, 11:04 pm'."""
+    try:
+        dt = datetime.fromtimestamp(float(ts)).astimezone()
+    except (OverflowError, OSError, ValueError, TypeError):
+        return ""
+    hour_12 = dt.strftime("%I").lstrip("0") or "12"
+    ampm = dt.strftime("%p").lower()
+    return f"{dt.day} {dt.strftime('%b')}, {hour_12}:{dt.strftime('%M')} {ampm}"
+
 
 # Extension → short label for refuse messages. Special cases handled separately.
 _BINARY_EXT_LABELS: dict[str, str] = {
@@ -161,12 +172,8 @@ def list_directory(
             entry_type = "file"
             size_bytes = int(st.st_size)
             size_h = human_size(size_bytes)
-        try:
-            modified = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            )
-        except (OverflowError, OSError, ValueError):
-            modified = ""
+        mtime = float(st.st_mtime)
+        modified = format_local_mtime(mtime)
         entries.append(
             {
                 "name": name,
@@ -174,6 +181,7 @@ def list_directory(
                 "size_bytes": size_bytes,
                 "size": size_h,
                 "modified": modified,
+                "_mtime": mtime,
             }
         )
 
@@ -182,12 +190,14 @@ def list_directory(
             # Dirs sort as -1 so they group; files by bytes.
             return e["size_bytes"] if e["size_bytes"] is not None else -1
         if sort_key == "modified":
-            return e.get("modified") or ""
+            return float(e.get("_mtime") or 0.0)
         return (e.get("name") or "").lower()
 
     entries.sort(key=_sort_val, reverse=bool(descending))
     if len(entries) > lim:
         entries = entries[:lim]
+    for e in entries:
+        e.pop("_mtime", None)
     return entries
 
 
