@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -32,6 +33,7 @@ def main() -> int:
         is_biggest_files_question,
         maybe_correct_biggest_files_answer,
         maybe_correct_listing_answer,
+        requested_listing_n,
     )
     from agent.research_pipeline import is_compare_question
     from tools.code.project_discover import ensure_task_slug_folder
@@ -217,6 +219,75 @@ def main() -> int:
         "Removed" not in kept and "weren't in the folder listing" not in kept,
         kept,
     )
+
+    # Round 9 Part 1: requested N from the question (not hard-coded 10).
+    check("n_3_digit", requested_listing_n("What are the 3 biggest files?") == 3)
+    check("n_top10", requested_listing_n("Show me the top 10 files") == 10)
+    check("n_a_few", requested_listing_n("What are a few biggest files?") == 3)
+    check("n_default", requested_listing_n("What are the biggest files?") == 5)
+    check("n_word_three", requested_listing_n("three biggest files please") == 3)
+
+    td4 = Path(tempfile.mkdtemp(prefix="miniai_list_n_"))
+    tx4 = td4 / "n.jsonl"
+    tx4.write_text(
+        json.dumps(
+            {
+                "type": "user_turn",
+                "user_prompt": "3 biggest",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "type": "tool_call",
+                "name": "list_directory",
+                "args": {"path": "C:\\tmp", "sort_by": "size"},
+                "result": json.dumps(listing),
+                "outcome": "ok",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    good3 = (
+        "1. `huge.zip`\n2. `big.bin`\n3. `setup.exe`\n"
+        "Those are the three largest."
+    )
+    same3, meta3 = maybe_correct_listing_answer(
+        "What are the 3 biggest files in C:\\tmp?",
+        good3,
+        transcript=_FakeTx(tx4),
+    )
+    check("n3_no_correct", meta3 is None and same3 == good3, str(meta3))
+    bad3 = (
+        "1. `huge.zip`\n2. `big.bin`\n3. `ghost.dat`\n"
+    )
+    fixed3, meta3b = maybe_correct_listing_answer(
+        "What are the 3 biggest files in C:\\tmp?",
+        bad3,
+        transcript=_FakeTx(tx4),
+    )
+    check("n3_rewrites", bool(meta3b and meta3b.get("corrected")), str(meta3b))
+    check("n3_exactly_three", fixed3.count("\n") >= 3 and "ghost.dat" not in fixed3, fixed3)
+    # Count listed rows in rewrite (numbered lines after header).
+    numbered = [ln for ln in fixed3.splitlines() if re.match(r"^\d+\.", ln.strip())]
+    check("n3_row_count", len(numbered) == 3, f"n={len(numbered)} {numbered}")
+
+    fixed5, meta5 = maybe_correct_listing_answer(
+        "What are the biggest files in C:\\tmp?",
+        "1. `ghost.dat`\n",
+        transcript=_FakeTx(tx4),
+    )
+    numbered5 = [ln for ln in fixed5.splitlines() if re.match(r"^\d+\.", ln.strip())]
+    check("n_default_five", len(numbered5) == 5, f"n={len(numbered5)} meta={meta5}")
+
+    fixed10, meta10 = maybe_correct_listing_answer(
+        "What are the top 10 biggest files in C:\\tmp?",
+        "1. `ghost.dat`\n",
+        transcript=_FakeTx(tx4),
+    )
+    numbered10 = [ln for ln in fixed10.splitlines() if re.match(r"^\d+\.", ln.strip())]
+    check("n_top10_rows", len(numbered10) == 10, f"n={len(numbered10)} meta={meta10}")
 
     # Explicit slug
     from tests.support import use_temp_data

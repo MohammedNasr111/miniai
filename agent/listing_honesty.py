@@ -15,6 +15,72 @@ _BIGGEST_RE = re.compile(
     r"(?i)\b(biggest|largest|top\s+\d+\s+(?:biggest|largest|files)|"
     r"\d+\s+biggest|\d+\s+largest)\b"
 )
+
+_WORD_NUMBERS: dict[str, int] = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+}
+_A_FEW_RE = re.compile(r"\ba\s+few\b", re.IGNORECASE)
+_TOP_N_RE = re.compile(r"\btop\s+(\d{1,3})\b", re.IGNORECASE)
+_DIGIT_N_RE = re.compile(
+    r"\b(\d{1,3})\s*(?:biggest|largest|files?|items?|entries?)\b"
+    r"|"
+    r"\b(?:biggest|largest)\s+(\d{1,3})\b",
+    re.IGNORECASE,
+)
+_WORD_N_RE = re.compile(
+    r"\b("
+    + "|".join(_WORD_NUMBERS.keys())
+    + r")\s*(?:biggest|largest|files?|items?)\b"
+    r"|"
+    r"\b(?:biggest|largest)\s+("
+    + "|".join(_WORD_NUMBERS.keys())
+    + r")\b",
+    re.IGNORECASE,
+)
+
+
+def requested_listing_n(question: str, *, default: int = 5) -> int:
+    """Parse how many listing rows the user asked for.
+
+    Digits, words one–twenty, \"top N\", \"a few\" → 3. No number → default (5).
+    Clamped to 1..100.
+    """
+    text = question or ""
+    if _A_FEW_RE.search(text):
+        return 3
+    m = _TOP_N_RE.search(text)
+    if m:
+        return max(1, min(100, int(m.group(1))))
+    m = _DIGIT_N_RE.search(text)
+    if m:
+        raw = next((g for g in m.groups() if g), None)
+        if raw:
+            return max(1, min(100, int(raw)))
+    m = _WORD_N_RE.search(text)
+    if m:
+        raw = next((g for g in m.groups() if g), None)
+        if raw:
+            return max(1, min(100, _WORD_NUMBERS[raw.lower()]))
+    return max(1, min(100, int(default)))
 _NAME_IN_BACKTICKS = re.compile(r"`([^`\n]{1,120})`")
 _NAME_AS_PATH = re.compile(
     r"(?i)\b([a-z0-9_\-]+\.(?:zip|bin|exe|txt|dat|png|jpg|jpeg|gif|pdf|mp4|docx|js|log|tmp))\b"
@@ -339,13 +405,13 @@ def maybe_correct_listing_answer(
     answer: str,
     transcript: Any = None,
     *,
-    top_n: int = 10,
+    top_n: Optional[int] = None,
 ) -> tuple[str, Optional[dict[str, Any]]]:
     """Same-turn rule: names presented as in the listed folder must appear there.
 
     Skips entirely when this turn did not call list_directory. Never strips
     names the user asked to create. Biggest-files questions still get a full
-    rewrite from the size-sorted listing when needed.
+    rewrite from the size-sorted listing when needed (N from the question).
     """
     entries = last_list_directory_entries(transcript)
     if not entries:
@@ -354,6 +420,7 @@ def maybe_correct_listing_answer(
     known = names_in_listing(entries)
     listed_path = last_list_directory_path(transcript)
     create_names = names_user_asked_to_create(question)
+    n = int(top_n) if top_n is not None else requested_listing_n(question)
 
     # Special case: biggest/largest → prefer size-sorted rewrite when needed.
     if is_biggest_files_question(question):
@@ -361,22 +428,27 @@ def maybe_correct_listing_answer(
         if files:
             expected = {
                 str(e.get("name") or "").lower()
-                for e in files[:top_n]
+                for e in files[:n]
                 if e.get("name")
             }
             claimed = names_claimed_in_answer(answer) - create_names
             if not claimed:
-                fixed = format_top_listing(files, n=top_n)
-                return fixed, {"corrected": True, "reason": "missing_names"}
+                fixed = format_top_listing(files, n=n)
+                return fixed, {
+                    "corrected": True,
+                    "reason": "missing_names",
+                    "top_n": n,
+                }
             invented = {c for c in claimed if c not in names_in_listing(files)}
             missing_top = expected - claimed
-            if invented or len(missing_top) >= max(3, top_n // 2):
-                fixed = format_top_listing(files, n=top_n)
+            if invented or len(missing_top) >= max(3, n // 2):
+                fixed = format_top_listing(files, n=n)
                 return fixed, {
                     "corrected": True,
                     "invented": sorted(invented),
                     "missing_top": sorted(missing_top),
                     "reason": "biggest_rewrite",
+                    "top_n": n,
                 }
 
     claimed = names_claimed_in_listed_folder(

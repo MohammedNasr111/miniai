@@ -1078,3 +1078,6 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `scripts/probe_system.py` → `logs/round9_system.json` (Lemonade 11.9.0, stats, GPU counters, top RSS, RAM).
 - `scripts/measure_real_speed.py` → `logs/round9_baseline_speed.json` (×3).
 - Baselines: `logs/round9_baseline_quick.json` (15/16, Safety PASS), `logs/round9_baseline_battery.json` (16/20 QA battery).
+
+## 2026-10-30 — Round 9 Part 1: listing top-N from the question
+- `requested_listing_n`: digits, one–twenty, top N, a few→3, else default 5. Biggest-files rewrite uses that N (no more forced top-10). Offline tests FAILURES=0.
