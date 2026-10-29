@@ -1091,3 +1091,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - When smart/two_pass will run a thinking second pass, stream the thinking-off draft and cancel after ≥24 non-ws content chars with no tool-call delta (`MINIAI_EARLY_ABORT`, default on).
 - Logs `early_abort` + `tokens_saved` on the discarded transcript event; UI stream cleared.
 - Offline `scripts/test_early_abort.py`: content-first aborts; tool-first and short-preamble+tool complete. FAILURES=0.
+
+## 2026-10-30 — Round 9 Part 4: cache-stable history compression
+- `MINIAI_CACHE_STABLE` (default on): `compress_cross_turn_history` and `enforce_context_budget` no-op below 70% of context budget; when over, compress to ≤50% in one pass. Message 0 / system and latest user untouched. `compress_browser_history` unchanged.
+- `scripts/test_context_budget.py` extended; FAILURES=0. Case (d) six-turn already in `measure_real_speed.py --six-turn`.

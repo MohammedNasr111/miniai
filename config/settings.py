@@ -39,6 +39,10 @@ THINKING_POLICY = (
 _EARLY_ABORT_RAW = os.environ.get("MINIAI_EARLY_ABORT", "on").strip().lower()
 EARLY_ABORT = _EARLY_ABORT_RAW not in ("0", "off", "false", "no")
 EARLY_ABORT_CONTENT_CHARS = 24
+# Round 9 Part 4: only rewrite history when over 70% of context budget,
+# then compress to under 50% in one step (keeps prompt-cache prefix stable).
+_CACHE_STABLE_RAW = os.environ.get("MINIAI_CACHE_STABLE", "on").strip().lower()
+CACHE_STABLE = _CACHE_STABLE_RAW not in ("0", "off", "false", "no")
 # Stage 12a answer checker: draft -> check -> fix. Default off until measured.
 _CHECKER_RAW = os.environ.get("MINIAI_CHECKER", "off").strip().lower()
 CHECKER = _CHECKER_RAW if _CHECKER_RAW in ("off", "on") else "off"

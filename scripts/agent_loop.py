@@ -228,14 +228,35 @@ def compress_browser_history(history: list) -> None:
         history[index].content = BROWSER_OMITTED
 
 
-def compress_cross_turn_history(history: list) -> None:
+def compress_cross_turn_history(
+    history: list, tools: list | None = None
+) -> None:
     """Omit older earlier-turn tool results; keep latest per tool name.
 
     For tool-role messages before the most recent user message, keep the
     most recent result of each tool name in full; replace older ones with
     CROSS_TURN_OMITTED. tool_call_ids and message count are unchanged;
     the transcript and evidence store keep originals.
+
+    With CACHE_STABLE (default on): no-op when estimated prompt ≤ 70% of
+    CONTEXT_BUDGET_TOKENS; when over, omit enough in one pass to get under
+    50%. Never modifies message 0 / system messages.
     """
+    from agent.context_budget import (
+        CACHE_STABLE_HIGH_FRAC,
+        CACHE_STABLE_LOW_FRAC,
+        CONTEXT_BUDGET_TOKENS,
+        estimate_prompt_tokens,
+    )
+
+    if not history:
+        return
+    cache_stable = bool(getattr(settings, "CACHE_STABLE", True))
+    if cache_stable:
+        est = estimate_prompt_tokens(history, tools)
+        if est <= CONTEXT_BUDGET_TOKENS * CACHE_STABLE_HIGH_FRAC:
+            return
+
     user_indices = [
         index for index, message in enumerate(history) if message.role == "user"
     ]
@@ -259,6 +280,19 @@ def compress_cross_turn_history(history: list) -> None:
     for index, _name in earlier:
         if index not in keep:
             history[index].content = CROSS_TURN_OMITTED
+
+    if not cache_stable:
+        return
+    # Still over 50%: omit all earlier-turn tool bodies (keep ids/slots).
+    target = CONTEXT_BUDGET_TOKENS * CACHE_STABLE_LOW_FRAC
+    if estimate_prompt_tokens(history, tools) <= target:
+        return
+    for index, _name in earlier:
+        if index == 0:
+            continue
+        if getattr(history[index], "role", None) == "system":
+            continue
+        history[index].content = CROSS_TURN_OMITTED
 
 
 _CODE_FENCE_RE = re.compile(r"```[\s\S]*?```")
@@ -601,9 +635,10 @@ def _call_model_force_thinking(
     cancel_check=None,
 ):
     """One chat call with thinking ON (used by action-claim re-run)."""
-    compress_cross_turn_history(history)
+    _tools = active_tool_schemas()
+    compress_cross_turn_history(history, tools=_tools)
     compress_browser_history(history)
-    enforce_context_budget(history, tools=active_tool_schemas())
+    enforce_context_budget(history, tools=_tools)
     timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
     bucket: list[str] = []
     from agent.perf_probe import snapshot_before_call
@@ -640,9 +675,10 @@ def _call_model(
     on_stream_clear=None,
     cancel_check=None,
 ):
-    compress_cross_turn_history(history)
+    _tools = active_tool_schemas()
+    compress_cross_turn_history(history, tools=_tools)
     compress_browser_history(history)
-    enforce_context_budget(history, tools=active_tool_schemas())
+    enforce_context_budget(history, tools=_tools)
     policy = getattr(settings, "THINKING_POLICY", "smart")
 
     def _forward():

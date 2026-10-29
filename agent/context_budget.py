@@ -5,12 +5,17 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
+from config import settings
+
 CONTEXT_LIMIT_TOKENS = 16_384
 ANSWER_RESERVE_TOKENS = 2_048
 CONTEXT_BUDGET_TOKENS = CONTEXT_LIMIT_TOKENS - ANSWER_RESERVE_TOKENS
 CHARS_PER_TOKEN = 3.5
 TOOL_RESULT_MAX_CHARS = 12_000
 TRIM_MARKER = "\n[trimmed to fit]\n"
+# Round 9 Part 4: mutate only above high-water; compress to low-water in one go.
+CACHE_STABLE_HIGH_FRAC = 0.70
+CACHE_STABLE_LOW_FRAC = 0.50
 
 
 def estimate_tokens(text: Optional[str]) -> float:
@@ -73,11 +78,23 @@ def enforce_context_budget(
 ) -> None:
     """Shrink history in place so estimated prompt tokens stay under budget.
 
-    Never modifies the system prompt or the latest user message. Shrinks the
-    largest tool results first, then older messages.
+    Never modifies the system prompt (message 0 / any system role) or the
+    latest user message. Shrinks the largest tool results first, then older
+    messages. With CACHE_STABLE (default on): no-op below 70% of budget;
+    when over, compress in one pass down to 50% of budget.
     """
     if not history:
         return
+
+    cache_stable = bool(getattr(settings, "CACHE_STABLE", True))
+    high = budget_tokens * CACHE_STABLE_HIGH_FRAC
+    low = budget_tokens * CACHE_STABLE_LOW_FRAC
+    est0 = estimate_prompt_tokens(history, tools)
+    if cache_stable and est0 <= high:
+        return
+
+    target = low if cache_stable else budget_tokens
+
     for message in history:
         if getattr(message, "role", None) == "tool" and isinstance(
             getattr(message, "content", None), str
@@ -88,12 +105,14 @@ def enforce_context_budget(
     for index, message in enumerate(history):
         if getattr(message, "role", None) == "system":
             protected.add(index)
+        if index == 0:
+            protected.add(index)
     latest_user = _latest_user_index(history)
     if latest_user >= 0:
         protected.add(latest_user)
 
     def _over() -> bool:
-        return estimate_prompt_tokens(history, tools) > budget_tokens
+        return estimate_prompt_tokens(history, tools) > target
 
     while _over():
         candidates = [
@@ -109,7 +128,9 @@ def enforce_context_budget(
         _index, message = max(
             candidates, key=lambda item: len(item[1].content or "")
         )
-        new_len = max(64, len(message.content) // 2)
+        # Aggressive cut when aiming for the 50% low-water mark.
+        factor = 4 if cache_stable else 2
+        new_len = max(64, len(message.content) // factor)
         message.content = trim_head_tail(message.content, new_len)
 
     while _over():
@@ -125,5 +146,6 @@ def enforce_context_budget(
         _index, message = max(
             candidates, key=lambda item: len(item[1].content or "")
         )
-        new_len = max(64, len(message.content) // 2)
+        factor = 4 if cache_stable else 2
+        new_len = max(64, len(message.content) // factor)
         message.content = trim_head_tail(message.content, new_len)
