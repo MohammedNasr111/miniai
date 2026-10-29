@@ -1081,3 +1081,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 
 ## 2026-10-30 — Round 9 Part 1: listing top-N from the question
 - `requested_listing_n`: digits, one–twenty, top N, a few→3, else default 5. Biggest-files rewrite uses that N (no more forced top-10). Offline tests FAILURES=0.
+
+## 2026-10-30 — Round 9 Part 2: data cards for listings
+- `agent/data_cards.py`: build sorted/limited tables from `list_directory` / `search_files`; turn flag + one-sentence system prompt when a card was shown.
+- UI: card under the Listed-a-folder / search step (`app/ui/app.js`, `styles.css`); `webview_approver` attaches `data_card` on tool_end.
+- Offline `scripts/test_data_cards.py`: sort/N match question; prompt sentence only when card shown. FAILURES=0.

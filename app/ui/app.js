@@ -345,6 +345,87 @@
     return li;
   }
 
+  function appendDataCard(card) {
+    const run = currentRun;
+    if (!run || !card || !card.rows) return null;
+    const cols = card.columns || ["name", "size", "modified"];
+    const li = document.createElement("li");
+    li.className = "data-card";
+    li.dataset.tool = card.tool || "";
+
+    const head = document.createElement("div");
+    head.className = "data-card-head";
+    const title = document.createElement("span");
+    title.className = "data-card-title";
+    title.textContent = card.title || "Listing";
+    head.appendChild(title);
+    const meta = document.createElement("span");
+    meta.className = "data-card-meta";
+    const shown = card.shown != null ? card.shown : (card.rows || []).length;
+    const total = card.total != null ? card.total : shown;
+    meta.textContent =
+      shown +
+      (total > shown ? " of " + total : "") +
+      (card.sort ? " · by " + card.sort : "");
+    head.appendChild(meta);
+    li.appendChild(head);
+
+    const table = document.createElement("table");
+    table.className = "data-card-table";
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    cols.forEach(function (c) {
+      const th = document.createElement("th");
+      th.textContent = c;
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+
+    function fillBody(rows) {
+      tbody.innerHTML = "";
+      (rows || []).forEach(function (row) {
+        const tr = document.createElement("tr");
+        cols.forEach(function (c) {
+          const td = document.createElement("td");
+          const val = row[c];
+          if (c === "name" || c === "path") {
+            td.className = c === "path" ? "path" : "name";
+            td.textContent = val == null ? "" : String(val);
+          } else {
+            td.textContent = val == null || val === "" ? "—" : String(val);
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+    fillBody(card.rows);
+    table.appendChild(tbody);
+    li.appendChild(table);
+
+    if (card.show_all && card.all_rows && card.all_rows.length > shown) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "data-card-toggle";
+      btn.textContent = "Show all " + total;
+      let expanded = false;
+      btn.addEventListener("click", function () {
+        expanded = !expanded;
+        fillBody(expanded ? card.all_rows : card.rows);
+        btn.textContent = expanded
+          ? "Show top " + shown
+          : "Show all " + total;
+      });
+      li.appendChild(btn);
+    }
+
+    run.trace.appendChild(li);
+    maybeScrollBottom();
+    return li;
+  }
+
   function ellipsisPath(path, maxLen) {
     maxLen = maxLen || 48;
     var s = String(path || "").replace(/\//g, "\\");
@@ -410,6 +491,9 @@
         t: s.t || "",
         running: !!s.running,
       });
+      if (s.data_card) {
+        appendDataCard(s.data_card);
+      }
       const tool = s.tool || "";
       if (tool) {
         tickets.forEach(function (t) {

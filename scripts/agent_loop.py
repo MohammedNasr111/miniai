@@ -493,6 +493,20 @@ def should_run_thinking_second_pass(history: list) -> bool:
     return False
 
 
+def _history_for_model(history: list) -> list:
+    """Copy history; append listing-card prompt sentence when a card was shown."""
+    from agent.data_cards import CARD_PROMPT_SENTENCE, listing_card_shown_this_turn
+
+    if not listing_card_shown_this_turn() or not history:
+        return history
+    out = list(history)
+    first = out[0]
+    if getattr(first, "role", None) == "system":
+        content = (getattr(first, "content", None) or "") + "\n\n" + CARD_PROMPT_SENTENCE
+        out[0] = ChatMessage(role="system", content=content)
+    return out
+
+
 def _stream_or_chat(
     provider,
     history,
@@ -505,9 +519,10 @@ def _stream_or_chat(
     """One model call. Streams when on_token is set (and provider supports it)."""
     stream_fn = getattr(provider, "chat_stream", None)
     tools = active_tool_schemas()
+    hist = _history_for_model(history)
     if on_token is not None and callable(stream_fn):
         return stream_fn(
-            history,
+            hist,
             tools=tools,
             enable_thinking=enable_thinking,
             timeout=timeout,
@@ -515,7 +530,7 @@ def _stream_or_chat(
             cancel_check=cancel_check,
         )
     return provider.chat(
-        history,
+        hist,
         tools=tools,
         enable_thinking=enable_thinking,
         timeout=timeout,
@@ -942,7 +957,10 @@ def run_tool_rounds(
             on_tool_end=on_tool_end,
             cancel_check=cancel_check,
         )
-        for name, message in zip(call_names, tool_messages):
+        from agent.data_cards import build_data_card, note_listing_card_shown
+        from tools.filesystem.turn_context import get_turn_user_text
+
+        for tc, name, message in zip(resp.tool_calls, call_names, tool_messages):
             text = message.content or ""
             append_evidence(text)
             turn_evidence.append(text)
@@ -952,6 +970,29 @@ def run_tool_rounds(
                 summary = evidence_summary_line(rec)
                 append_evidence(summary)
                 turn_evidence.append(summary)
+            if name in ("list_directory", "search_files") and text and not text.startswith(
+                ("Denied", "Error", "Blocked")
+            ):
+                import json as _json
+
+                if isinstance(tc, dict):
+                    fn = tc.get("function") or {}
+                    raw_args = fn.get("arguments") or "{}"
+                else:
+                    fn = getattr(tc, "function", None)
+                    raw_args = getattr(fn, "arguments", None) if fn is not None else "{}"
+                try:
+                    args_d = _json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                except Exception:
+                    args_d = {}
+                card = build_data_card(
+                    name,
+                    text,
+                    question=get_turn_user_text() or question or "",
+                    args=args_d if isinstance(args_d, dict) else {},
+                )
+                if card:
+                    note_listing_card_shown()
         history.extend(tool_messages)
 
         # Auto-test once per model round after successful ws_write/ws_edit

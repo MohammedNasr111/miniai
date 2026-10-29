@@ -114,6 +114,21 @@ button,input,textarea{font:inherit;color:inherit}
 @keyframes pulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 25%,transparent)}}
 .path{font:400 12.5px/1.5 var(--code);color:var(--muted);overflow-wrap:anywhere}
 
+/* data card (listing under a trace step) */
+.data-card{list-style:none;margin:4px 0 10px 32px;padding:10px 12px;background:var(--raised);border:1px solid var(--line);border-radius:8px;display:grid;gap:8px;max-width:52rem}
+.data-card-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between}
+.data-card-title{font:500 var(--s2)/1.3 var(--display);color:var(--text)}
+.data-card-meta{font:500 var(--s1)/1 var(--display);color:var(--faint);font-variant-numeric:tabular-nums}
+.data-card-table{border-collapse:collapse;width:100%;font-size:var(--s2)}
+.data-card-table th{text-align:left;font:500 var(--s1)/1.2 var(--display);color:var(--faint);padding:2px 8px 6px 0;border-bottom:1px solid var(--line);text-transform:lowercase}
+.data-card-table td{padding:5px 8px 5px 0;border-bottom:1px solid var(--line);color:var(--text);vertical-align:top}
+.data-card-table td:last-child{padding-right:0}
+.data-card-table td.name{font:400 12.5px/1.4 var(--code);overflow-wrap:anywhere}
+.data-card-table td.path{font:400 12px/1.4 var(--code);color:var(--muted);overflow-wrap:anywhere}
+.data-card-table td:nth-child(n+2){font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.data-card-toggle{appearance:none;border:0;background:none;padding:0;margin:0;font:500 var(--s1)/1.2 var(--display);color:var(--glacier);cursor:pointer;text-align:left}
+.data-card-toggle:hover{text-decoration:underline}
+
 /* permission ticket */
 .ticket{list-style:none;margin:8px 0 8px 32px;background:var(--raised);border:1px solid color-mix(in srgb,var(--tc) 55%,var(--line));border-radius:10px;padding:14px 16px 14px 22px;position:relative;display:grid;gap:10px}
 .ticket::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:8px;background:radial-gradient(circle at 0 50%,var(--slate) 3px,transparent 3.5px) 0 0/8px 12px repeat-y}

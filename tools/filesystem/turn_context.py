@@ -8,6 +8,12 @@ _last_user_text: str = ""
 def set_turn_user_text(text: str) -> None:
     global _last_user_text
     _last_user_text = text or ""
+    try:
+        from agent.data_cards import reset_listing_card_turn
+
+        reset_listing_card_turn()
+    except Exception:
+        pass
 
 
 def get_turn_user_text() -> str:
@@ -17,3 +23,9 @@ def get_turn_user_text() -> str:
 def clear_turn_user_text() -> None:
     global _last_user_text
     _last_user_text = ""
+    try:
+        from agent.data_cards import reset_listing_card_turn
+
+        reset_listing_card_turn()
+    except Exception:
+        pass

@@ -880,6 +880,31 @@ class AppBridge:
             if name == "web_research" and self._web_pages_read:
                 args_dict["pages_read"] = self._web_pages_read
                 target["args"] = args_dict
+            # Round 9 Part 2: data card under list_directory / search_files.
+            if (
+                not denied
+                and ok
+                and name in {"list_directory", "search_files"}
+                and result_text
+            ):
+                try:
+                    from agent.data_cards import (
+                        build_data_card,
+                        note_listing_card_shown,
+                    )
+
+                    ask = getattr(self, "_turn_ask", "") or ""
+                    card = build_data_card(
+                        name,
+                        result_text,
+                        question=ask,
+                        args=args_dict,
+                    )
+                    if card:
+                        target["data_card"] = card
+                        note_listing_card_shown()
+                except Exception:
+                    pass
         if self._chat_doc is not None:
             record_tool(self._chat_doc, name, args_dict, ok=ok)
             try:
@@ -896,8 +921,9 @@ class AppBridge:
 
     def _push_live_activity(self, waiting: bool) -> None:
         total = time.perf_counter() - self._turn_t0 if self._turn_t0 else 0.0
-        steps = [
-            {
+        steps = []
+        for s in self._turn_steps:
+            row = {
                 "tool": s.get("tool") or "",
                 "name": s["name"],
                 "detail": s.get("detail") or "",
@@ -911,8 +937,9 @@ class AppBridge:
                 "running": bool(s.get("running")),
                 "denied": bool(s.get("denied")),
             }
-            for s in self._turn_steps
-        ]
+            if s.get("data_card"):
+                row["data_card"] = s["data_card"]
+            steps.append(row)
         payload = {
             "steps": steps,
             "waiting": waiting,
