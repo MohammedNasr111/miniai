@@ -1,0 +1,463 @@
+{
+  "captured_at": "2026-10-29T16:50:13Z",
+  "production_options": {
+    "ctx_size": 16384,
+    "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+  },
+  "ddr5_one_channel_gbs": 44.8,
+  "gen_tokens": 512,
+  "repeats": 3,
+  "open_apps": {
+    "free_ram_gb": 4.086,
+    "total_ram_gb": 23.618,
+    "top_processes": [
+      {
+        "pid": 19824,
+        "name": "Cursor.exe",
+        "rss_gb": 0.584
+      },
+      {
+        "pid": 13208,
+        "name": "Cursor.exe",
+        "rss_gb": 0.551
+      },
+      {
+        "pid": 18244,
+        "name": "llama-server.exe",
+        "rss_gb": 0.551
+      },
+      {
+        "pid": 11220,
+        "name": "claude.exe",
+        "rss_gb": 0.492
+      },
+      {
+        "pid": 12380,
+        "name": "MsMpEng.exe",
+        "rss_gb": 0.339
+      },
+      {
+        "pid": 23160,
+        "name": "claude.exe",
+        "rss_gb": 0.216
+      },
+      {
+        "pid": 18824,
+        "name": "Cursor.exe",
+        "rss_gb": 0.185
+      },
+      {
+        "pid": 8072,
+        "name": "explorer.exe",
+        "rss_gb": 0.171
+      },
+      {
+        "pid": 4568,
+        "name": "MemCompression",
+        "rss_gb": 0.169
+      },
+      {
+        "pid": 16996,
+        "name": "PhoneExperienceHost.exe",
+        "rss_gb": 0.154
+      },
+      {
+        "pid": 3088,
+        "name": "Cursor.exe",
+        "rss_gb": 0.152
+      },
+      {
+        "pid": 15640,
+        "name": "OneDrive.exe",
+        "rss_gb": 0.125
+      },
+      {
+        "pid": 332,
+        "name": "",
+        "rss_gb": 0.107
+      },
+      {
+        "pid": 12408,
+        "name": "claude.exe",
+        "rss_gb": 0.096
+      },
+      {
+        "pid": 19400,
+        "name": "Cursor.exe",
+        "rss_gb": 0.095
+      }
+    ],
+    "note": "User apps left open; nothing was closed for this probe."
+  },
+  "models": {
+    "Qwen3-14B-GGUF": {
+      "load": {
+        "ok": true,
+        "load_s": 15.42,
+        "returncode": 0,
+        "out_tail": "Loading model: Qwen3-14B-GGUF\nModel loaded successfully!\n"
+      },
+      "gguf": {
+        "gguf": "C:\\Users\\mohdc\\.cache\\huggingface\\hub\\models--unsloth--Qwen3-14B-GGUF\\snapshots\\a04a82c4739b3ef5fa6da7d10261db2c67dd1985\\Qwen3-14B-Q4_0.gguf",
+        "file_bytes": 8543001984,
+        "file_gb": 7.956,
+        "bytes_per_token": 8543001984.0,
+        "assumption": "14B dense: bytes/token \u2248 GGUF file size (full weight read per token)."
+      },
+      "runs": [
+        {
+          "wall_s": 130.499,
+          "completion_tokens": 512,
+          "prompt_tokens": 46,
+          "tok_s": 3.932,
+          "timings": {
+            "cache_n": 0,
+            "predicted_ms": 129960.019,
+            "predicted_n": 512,
+            "predicted_per_second": 3.9319784956325683,
+            "predicted_per_token_ms": 254.32489041095891,
+            "prompt_ms": 511.516,
+            "prompt_n": 46,
+            "prompt_per_second": 89.92876078167642,
+            "prompt_per_token_ms": 11.119913043478261
+          },
+          "gpu": {
+            "dedicated": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 7363825664.0,
+                "gb": 6.858
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              }
+            ],
+            "shared": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 3975262208.0,
+                "gb": 3.702
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 8192.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 721887232.0,
+                "gb": 0.672
+              }
+            ]
+          }
+        },
+        {
+          "wall_s": 128.846,
+          "completion_tokens": 512,
+          "prompt_tokens": 46,
+          "tok_s": 3.982,
+          "timings": {
+            "cache_n": 45,
+            "predicted_ms": 128314.617,
+            "predicted_n": 512,
+            "predicted_per_second": 3.9823989810919205,
+            "predicted_per_token_ms": 251.10492563600783,
+            "prompt_ms": 279.968,
+            "prompt_n": 1,
+            "prompt_per_second": 3.5718367813464393,
+            "prompt_per_token_ms": 279.968
+          },
+          "gpu": {
+            "dedicated": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 7364087808.0,
+                "gb": 6.858
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              }
+            ],
+            "shared": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 3977359360.0,
+                "gb": 3.704
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 8192.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 721887232.0,
+                "gb": 0.672
+              }
+            ]
+          }
+        },
+        {
+          "wall_s": 126.735,
+          "completion_tokens": 512,
+          "prompt_tokens": 46,
+          "tok_s": 4.049,
+          "timings": {
+            "cache_n": 45,
+            "predicted_ms": 126198.541,
+            "predicted_n": 512,
+            "predicted_per_second": 4.0491751802423765,
+            "predicted_per_token_ms": 246.96387671232876,
+            "prompt_ms": 286.67,
+            "prompt_n": 1,
+            "prompt_per_second": 3.4883315310287086,
+            "prompt_per_token_ms": 286.67
+          },
+          "gpu": {
+            "dedicated": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 7364087808.0,
+                "gb": 6.858
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              }
+            ],
+            "shared": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 3977359360.0,
+                "gb": 3.704
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 8192.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 721887232.0,
+                "gb": 0.672
+              }
+            ]
+          }
+        }
+      ],
+      "mean_tok_s": 3.988,
+      "mean_effective_gbs": 31.727,
+      "frac_of_one_ddr5_channel": 0.7082
+    },
+    "Qwen3-30B-A3B-GGUF": {
+      "load": {
+        "ok": true,
+        "load_s": 23.63,
+        "returncode": 0,
+        "out_tail": "Loading model: Qwen3-30B-A3B-GGUF\nModel loaded successfully!\n"
+      },
+      "gguf": {
+        "gguf": "C:\\Users\\mohdc\\.cache\\huggingface\\hub\\models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+        "file_bytes": 17379988032,
+        "file_gb": 16.186,
+        "bytes_per_token": 1880457721.495082,
+        "assumption": "30B-A3B MoE: bytes/token \u2248 file_size \u00d7 (3.3/30.5\u22480.1082). This under-states shared dense/attention traffic; treat as a lower bound on bytes moved per token."
+      },
+      "runs": [
+        {
+          "wall_s": 32.625,
+          "completion_tokens": 512,
+          "prompt_tokens": 46,
+          "tok_s": 15.967,
+          "timings": {
+            "cache_n": 0,
+            "predicted_ms": 32002.589,
+            "predicted_n": 512,
+            "predicted_per_second": 15.96745813284044,
+            "predicted_per_token_ms": 62.62737573385519,
+            "prompt_ms": 578.636,
+            "prompt_n": 46,
+            "prompt_per_second": 79.49730054818573,
+            "prompt_per_token_ms": 12.57904347826087
+          },
+          "gpu": {
+            "dedicated": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 7649054720.0,
+                "gb": 7.124
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              }
+            ],
+            "shared": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 11946467328.0,
+                "gb": 11.126
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 8192.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 721887232.0,
+                "gb": 0.672
+              }
+            ]
+          }
+        },
+        {
+          "wall_s": 32.021,
+          "completion_tokens": 512,
+          "prompt_tokens": 46,
+          "tok_s": 16.076,
+          "timings": {
+            "cache_n": 45,
+            "predicted_ms": 31787.047,
+            "predicted_n": 512,
+            "predicted_per_second": 16.075730469709878,
+            "predicted_per_token_ms": 62.205571428571425,
+            "prompt_ms": 66.905,
+            "prompt_n": 1,
+            "prompt_per_second": 14.946566026455422,
+            "prompt_per_token_ms": 66.905
+          },
+          "gpu": {
+            "dedicated": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 7649316864.0,
+                "gb": 7.124
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              }
+            ],
+            "shared": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 11948564480.0,
+                "gb": 11.128
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 8192.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 721887232.0,
+                "gb": 0.672
+              }
+            ]
+          }
+        },
+        {
+          "wall_s": 31.864,
+          "completion_tokens": 512,
+          "prompt_tokens": 46,
+          "tok_s": 16.155,
+          "timings": {
+            "cache_n": 45,
+            "predicted_ms": 31630.857,
+            "predicted_n": 512,
+            "predicted_per_second": 16.155110814733852,
+            "predicted_per_token_ms": 61.89991585127201,
+            "prompt_ms": 64.606,
+            "prompt_n": 1,
+            "prompt_per_second": 15.478438535120578,
+            "prompt_per_token_ms": 64.606
+          },
+          "gpu": {
+            "dedicated": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 7649316864.0,
+                "gb": 7.124
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 0.0,
+                "gb": 0.0
+              }
+            ],
+            "shared": [
+              {
+                "instance": "luid_0x00000000_0x00014ed9_phys_0",
+                "bytes": 11948564480.0,
+                "gb": 11.128
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c0b_phys_0",
+                "bytes": 8192.0,
+                "gb": 0.0
+              },
+              {
+                "instance": "luid_0x00000000_0x00016c5f_phys_0",
+                "bytes": 721887232.0,
+                "gb": 0.672
+              }
+            ]
+          }
+        }
+      ],
+      "mean_tok_s": 16.066,
+      "mean_effective_gbs": 28.137,
+      "frac_of_one_ddr5_channel": 0.6281
+    }
+  },
+  "restore": {
+    "ok": true,
+    "load_s": 0.18,
+    "returncode": 0,
+    "out_tail": "Loading model: Qwen3-30B-A3B-GGUF\nModel loaded successfully!\n"
+  },
+  "hi_check": {
+    "wall_s": 1.138,
+    "content": "Hi there! How can I assist you today? \ud83d\ude0a",
+    "ok": true
+  }
+}

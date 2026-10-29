@@ -1099,3 +1099,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9 Part 5: warm-up with system+tools
 - App warm-up sends the same `system_prompt()` + `active_tool_schemas()` as a real turn, user ".", `max_tokens=1`, thinking off. Status "Warming up…". User send supersedes (does not block when weights already loaded). Re-warm on health unloaded→loaded.
 - `scripts/measure_first_token.py --warmup` / `--no-warmup`. Offline `scripts/test_warmup_r9.py` FAILURES=0.
+
+## 2026-10-30 — Round 9 Part 6: bandwidth probe
+- `scripts/probe_bandwidth.py`: 14B dense ≈3.99 tok/s → ~31.7 GB/s (71% of one DDR5-5600 channel); 30B-A3B ≈16.1 tok/s → ~28.1 GB/s lower-bound (63%). Apps left open. Restored 30B-A3B; Hi ok.
+- Wrote `logs/round9_bandwidth.md` + `logs/round9_bandwidth.json`.
