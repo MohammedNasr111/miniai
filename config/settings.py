@@ -34,6 +34,11 @@ THINKING_POLICY = (
     if _THINKING_RAW in ("smart", "two_pass", "on_after_tools")
     else "smart"
 )
+# Round 9 Part 3: cancel thinking-off draft once ≥24 non-ws content chars
+# arrive with no tool-call delta (when a thinking second pass is planned).
+_EARLY_ABORT_RAW = os.environ.get("MINIAI_EARLY_ABORT", "on").strip().lower()
+EARLY_ABORT = _EARLY_ABORT_RAW not in ("0", "off", "false", "no")
+EARLY_ABORT_CONTENT_CHARS = 24
 # Stage 12a answer checker: draft -> check -> fix. Default off until measured.
 _CHECKER_RAW = os.environ.get("MINIAI_CHECKER", "off").strip().lower()
 CHECKER = _CHECKER_RAW if _CHECKER_RAW in ("off", "on") else "off"

@@ -52,7 +52,7 @@ from agent.run_claim_check import (
 )
 from agent.transcript import Transcript
 from config import settings
-from llm.base import ChatMessage
+from llm.base import ChatMessage, ChatResponse
 from llm.lemonade.provider import LemonadeProvider, StreamCancelled
 from security.gate import reset_session
 from security.provenance import remember_urls_from_text
@@ -382,6 +382,8 @@ def _log_llm_call(
     discarded=False,
     *,
     probe_before: dict | None = None,
+    early_abort: bool = False,
+    tokens_saved: int | None = None,
 ):
     if transcript is None:
         return
@@ -416,7 +418,48 @@ def _log_llm_call(
         free_ram_gb=probes.get("free_ram_gb"),
         lemonade_page_faults_delta=probes.get("lemonade_page_faults_delta"),
         stall_s=probes.get("stall_s"),
+        early_abort=early_abort,
+        tokens_saved=tokens_saved,
     )
+
+
+def _estimate_tokens_saved(partial: str) -> int:
+    """Rough completion-token estimate from aborted draft text."""
+    text = partial or ""
+    if not text:
+        return 0
+    return max(1, (len(text) + 3) // 4)
+
+
+class _EarlyAbortMonitor:
+    """Cancel a thinking-off stream once enough content arrives with no tools."""
+
+    def __init__(self, user_cancel_check=None, threshold: int | None = None) -> None:
+        self.user_cancel_check = user_cancel_check
+        self.threshold = (
+            threshold
+            if threshold is not None
+            else int(getattr(settings, "EARLY_ABORT_CONTENT_CHARS", 24))
+        )
+        self.saw_tool_delta = False
+        self.non_ws_chars = 0
+        self.abort_requested = False
+
+    def on_token(self, piece: str) -> None:
+        if not piece or self.saw_tool_delta:
+            return
+        self.non_ws_chars += sum(1 for ch in piece if not ch.isspace())
+        if self.non_ws_chars >= self.threshold:
+            self.abort_requested = True
+
+    def on_tool_delta(self) -> None:
+        self.saw_tool_delta = True
+        self.abort_requested = False
+
+    def cancel_check(self) -> bool:
+        if self.user_cancel_check is not None and self.user_cancel_check():
+            return True
+        return bool(self.abort_requested and not self.saw_tool_delta)
 
 
 # Tools whose results need careful synthesis → keep thinking second pass.
@@ -514,19 +557,22 @@ def _stream_or_chat(
     enable_thinking: bool,
     timeout: float | int,
     on_token=None,
+    on_tool_delta=None,
     cancel_check=None,
+    force_stream: bool = False,
 ):
     """One model call. Streams when on_token is set (and provider supports it)."""
     stream_fn = getattr(provider, "chat_stream", None)
     tools = active_tool_schemas()
     hist = _history_for_model(history)
-    if on_token is not None and callable(stream_fn):
+    if (on_token is not None or force_stream) and callable(stream_fn):
         return stream_fn(
             hist,
             tools=tools,
             enable_thinking=enable_thinking,
             timeout=timeout,
-            on_token=on_token,
+            on_token=on_token or (lambda _piece: None),
+            on_tool_delta=on_tool_delta,
             cancel_check=cancel_check,
         )
     return provider.chat(
@@ -610,19 +656,94 @@ def _call_model(
     from agent.perf_probe import snapshot_before_call
 
     if policy in ("two_pass", "smart"):
-        # Always try thinking off first; grow timeout with prompt size.
+        # Decide second pass *before* the first call so we can early-abort.
+        want_second = (
+            True
+            if policy == "two_pass"
+            else should_run_thinking_second_pass(history)
+        )
+        early_on = bool(getattr(settings, "EARLY_ABORT", True)) and want_second
         timeout_off = first_pass_timeout_seconds(history, provider.timeout)
         bucket, on_tok = _forward()
         probe_before = snapshot_before_call()
         started = time.perf_counter()
-        response = _stream_or_chat(
-            provider,
-            history,
-            enable_thinking=False,
-            timeout=timeout_off,
-            on_token=on_tok,
-            cancel_check=cancel_check,
-        )
+        monitor: _EarlyAbortMonitor | None = None
+        combined_on_tok = on_tok
+        on_tool_delta = None
+        pass_cancel = cancel_check
+        if early_on:
+            monitor = _EarlyAbortMonitor(cancel_check)
+            ui_forward = on_tok
+
+            def combined_on_tok(piece: str) -> None:  # type: ignore[no-redef]
+                monitor.on_token(piece)
+                if ui_forward is not None:
+                    ui_forward(piece)
+
+            on_tool_delta = monitor.on_tool_delta
+            pass_cancel = monitor.cancel_check
+        try:
+            response = _stream_or_chat(
+                provider,
+                history,
+                enable_thinking=False,
+                timeout=timeout_off,
+                on_token=combined_on_tok,
+                on_tool_delta=on_tool_delta,
+                cancel_check=pass_cancel,
+                force_stream=bool(early_on),
+            )
+        except StreamCancelled as exc:
+            # User Stop → re-raise. Early-abort of a doomed draft → second pass.
+            if monitor is None or not monitor.abort_requested:
+                raise
+            elapsed = round(time.perf_counter() - started, 3)
+            if on_stream_clear is not None and bucket:
+                on_stream_clear()
+            partial = getattr(exc, "partial", None) or "".join(bucket)
+            tokens_saved = _estimate_tokens_saved(partial)
+            aborted = ChatResponse(
+                content=partial,
+                finish_reason="early_abort",
+                tool_calls=None,
+                raw={"early_abort": True, "tokens_saved": tokens_saved},
+            )
+            _log_llm_call(
+                transcript,
+                aborted,
+                False,
+                timeout_off,
+                elapsed,
+                discarded=True,
+                probe_before=probe_before,
+                early_abort=True,
+                tokens_saved=tokens_saved,
+            )
+            timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
+            bucket2, on_tok2 = _forward()
+            probe_before2 = snapshot_before_call()
+            started2 = time.perf_counter()
+            response = _stream_or_chat(
+                provider,
+                history,
+                enable_thinking=True,
+                timeout=timeout_on,
+                on_token=on_tok2,
+                cancel_check=cancel_check,
+            )
+            elapsed2 = round(time.perf_counter() - started2, 3)
+            if response.tool_calls and on_stream_clear is not None and bucket2:
+                on_stream_clear()
+            _log_llm_call(
+                transcript,
+                response,
+                True,
+                timeout_on,
+                elapsed2,
+                discarded=False,
+                probe_before=probe_before2,
+            )
+            return response
         elapsed = round(time.perf_counter() - started, 3)
         if response.tool_calls:
             if on_stream_clear is not None and bucket:
@@ -637,11 +758,6 @@ def _call_model(
                 probe_before=probe_before,
             )
             return response
-        want_second = (
-            True
-            if policy == "two_pass"
-            else should_run_thinking_second_pass(history)
-        )
         if not want_second:
             _log_llm_call(
                 transcript,

@@ -64,6 +64,8 @@ class Transcript:
         free_ram_gb: Optional[dict[str, Any]] = None,
         lemonade_page_faults_delta: Optional[int] = None,
         stall_s: Optional[float] = None,
+        early_abort: bool = False,
+        tokens_saved: Optional[int] = None,
     ) -> None:
         usage: dict[str, Any] = {
             "prompt_tokens": prompt_tokens,
@@ -92,6 +94,10 @@ class Transcript:
             fields["stall_s"] = stall_s
         if discarded:
             fields["discarded"] = True
+        if early_abort:
+            fields["early_abort"] = True
+        if tokens_saved is not None:
+            fields["tokens_saved"] = tokens_saved
         self.write("llm_call", **fields)
         if not discarded and prompt_tokens is not None:
             self.last_prompt_tokens = prompt_tokens

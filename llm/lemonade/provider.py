@@ -92,6 +92,7 @@ class LemonadeProvider(LLMProvider):
         tools: Optional[list[dict[str, Any]]] = None,
         *,
         on_token: Optional[Callable[[str], None]] = None,
+        on_tool_delta: Optional[Callable[[], None]] = None,
         cancel_check: Optional[Callable[[], bool]] = None,
         **kwargs: Any,
     ) -> ChatResponse:
@@ -99,6 +100,7 @@ class LemonadeProvider(LLMProvider):
 
         If cancel_check returns True mid-stream, raises StreamCancelled(partial).
         Tool-call deltas are accumulated; on_token is only fed content deltas.
+        on_tool_delta (if set) is called once per chunk that carries any tool_calls.
         """
         enable_thinking = kwargs.pop("enable_thinking", self.enable_thinking)
         timeout = kwargs.pop("timeout", self.timeout)
@@ -147,7 +149,13 @@ class LemonadeProvider(LLMProvider):
                     content_parts.append(piece)
                     if on_token is not None:
                         on_token(piece)
-                for tc in delta.get("tool_calls") or []:
+                tc_deltas = delta.get("tool_calls") or []
+                if tc_deltas and on_tool_delta is not None:
+                    try:
+                        on_tool_delta()
+                    except Exception:
+                        pass
+                for tc in tc_deltas:
                     idx = tc.get("index", 0)
                     slot = tool_acc.setdefault(
                         idx,

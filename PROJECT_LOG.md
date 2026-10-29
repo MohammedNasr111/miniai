@@ -1086,3 +1086,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `agent/data_cards.py`: build sorted/limited tables from `list_directory` / `search_files`; turn flag + one-sentence system prompt when a card was shown.
 - UI: card under the Listed-a-folder / search step (`app/ui/app.js`, `styles.css`); `webview_approver` attaches `data_card` on tool_end.
 - Offline `scripts/test_data_cards.py`: sort/N match question; prompt sentence only when card shown. FAILURES=0.
+
+## 2026-10-30 — Round 9 Part 3: early abort of discarded drafts
+- When smart/two_pass will run a thinking second pass, stream the thinking-off draft and cancel after ≥24 non-ws content chars with no tool-call delta (`MINIAI_EARLY_ABORT`, default on).
+- Logs `early_abort` + `tokens_saved` on the discarded transcript event; UI stream cleared.
+- Offline `scripts/test_early_abort.py`: content-first aborts; tool-first and short-preamble+tool complete. FAILURES=0.
