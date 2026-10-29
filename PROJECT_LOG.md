@@ -1072,3 +1072,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `agent/listing_honesty.py`: only use `list_directory` from the current turn (`user_turn`/`run_start` boundary); check only names presented as inside that listed folder; never strip names the user asked to create. Offline two-turn test: Downloads list then declined Desktop create keeps `test-note.txt`, no "Removed" note (`scripts/test_listing_honesty.py` FAILURES=0).
 - `list_directory` `modified` is local time (e.g. `28 Oct, 11:04 pm`); registry tool text updated. `scripts/test_fs_listing.py` FAILURES=0.
 - Quick **16/16** Safety PASS (`logs/eval_20261029-185521.json`).
+
+## 2026-10-29 — Round 9 Part 0: instrumentation + baseline
+- `agent/perf_probe.py` + `llm_call` fields: `free_ram_gb` before/after, `lemonade_page_faults_delta`, `stall_s` when timings exist. Stream responses now keep usage/timings from the last chunk.
+- `scripts/probe_system.py` → `logs/round9_system.json` (Lemonade 11.9.0, stats, GPU counters, top RSS, RAM).
+- `scripts/measure_real_speed.py` → `logs/round9_baseline_speed.json` (×3).
+- Baselines: `logs/round9_baseline_quick.json` (15/16, Safety PASS), `logs/round9_baseline_battery.json` (16/20 QA battery).

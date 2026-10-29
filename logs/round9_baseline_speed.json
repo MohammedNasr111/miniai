@@ -1,0 +1,795 @@
+{
+  "repeats": [
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_voph5ecn",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_voph5ecn? Use list_directory.",
+          "wall_s": 16.707,
+          "first_token_s": 11.019,
+          "answer_head": "Here are the 10 biggest files (from list_directory, largest first):\n1. huge.zip \u2014 47.7 MB\n2. big.bin \u2014 19.1 MB\n3. setup.exe \u2014 4.8 MB\n4. notes_large.txt \u2014 488 KB\n5. archive.dat \u2014 195 KB\n6. photo.png \u2014 97.7 KB\n7. medium.txt \u2014 48.8 KB\n8. small.txt \u2014 9.8 KB\n9. tiny.txt \u2014 1000 B\n10. micro.txt \u2014 100 B",
+          "free_ram_gb": 4.69,
+          "top_processes": [
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.579
+            },
+            {
+              "pid": 18244,
+              "name": "llama-server.exe",
+              "rss_gb": 0.534
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.494
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.402
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.306
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6150,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.077,
+          "stall_s_sum": 0.148,
+          "tok_s": 13.09,
+          "calls": [
+            {
+              "wall_s": 5.475,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6150,
+              "stall_s": 0.071,
+              "free_ram_gb": {
+                "before": 4.675,
+                "after": 4.671
+              },
+              "lemonade_page_faults_delta": 13174,
+              "predicted_per_second": 13.096870214731046
+            },
+            {
+              "wall_s": 10.325,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6313,
+              "stall_s": 0.077,
+              "free_ram_gb": {
+                "before": 4.671,
+                "after": 4.691
+              },
+              "lemonade_page_faults_delta": 952,
+              "predicted_per_second": 13.083997139908949
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 8.528,
+          "first_token_s": 2.844,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory that provides fast access to data for the CPU, but it loses its data when the power is turned off. Storage, on the other hand, is non-volatile memory (like SSDs or HDDs) that retains data even when the power is off, and it is used for long-term",
+          "free_ram_gb": 4.693,
+          "top_processes": [
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.579
+            },
+            {
+              "pid": 18244,
+              "name": "llama-server.exe",
+              "rss_gb": 0.534
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.499
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.399
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.315
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6882,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.082,
+          "stall_s_sum": 0.082,
+          "tok_s": 13.074,
+          "calls": [
+            {
+              "wall_s": 7.699,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6882,
+              "stall_s": 0.082,
+              "free_ram_gb": {
+                "before": 4.683,
+                "after": 4.693
+              },
+              "lemonade_page_faults_delta": 506,
+              "predicted_per_second": 13.073632109405809
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 35.719,
+            "first_token_s": 34.802,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 4.38,
+            "top_processes": [
+              {
+                "pid": 18244,
+                "name": "llama-server.exe",
+                "rss_gb": 0.886
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.579
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.494
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.402
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.286
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 16,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 2.827,
+            "stall_s_sum": 2.827,
+            "tok_s": 13.393,
+            "calls": [
+              {
+                "wall_s": 34.876,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 16,
+                "stall_s": 2.827,
+                "free_ram_gb": {
+                  "before": 4.68,
+                  "after": 4.38
+                },
+                "lemonade_page_faults_delta": 92838,
+                "predicted_per_second": 13.392647882733975
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 2.816,
+            "first_token_s": 2.493,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 4.318,
+            "top_processes": [
+              {
+                "pid": 18244,
+                "name": "llama-server.exe",
+                "rss_gb": 0.886
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.579
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.501
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.402
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.295
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6171,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.073,
+            "stall_s_sum": 0.073,
+            "tok_s": 13.165,
+            "calls": [
+              {
+                "wall_s": 1.929,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6171,
+                "stall_s": 0.073,
+                "free_ram_gb": {
+                  "before": 4.34,
+                  "after": 4.318
+                },
+                "lemonade_page_faults_delta": 483,
+                "predicted_per_second": 13.165170225651018
+              }
+            ]
+          },
+          "wall_s": 38.535
+        }
+      }
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_iuw23c_j",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_iuw23c_j? Use list_directory.",
+          "wall_s": 17.18,
+          "first_token_s": 11.384,
+          "answer_head": "Here are the 10 biggest files (from list_directory, largest first):\n1. huge.zip \u2014 47.7 MB\n2. big.bin \u2014 19.1 MB\n3. setup.exe \u2014 4.8 MB\n4. notes_large.txt \u2014 488 KB\n5. archive.dat \u2014 195 KB\n6. photo.png \u2014 97.7 KB\n7. medium.txt \u2014 48.8 KB\n8. small.txt \u2014 9.8 KB\n9. tiny.txt \u2014 1000 B\n10. micro.txt \u2014 100 B",
+          "free_ram_gb": 4.358,
+          "top_processes": [
+            {
+              "pid": 18244,
+              "name": "llama-server.exe",
+              "rss_gb": 0.886
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.579
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.463
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.403
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.303
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6133,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.076,
+          "stall_s_sum": 0.147,
+          "tok_s": 13.048,
+          "calls": [
+            {
+              "wall_s": 5.88,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6133,
+              "stall_s": 0.071,
+              "free_ram_gb": {
+                "before": 4.317,
+                "after": 4.344
+              },
+              "lemonade_page_faults_delta": 7194,
+              "predicted_per_second": 12.945225514541596
+            },
+            {
+              "wall_s": 10.428,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6322,
+              "stall_s": 0.076,
+              "free_ram_gb": {
+                "before": 4.344,
+                "after": 4.358
+              },
+              "lemonade_page_faults_delta": 991,
+              "predicted_per_second": 13.151519346577144
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 8.898,
+          "first_token_s": 2.855,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory used by a computer's processor to temporarily store data that is actively being used, allowing for quick access and faster performance. Storage, on the other hand, refers to non-volatile memory such as hard drives or solid-state drives, which r",
+          "free_ram_gb": 4.381,
+          "top_processes": [
+            {
+              "pid": 18244,
+              "name": "llama-server.exe",
+              "rss_gb": 0.886
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.579
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.466
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.404
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.282
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6893,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.089,
+          "stall_s_sum": 0.089,
+          "tok_s": 12.957,
+          "calls": [
+            {
+              "wall_s": 8.082,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6893,
+              "stall_s": 0.089,
+              "free_ram_gb": {
+                "before": 4.378,
+                "after": 4.382
+              },
+              "lemonade_page_faults_delta": 450,
+              "predicted_per_second": 12.957447741616532
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 2.57,
+            "first_token_s": 1.579,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 4.381,
+            "top_processes": [
+              {
+                "pid": 18244,
+                "name": "llama-server.exe",
+                "rss_gb": 0.886
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.578
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.466
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.406
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.29
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6133,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.071,
+            "stall_s_sum": 0.071,
+            "tok_s": 12.571,
+            "calls": [
+              {
+                "wall_s": 1.674,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6133,
+                "stall_s": 0.071,
+                "free_ram_gb": {
+                  "before": 4.385,
+                  "after": 4.381
+                },
+                "lemonade_page_faults_delta": 454,
+                "predicted_per_second": 12.57122384006889
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 2.776,
+            "first_token_s": 2.409,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 4.373,
+            "top_processes": [
+              {
+                "pid": 18244,
+                "name": "llama-server.exe",
+                "rss_gb": 0.887
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.578
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.462
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.405
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.297
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6171,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.086,
+            "stall_s_sum": 0.086,
+            "tok_s": 11.855,
+            "calls": [
+              {
+                "wall_s": 1.938,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6171,
+                "stall_s": 0.086,
+                "free_ram_gb": {
+                  "before": 4.383,
+                  "after": 4.376
+                },
+                "lemonade_page_faults_delta": 464,
+                "predicted_per_second": 11.854942918449849
+              }
+            ]
+          },
+          "wall_s": 5.346
+        }
+      }
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_dpqth9nx",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_dpqth9nx? Use list_directory.",
+          "wall_s": 17.177,
+          "first_token_s": 11.411,
+          "answer_head": "Here are the 10 biggest files (from list_directory, largest first):\n1. huge.zip \u2014 47.7 MB\n2. big.bin \u2014 19.1 MB\n3. setup.exe \u2014 4.8 MB\n4. notes_large.txt \u2014 488 KB\n5. archive.dat \u2014 195 KB\n6. photo.png \u2014 97.7 KB\n7. medium.txt \u2014 48.8 KB\n8. small.txt \u2014 9.8 KB\n9. tiny.txt \u2014 1000 B\n10. micro.txt \u2014 100 B",
+          "free_ram_gb": 4.416,
+          "top_processes": [
+            {
+              "pid": 18244,
+              "name": "llama-server.exe",
+              "rss_gb": 0.886
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.578
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.456
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.405
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.308
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6133,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.112,
+          "stall_s_sum": 0.205,
+          "tok_s": 13.172,
+          "calls": [
+            {
+              "wall_s": 5.751,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6133,
+              "stall_s": 0.093,
+              "free_ram_gb": {
+                "before": 4.385,
+                "after": 4.423
+              },
+              "lemonade_page_faults_delta": 7108,
+              "predicted_per_second": 13.296825291708883
+            },
+            {
+              "wall_s": 10.555,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6328,
+              "stall_s": 0.112,
+              "free_ram_gb": {
+                "before": 4.423,
+                "after": 4.416
+              },
+              "lemonade_page_faults_delta": 1028,
+              "predicted_per_second": 13.047226785852214
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 8.886,
+          "first_token_s": 2.969,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory used by the computer's processor to temporarily store data and instructions that are actively being used, providing fast access for quick processing. Storage, on the other hand, refers to non-volatile memory (like hard drives or SSDs) that reta",
+          "free_ram_gb": 4.389,
+          "top_processes": [
+            {
+              "pid": 18244,
+              "name": "llama-server.exe",
+              "rss_gb": 0.886
+            },
+            {
+              "pid": 11220,
+              "name": "claude.exe",
+              "rss_gb": 0.579
+            },
+            {
+              "pid": 13208,
+              "name": "Cursor.exe",
+              "rss_gb": 0.465
+            },
+            {
+              "pid": 19824,
+              "name": "Cursor.exe",
+              "rss_gb": 0.406
+            },
+            {
+              "pid": 12380,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.296
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6898,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.09,
+          "stall_s_sum": 0.09,
+          "tok_s": 12.904,
+          "calls": [
+            {
+              "wall_s": 7.98,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6898,
+              "stall_s": 0.09,
+              "free_ram_gb": {
+                "before": 4.381,
+                "after": 4.389
+              },
+              "lemonade_page_faults_delta": 462,
+              "predicted_per_second": 12.904476817701681
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 2.476,
+            "first_token_s": 1.519,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 4.391,
+            "top_processes": [
+              {
+                "pid": 18244,
+                "name": "llama-server.exe",
+                "rss_gb": 0.887
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.579
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.469
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.406
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.302
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6133,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.074,
+            "stall_s_sum": 0.074,
+            "tok_s": 12.805,
+            "calls": [
+              {
+                "wall_s": 1.644,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6133,
+                "stall_s": 0.074,
+                "free_ram_gb": {
+                  "before": 4.372,
+                  "after": 4.391
+                },
+                "lemonade_page_faults_delta": 459,
+                "predicted_per_second": 12.804780451368512
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 2.762,
+            "first_token_s": 2.441,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 4.402,
+            "top_processes": [
+              {
+                "pid": 18244,
+                "name": "llama-server.exe",
+                "rss_gb": 0.887
+              },
+              {
+                "pid": 11220,
+                "name": "claude.exe",
+                "rss_gb": 0.579
+              },
+              {
+                "pid": 13208,
+                "name": "Cursor.exe",
+                "rss_gb": 0.458
+              },
+              {
+                "pid": 19824,
+                "name": "Cursor.exe",
+                "rss_gb": 0.406
+              },
+              {
+                "pid": 12380,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.304
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6171,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.089,
+            "stall_s_sum": 0.089,
+            "tok_s": 13.129,
+            "calls": [
+              {
+                "wall_s": 1.932,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6171,
+                "stall_s": 0.089,
+                "free_ram_gb": {
+                  "before": 4.396,
+                  "after": 4.403
+                },
+                "lemonade_page_faults_delta": 477,
+                "predicted_per_second": 13.128873017540172
+              }
+            ]
+          },
+          "wall_s": 5.238
+        }
+      }
+    }
+  ],
+  "n": 3,
+  "six_turn": false
+}

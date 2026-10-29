@@ -373,7 +373,16 @@ def first_pass_timeout_seconds(history: list, provider_timeout: float | int) -> 
     return int(min(raw, cap))
 
 
-def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, discarded=False):
+def _log_llm_call(
+    transcript,
+    response,
+    enable_thinking,
+    timeout,
+    elapsed,
+    discarded=False,
+    *,
+    probe_before: dict | None = None,
+):
     if transcript is None:
         return
     raw = response.raw or {}
@@ -384,6 +393,14 @@ def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, disca
         for key, value in usage.items()
         if key not in ("prompt_tokens", "completion_tokens")
     }
+    timings = raw.get("timings")
+    from agent.perf_probe import enrich_llm_fields
+
+    probes = enrich_llm_fields(
+        wall_clock_seconds=float(elapsed),
+        timings=timings if isinstance(timings, dict) else None,
+        before=probe_before,
+    )
     transcript.llm_call(
         enable_thinking=enable_thinking,
         timeout=timeout,
@@ -395,7 +412,10 @@ def _log_llm_call(transcript, response, enable_thinking, timeout, elapsed, disca
         tool_calls=response.tool_calls,
         discarded=discarded,
         usage_extra=usage_extra or None,
-        timings=raw.get("timings"),
+        timings=timings,
+        free_ram_gb=probes.get("free_ram_gb"),
+        lemonade_page_faults_delta=probes.get("lemonade_page_faults_delta"),
+        stall_s=probes.get("stall_s"),
     )
 
 
@@ -525,6 +545,9 @@ def _call_model_force_thinking(
     enforce_context_budget(history, tools=active_tool_schemas())
     timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
     bucket: list[str] = []
+    from agent.perf_probe import snapshot_before_call
+
+    probe_before = snapshot_before_call()
     started = time.perf_counter()
     try:
         response = _stream_or_chat(
@@ -542,7 +565,9 @@ def _call_model_force_thinking(
     elapsed = round(time.perf_counter() - started, 3)
     if response.tool_calls and on_stream_clear is not None and bucket:
         on_stream_clear()
-    _log_llm_call(transcript, response, True, timeout_on, elapsed)
+    _log_llm_call(
+        transcript, response, True, timeout_on, elapsed, probe_before=probe_before
+    )
     return response
 
 
@@ -567,10 +592,13 @@ def _call_model(
             else None
         )
 
+    from agent.perf_probe import snapshot_before_call
+
     if policy in ("two_pass", "smart"):
         # Always try thinking off first; grow timeout with prompt size.
         timeout_off = first_pass_timeout_seconds(history, provider.timeout)
         bucket, on_tok = _forward()
+        probe_before = snapshot_before_call()
         started = time.perf_counter()
         response = _stream_or_chat(
             provider,
@@ -585,7 +613,13 @@ def _call_model(
             if on_stream_clear is not None and bucket:
                 on_stream_clear()
             _log_llm_call(
-                transcript, response, False, timeout_off, elapsed, discarded=False
+                transcript,
+                response,
+                False,
+                timeout_off,
+                elapsed,
+                discarded=False,
+                probe_before=probe_before,
             )
             return response
         want_second = (
@@ -595,17 +629,30 @@ def _call_model(
         )
         if not want_second:
             _log_llm_call(
-                transcript, response, False, timeout_off, elapsed, discarded=False
+                transcript,
+                response,
+                False,
+                timeout_off,
+                elapsed,
+                discarded=False,
+                probe_before=probe_before,
             )
             return response
         # Final answer with thinking off: discard and retry with thinking on.
         if on_stream_clear is not None and bucket:
             on_stream_clear()
         _log_llm_call(
-            transcript, response, False, timeout_off, elapsed, discarded=True
+            transcript,
+            response,
+            False,
+            timeout_off,
+            elapsed,
+            discarded=True,
+            probe_before=probe_before,
         )
         timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
         bucket2, on_tok2 = _forward()
+        probe_before2 = snapshot_before_call()
         started = time.perf_counter()
         response = _stream_or_chat(
             provider,
@@ -619,7 +666,13 @@ def _call_model(
         if response.tool_calls and on_stream_clear is not None and bucket2:
             on_stream_clear()
         _log_llm_call(
-            transcript, response, True, timeout_on, elapsed, discarded=False
+            transcript,
+            response,
+            True,
+            timeout_on,
+            elapsed,
+            discarded=False,
+            probe_before=probe_before2,
         )
         return response
 
@@ -632,6 +685,7 @@ def _call_model(
         enable_thinking = provider.enable_thinking
         timeout = provider.timeout
     bucket, on_tok = _forward()
+    probe_before = snapshot_before_call()
     started = time.perf_counter()
     response = _stream_or_chat(
         provider,
@@ -644,7 +698,14 @@ def _call_model(
     elapsed = round(time.perf_counter() - started, 3)
     if response.tool_calls and on_stream_clear is not None and bucket:
         on_stream_clear()
-    _log_llm_call(transcript, response, enable_thinking, timeout, elapsed)
+    _log_llm_call(
+        transcript,
+        response,
+        enable_thinking,
+        timeout,
+        elapsed,
+        probe_before=probe_before,
+    )
     return response
 
 

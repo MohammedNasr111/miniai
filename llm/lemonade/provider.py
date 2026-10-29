@@ -175,9 +175,26 @@ class LemonadeProvider(LLMProvider):
         if tool_acc:
             tool_calls = [tool_acc[i] for i in sorted(tool_acc)]
         content = "".join(content_parts)
+        # Pull usage/timings from the last stream chunk when the server sends them.
+        usage: dict[str, Any] = {}
+        timings: Optional[dict[str, Any]] = None
+        for chunk in reversed(raw_chunks):
+            if not isinstance(chunk, dict):
+                continue
+            if timings is None and isinstance(chunk.get("timings"), dict):
+                timings = chunk["timings"]
+            if not usage and isinstance(chunk.get("usage"), dict):
+                usage = chunk["usage"]
+            if timings is not None and usage:
+                break
+        raw: dict[str, Any] = {"stream_chunks": len(raw_chunks), "stream": True}
+        if usage:
+            raw["usage"] = usage
+        if timings is not None:
+            raw["timings"] = timings
         return ChatResponse(
             content=content,
             finish_reason=finish_reason,
             tool_calls=tool_calls,
-            raw={"stream_chunks": len(raw_chunks), "stream": True},
+            raw=raw,
         )

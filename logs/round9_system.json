@@ -1,0 +1,280 @@
+{
+  "captured_at": "2026-10-29T15:54:58Z",
+  "lemonade_version": "lemonade version 11.9.0",
+  "loaded_model": {
+    "health": {
+      "all_models_loaded": [
+        {
+          "backend_alive": true,
+          "backend_health": "ready",
+          "backend_url": "http://127.0.0.1:8001/v1",
+          "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+          "device": "gpu",
+          "is_busy": false,
+          "is_streaming": false,
+          "last_use": 180899894,
+          "launch_command": [
+            "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+            "-m",
+            "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+            "--ctx-size",
+            "16384",
+            "--port",
+            "8001",
+            "--jinja",
+            "--metrics",
+            "--n-gpu-layers",
+            "99",
+            "-ctk",
+            "q8_0",
+            "-ctv",
+            "q8_0",
+            "-fa",
+            "on",
+            "--parallel",
+            "1"
+          ],
+          "loaded": true,
+          "max_context_window": 40960,
+          "model_name": "Qwen3-30B-A3B-GGUF",
+          "pid": 18244,
+          "pinned": false,
+          "recipe": "llamacpp",
+          "recipe_options": {
+            "ctx_size": 16384,
+            "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+          },
+          "residency_class": "standard",
+          "slot_pool": "standard/llm",
+          "status": "ready",
+          "type": "llm",
+          "watchdog_reset": false
+        },
+        {
+          "backend_alive": true,
+          "backend_health": "ready",
+          "backend_url": "http://127.0.0.1:8002/v1",
+          "checkpoint": "nomic-ai/nomic-embed-text-v1-GGUF:Q4_K_S",
+          "device": "gpu",
+          "is_busy": false,
+          "is_streaming": false,
+          "last_use": 180139471,
+          "launch_command": [
+            "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+            "-m",
+            "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--nomic-ai--nomic-embed-text-v1-GGUF\\snapshots\\90c80ac5c2a0d13de9a36cf1dec39f34acee54a8\\nomic-embed-text-v1.Q4_K_S.gguf",
+            "--ctx-size",
+            "8192",
+            "--port",
+            "8002",
+            "--jinja",
+            "--metrics",
+            "--embeddings",
+            "--parallel",
+            "1"
+          ],
+          "loaded": true,
+          "max_context_window": 2048,
+          "model_name": "nomic-embed-text-v1-GGUF",
+          "pid": 11500,
+          "pinned": false,
+          "recipe": "llamacpp",
+          "recipe_options": {
+            "ctx_size": 8192,
+            "llamacpp_args": "--parallel 1"
+          },
+          "residency_class": "standard",
+          "slot_pool": "standard/embedding",
+          "status": "ready",
+          "type": "embedding",
+          "watchdog_reset": false
+        }
+      ],
+      "max_models": {
+        "classification": 1,
+        "embedding": 1,
+        "image": 1,
+        "llm": 1,
+        "reranking": 1,
+        "transcription": 1,
+        "tts": 1
+      },
+      "model_loaded": "Qwen3-30B-A3B-GGUF",
+      "pinned_helper_models": {
+        "classification": 0,
+        "embedding": 0,
+        "image": 0,
+        "llm": 0,
+        "reranking": 0,
+        "transcription": 0,
+        "tts": 0
+      },
+      "pinned_models": {
+        "classification": 0,
+        "embedding": 0,
+        "image": 0,
+        "llm": 0,
+        "reranking": 0,
+        "transcription": 0,
+        "tts": 0
+      },
+      "status": "ok",
+      "telemetry": {
+        "enabled": false
+      },
+      "update_check_done": true,
+      "version": "11.9.0",
+      "websocket_port": 9000
+    },
+    "export": {
+      "argv": [
+        "lemonade",
+        "export",
+        "Qwen3-30B-A3B-GGUF"
+      ],
+      "returncode": 0,
+      "stdout": "{\n    \"checkpoints\": {\n        \"main\": \"unsloth/Qwen3-30B-A3B-GGUF:Q4_0\"\n    },\n    \"labels\": [\n        \"chat\",\n        \"reasoning\",\n        \"tool-calling\"\n    ],\n    \"model_name\": \"user.Qwen3-30B-A3B-GGUF\",\n    \"recipe\": \"llamacpp\",\n    \"recipe_options\": {\n        \"ctx_size\": 16384,\n        \"llamacpp_args\": \"--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on\"\n    },\n    \"registry_source\": \"huggingface\",\n    \"size\": 16.2,\n    \"source\": \"huggingface\"\n}\n",
+      "stderr": ""
+    },
+    "llm": {
+      "model_name": "Qwen3-30B-A3B-GGUF",
+      "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+      "device": "gpu",
+      "recipe": "llamacpp",
+      "recipe_options": {
+        "ctx_size": 16384,
+        "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+      },
+      "max_context_window": 40960,
+      "pid": 18244,
+      "launch_command": [
+        "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+        "-m",
+        "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+        "--ctx-size",
+        "16384",
+        "--port",
+        "8001",
+        "--jinja",
+        "--metrics",
+        "--n-gpu-layers",
+        "99",
+        "-ctk",
+        "q8_0",
+        "-ctv",
+        "q8_0",
+        "-fa",
+        "on",
+        "--parallel",
+        "1"
+      ]
+    }
+  },
+  "stats": {
+    "cache_tokens": 1,
+    "cache_tokens_total": 3641800,
+    "input_tokens": 17,
+    "input_tokens_total": 153750,
+    "output_tokens": 4,
+    "output_tokens_total": 73833,
+    "prompt_tokens": 18,
+    "prompt_tokens_total": 3700607,
+    "request_count_total": 683,
+    "routing_decisions_total": 0,
+    "routing_switches_total": 0,
+    "time_to_first_token": 0.309788,
+    "tokens_per_second": 15.804529578177107
+  },
+  "gpu_adapter_memory": {
+    "dedicated": [
+      {
+        "instance": "luid_0x00000000_0x00014ed9_phys_0",
+        "bytes": 8040755200.0,
+        "gb": 7.489
+      },
+      {
+        "instance": "luid_0x00000000_0x00016c0b_phys_0",
+        "bytes": 0.0,
+        "gb": 0.0
+      },
+      {
+        "instance": "luid_0x00000000_0x00016c5f_phys_0",
+        "bytes": 0.0,
+        "gb": 0.0
+      }
+    ],
+    "shared": [
+      {
+        "instance": "luid_0x00000000_0x00014ed9_phys_0",
+        "bytes": 11644821504.0,
+        "gb": 10.845
+      },
+      {
+        "instance": "luid_0x00000000_0x00016c0b_phys_0",
+        "bytes": 8192.0,
+        "gb": 0.0
+      },
+      {
+        "instance": "luid_0x00000000_0x00016c5f_phys_0",
+        "bytes": 481005568.0,
+        "gb": 0.448
+      }
+    ]
+  },
+  "ram": {
+    "total_gb": 23.618,
+    "free_gb": 4.353
+  },
+  "top_processes_rss": [
+    {
+      "pid": 18244,
+      "name": "llama-server.exe",
+      "rss_gb": 0.958
+    },
+    {
+      "pid": 11220,
+      "name": "claude.exe",
+      "rss_gb": 0.626
+    },
+    {
+      "pid": 13208,
+      "name": "Cursor.exe",
+      "rss_gb": 0.521
+    },
+    {
+      "pid": 19824,
+      "name": "Cursor.exe",
+      "rss_gb": 0.391
+    },
+    {
+      "pid": 12380,
+      "name": "MsMpEng.exe",
+      "rss_gb": 0.31
+    },
+    {
+      "pid": 23160,
+      "name": "claude.exe",
+      "rss_gb": 0.215
+    },
+    {
+      "pid": 18824,
+      "name": "Cursor.exe",
+      "rss_gb": 0.192
+    },
+    {
+      "pid": 15604,
+      "name": "PhoneExperienceHost.exe",
+      "rss_gb": 0.158
+    },
+    {
+      "pid": 8072,
+      "name": "explorer.exe",
+      "rss_gb": 0.151
+    },
+    {
+      "pid": 3088,
+      "name": "Cursor.exe",
+      "rss_gb": 0.13
+    }
+  ]
+}

@@ -61,6 +61,9 @@ class Transcript:
         discarded: bool = False,
         usage_extra: Optional[dict[str, Any]] = None,
         timings: Optional[dict[str, Any]] = None,
+        free_ram_gb: Optional[dict[str, Any]] = None,
+        lemonade_page_faults_delta: Optional[int] = None,
+        stall_s: Optional[float] = None,
     ) -> None:
         usage: dict[str, Any] = {
             "prompt_tokens": prompt_tokens,
@@ -81,6 +84,12 @@ class Transcript:
         }
         if timings is not None:
             fields["timings"] = timings
+        if free_ram_gb is not None:
+            fields["free_ram_gb"] = free_ram_gb
+        if lemonade_page_faults_delta is not None:
+            fields["lemonade_page_faults_delta"] = lemonade_page_faults_delta
+        if stall_s is not None:
+            fields["stall_s"] = stall_s
         if discarded:
             fields["discarded"] = True
         self.write("llm_call", **fields)
