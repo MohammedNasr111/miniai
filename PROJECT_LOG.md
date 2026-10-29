@@ -1095,3 +1095,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9 Part 4: cache-stable history compression
 - `MINIAI_CACHE_STABLE` (default on): `compress_cross_turn_history` and `enforce_context_budget` no-op below 70% of context budget; when over, compress to ≤50% in one pass. Message 0 / system and latest user untouched. `compress_browser_history` unchanged.
 - `scripts/test_context_budget.py` extended; FAILURES=0. Case (d) six-turn already in `measure_real_speed.py --six-turn`.
+
+## 2026-10-30 — Round 9 Part 5: warm-up with system+tools
+- App warm-up sends the same `system_prompt()` + `active_tool_schemas()` as a real turn, user ".", `max_tokens=1`, thinking off. Status "Warming up…". User send supersedes (does not block when weights already loaded). Re-warm on health unloaded→loaded.
+- `scripts/measure_first_token.py --warmup` / `--no-warmup`. Offline `scripts/test_warmup_r9.py` FAILURES=0.

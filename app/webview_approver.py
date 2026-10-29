@@ -178,8 +178,12 @@ class AppBridge:
         self._external_log: list[str] = []  # for tests
         self._model_ready = threading.Event()
         self._model_loading = False
-        self._model_ready.set()  # until warm-up starts; flipped in start_model_warmup
+        self._model_ready.set()  # cleared only for cold weight load
         self._warmup_started = False
+        self._cache_warming = False
+        self._warmup_superseded = False
+        self._warmup_gen = 0
+        self._prev_model_loaded: Optional[bool] = None
         self._last_tok_s: float = 0.0
         self._stream_t0: float = 0.0
         self._stream_chars: int = 0
@@ -210,6 +214,10 @@ class AppBridge:
     def start_status_loop(self) -> None:
         def _loop() -> None:
             while not self._status_stop.wait(10.0):
+                try:
+                    self._maybe_rewarm_after_reload()
+                except Exception:
+                    pass
                 self.push_status()
 
         threading.Thread(target=_loop, daemon=True).start()
@@ -218,6 +226,16 @@ class AppBridge:
 
     def stop_status_loop(self) -> None:
         self._status_stop.set()
+
+    def _maybe_rewarm_after_reload(self) -> None:
+        """If Lemonade health shows weights unloaded→loaded again, re-warm."""
+        loaded = self._model_is_loaded()
+        prev = self._prev_model_loaded
+        self._prev_model_loaded = loaded
+        if prev is False and loaded is True and self._warmup_started:
+            # Model came back after being absent — prompt cache is cold again.
+            self._warmup_started = False
+            self.start_model_warmup()
 
     def _health_llms(self) -> list[dict[str, Any]]:
         from config import settings
@@ -260,56 +278,90 @@ class AppBridge:
         return configured
 
     def start_model_warmup(self) -> None:
-        """Background tiny chat so the first user turn is not a cold load.
+        """Background chat: same system prompt + tools as a real turn.
 
-        Runs once per app start. Never overlaps a user turn (waits until idle).
+        Warms Lemonade's prompt cache (and loads weights if needed). No
+        transcript, no Footprint, no tool execution. If the user sends first,
+        warm-up is superseded and does not block (except a true cold weight
+        load, which must finish before the model can answer).
         """
         if self._warmup_started:
             return
         self._warmup_started = True
-        if self._model_is_loaded():
+        self._warmup_superseded = False
+        self._warmup_gen += 1
+        gen = self._warmup_gen
+        cold = not self._model_is_loaded()
+        if cold:
+            self._model_loading = True
+            self._model_ready.clear()
+        else:
             self._model_loading = False
             self._model_ready.set()
-            self.push_status()
-            return
-
-        self._model_loading = True
-        self._model_ready.clear()
+        self._cache_warming = True
         self.push_status()
 
         def _warm() -> None:
             from config import settings
             from llm.base import ChatMessage
             from llm.lemonade.provider import LemonadeProvider
+            from scripts.agent_loop import system_prompt
+            from tools.registry import active_tool_schemas
 
             try:
                 # Never warm while a turn holds the lock / is busy.
                 for _ in range(6000):  # up to ~10 min
+                    if gen != self._warmup_gen:
+                        return
+                    if self._warmup_superseded:
+                        return
                     if not self._busy and not self._turn_lock.locked():
                         break
                     time.sleep(0.1)
+                if gen != self._warmup_gen or self._warmup_superseded:
+                    return
                 if self._busy or self._turn_lock.locked():
                     logger.warning("model warm-up skipped: turn still running")
                     return
-                if self._model_is_loaded():
-                    return
                 provider = LemonadeProvider()
-                # Long timeout: cold load of a ~17 GB model.
+                # Same fixed prefix the first real turn will send.
+                messages = [
+                    ChatMessage(role="system", content=system_prompt()),
+                    ChatMessage(role="user", content="."),
+                ]
+                tools = active_tool_schemas()
+                # Long timeout when cold-loading weights; short otherwise.
+                timeout = (
+                    max(600, int(settings.LEMONADE_TIMEOUT_SECONDS))
+                    if cold
+                    else max(120, int(settings.LEMONADE_TIMEOUT_SECONDS))
+                )
                 provider.chat(
-                    [ChatMessage(role="user", content="ping")],
-                    timeout=max(600, int(settings.LEMONADE_TIMEOUT_SECONDS)),
+                    messages,
+                    tools=tools,
+                    enable_thinking=False,
+                    max_tokens=1,
+                    timeout=timeout,
                 )
             except Exception as exc:
                 logger.warning("model warm-up failed: %s", exc)
             finally:
-                self._model_loading = False
-                self._model_ready.set()
-                try:
-                    self.push_status()
-                except Exception:
-                    pass
+                if gen == self._warmup_gen:
+                    self._model_loading = False
+                    self._cache_warming = False
+                    self._model_ready.set()
+                    try:
+                        self.push_status()
+                    except Exception:
+                        pass
 
         threading.Thread(target=_warm, daemon=True).start()
+
+    def supersede_warmup(self) -> None:
+        """User sent a message; drop a cache warm-up that has not finished."""
+        self._warmup_superseded = True
+        self._cache_warming = False
+        # Do not clear a cold weight load — the model still must become ready.
 
     def push_status(self) -> None:
         from security.gate import is_tainted
@@ -345,6 +397,9 @@ class AppBridge:
         display = model[:-5] if model.endswith("-GGUF") else model
         if self._model_loading and not self._model_ready.is_set():
             model_label = "Loading model…"
+            model_state = "loading"
+        elif self._cache_warming:
+            model_label = "Warming up…"
             model_state = "loading"
         else:
             # Prefer short rail label: "Qwen3 30B, on this PC"
@@ -998,6 +1053,7 @@ class AppBridge:
 
         try:
             self._turn_ask = text
+            self.supersede_warmup()
             if not self._model_ready.is_set():
                 self._call_js(
                     "on_activity",

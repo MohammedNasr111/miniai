@@ -32,6 +32,9 @@ def main() -> int:
     wa = (ROOT / "app" / "webview_approver.py").read_text(encoding="utf-8")
     check("warmup_waits_idle", "Never warm while a turn" in wa or "turn still running" in wa)
     check("warmup_once", "_warmup_started" in wa)
+    check("warmup_status", "Warming up…" in wa)
+    check("warmup_system_tools", "system_prompt()" in wa and "active_tool_schemas()" in wa)
+    check("warmup_supersede", "supersede_warmup" in wa)
 
     # Simulate already-held mutex → False + bring-to-front called
     with mock.patch.object(si, "sys") as msys:

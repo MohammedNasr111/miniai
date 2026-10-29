@@ -1,11 +1,17 @@
-"""Measure time from send to first model token (model already loaded).
+"""Measure time from send to first model token.
 
-Uses a temp data root + fixture Downloads folder. Prints FIRST_TOKEN_S=<float>.
-Target: < 15 s from a cold app start with Lemonade already holding the model.
+Modes:
+  default / --no-warmup: ping only (weights hot), then first real turn.
+  --warmup: send the same system+tools+"." warm-up the app uses, then measure.
+
+Restart the app between comparative runs; do not unload models in ways the
+app cannot recover from. Writes logs/first_token_<stamp>.json (and optional
+--out).
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -17,7 +23,38 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
+def _run_app_warmup(provider) -> float:
+    """Same request as WebviewBridge.start_model_warmup (no transcript)."""
+    from llm.base import ChatMessage
+    from scripts.agent_loop import system_prompt
+    from tools.registry import active_tool_schemas
+
+    t0 = time.perf_counter()
+    provider.chat(
+        [
+            ChatMessage(role="system", content=system_prompt()),
+            ChatMessage(role="user", content="."),
+        ],
+        tools=active_tool_schemas(),
+        enable_thinking=False,
+        max_tokens=1,
+        timeout=300,
+    )
+    return time.perf_counter() - t0
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--warmup",
+        action="store_true",
+        help="Run app-path system+tools warm-up before measuring first token",
+    )
+    parser.add_argument("--no-warmup", action="store_true", help="Explicit cold-prefix measure")
+    parser.add_argument("--out", default="")
+    args = parser.parse_args()
+    do_warmup = bool(args.warmup) and not bool(args.no_warmup)
+
     from tests.support import use_temp_data
 
     root = use_temp_data()
@@ -52,11 +89,16 @@ def main() -> int:
     from scripts.chat import new_session, run_user_turn
 
     provider = LemonadeProvider()
-    # Confirm model responds quickly (already loaded)
+    # Confirm weights respond (already loaded in Lemonade).
     t_ping = time.perf_counter()
     provider.chat([ChatMessage(role="user", content="ping")], timeout=120)
     ping_s = time.perf_counter() - t_ping
     print(f"PING_S={ping_s:.3f}")
+
+    warmup_s = None
+    if do_warmup:
+        warmup_s = _run_app_warmup(provider)
+        print(f"WARMUP_S={warmup_s:.3f}")
 
     session = new_session(provider)
     first_token_s = None
@@ -82,18 +124,21 @@ def main() -> int:
         "first_token_s": first_token_s,
         "total_s": total_s,
         "ping_s": ping_s,
+        "warmup": do_warmup,
+        "warmup_s": warmup_s,
         "downloads": str(downloads),
         "temp_root": str(root),
         "answer_head": (answer or "")[:240],
         "ok": first_token_s is not None and first_token_s < 15.0,
     }
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    path = ROOT / "logs" / f"first_token_{stamp}.json"
+    path = Path(args.out) if args.out else ROOT / "logs" / f"first_token_{stamp}.json"
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
     print(f"FIRST_TOKEN_S={first_token_s if first_token_s is not None else 'none'}")
     print(f"TOTAL_S={total_s:.3f}")
     print(f"JSON={path}")
+    print(f"WARMUP={do_warmup}")
     print(f"TARGET_OK={out['ok']}")
     return 0 if out["ok"] else 1
 
