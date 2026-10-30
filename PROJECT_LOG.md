@@ -1234,3 +1234,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Architect: 9F Part 1 keep rule was wrong (UI-only); battery noise. Hide-draft **ON**; `MINIAI_THINK_FIRST` default **gated**.
 - Offline: `test_round9f_hide_draft.py` + `test_round9f_gated.py` FAILURES=0.
 - Quick: Safety PASS; 15/16 (`web_python_version` network timeout to third-party host). `logs/round10_part0_quick.json`.
+
+## 2026-10-31 — Round 10 Part 1: setup B/C (both skipped)
+- Thinking adapter: `llm/lemonade/thinking_adapter.py` (Qwen3.6 + Nemotron `enable_thinking` + sampling). Offline FAILURES=0.
+- **B** Qwen3.6 IQ4_XS: pulled; Lemonade vision+mmproj load failed; text-only `Qwen36-IQ4XS-text` loads; free RAM OK (~6.9 GB) but `check_model_state` **DEGRADED** tok/s ~10.5 < 11 → **skip** (`doesn't fit at ctx 16384`). MTP skipped (no draft for this quant).
+- **C** Nemotron Lightning Q4_0 (+mtp draft 1.08 GB): Vulkan **ErrorOutOfDeviceMemory** / Lemonade load fail → **skip**.
+- Control A restored; model_state OK. Logs: `round10_part1_{B,C,summary}.json`.

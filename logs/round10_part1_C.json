@@ -1,0 +1,78 @@
+{
+  "letter": "C",
+  "model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF-Q4_0",
+  "captured_at": "2026-10-30T23:39:30.201140+00:00",
+  "ctx": 16384,
+  "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1",
+  "load": {
+    "ok": false,
+    "fit": false,
+    "load_s": 10.75,
+    "avail_before_gb": 17.02,
+    "avail_after_gb": 17.115,
+    "returncode": 1,
+    "out_tail": "Loading model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF-Q4_0\nError loading model: Failed to load model 'NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF-Q4_0': llama-server failed to start\n",
+    "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+  },
+  "gpu": {
+    "dedicated": [
+      {
+        "instance": "luid_0x00000000_0x00014f69_phys_0",
+        "bytes": 207880192.0,
+        "gb": 0.194
+      },
+      {
+        "instance": "luid_0x00000000_0x00016cbb_phys_0",
+        "bytes": 0.0,
+        "gb": 0.0
+      },
+      {
+        "instance": "luid_0x00000000_0x00016cfc_phys_0",
+        "bytes": 0.0,
+        "gb": 0.0
+      }
+    ],
+    "shared": [
+      {
+        "instance": "luid_0x00000000_0x00014f69_phys_0",
+        "bytes": 49958912.0,
+        "gb": 0.047
+      },
+      {
+        "instance": "luid_0x00000000_0x00016cbb_phys_0",
+        "bytes": 8192.0,
+        "gb": 0.0
+      },
+      {
+        "instance": "luid_0x00000000_0x00016cfc_phys_0",
+        "bytes": 1081061376.0,
+        "gb": 1.007
+      }
+    ]
+  },
+  "status": "skip_no_fit",
+  "reason": "doesn't fit at ctx 16384: llama-server failed to start (Vulkan ErrorOutOfDeviceMemory on manual smoke; Lemonade load fails). Free system RAM was ~18 GB before load.",
+  "mtp": {
+    "skipped": true,
+    "reason": "model did not load; draft exists at mtp-NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0.gguf (1.08 GB)"
+  },
+  "thinking": {
+    "template_off": {
+      "enable_thinking": false,
+      "truncate_history_thinking": true
+    },
+    "template_on": {
+      "enable_thinking": true,
+      "truncate_history_thinking": true
+    },
+    "sampling_off": {
+      "temperature": 1.0,
+      "top_p": 0.95
+    },
+    "sampling_on": {
+      "temperature": 1.0,
+      "top_p": 0.95
+    },
+    "notes": "Nemotron Lightning: chat_template_kwargs.enable_thinking (+ truncate_history_thinking); sampling from generation_config (temp 1.0, top_p 0.95)."
+  }
+}

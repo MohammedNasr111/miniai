@@ -1,0 +1,53 @@
+{
+  "disk_usage": [
+    {
+      "id": "B_IQ4_XS",
+      "path": "C:\\Users\\mohdc\\.cache\\huggingface\\hub\\models--unsloth--Qwen3.6-35B-A3B-GGUF",
+      "total_gb": 19.533,
+      "files": [
+        {
+          "name": "mmproj-BF16.gguf",
+          "gb": 0.903
+        },
+        {
+          "name": "mmproj-F16.gguf",
+          "gb": 0.899
+        },
+        {
+          "name": "Qwen3.6-35B-A3B-UD-IQ4_XS.gguf",
+          "gb": 17.731
+        }
+      ]
+    },
+    {
+      "id": "C_Nemotron",
+      "path": "C:\\Users\\mohdc\\.cache\\huggingface\\hub\\models--ggml-org--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF",
+      "total_gb": 20.054,
+      "files": [
+        {
+          "name": "mtp-NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0.gguf",
+          "gb": 1.156
+        },
+        {
+          "name": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0.gguf",
+          "gb": 18.898
+        }
+      ]
+    },
+    {
+      "id": "A_Qwen30B",
+      "path": "C:\\Users\\mohdc\\.cache\\huggingface\\hub\\models--unsloth--Qwen3-30B-A3B-GGUF",
+      "total_gb": 17.38,
+      "files": [
+        {
+          "name": "Qwen3-30B-A3B-Q4_0.gguf",
+          "gb": 17.38
+        }
+      ]
+    }
+  ],
+  "part1": {
+    "B": "skip_no_fit",
+    "C": "skip_no_fit"
+  }
+}

@@ -48,6 +48,8 @@ class LemonadeProvider(LLMProvider):
         *,
         stream: bool = False,
     ) -> dict[str, Any]:
+        from llm.lemonade.thinking_adapter import apply_model_adapter
+
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [m.model_dump(exclude_none=True) for m in messages],
@@ -57,7 +59,11 @@ class LemonadeProvider(LLMProvider):
             payload["tools"] = tools
         if stream:
             payload["stream"] = True
+        # Caller kwargs win over adapter sampling defaults.
         payload.update(kwargs)
+        apply_model_adapter(
+            payload, model=self.model, enable_thinking=enable_thinking
+        )
         return payload
 
     def chat(
