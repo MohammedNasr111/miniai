@@ -1221,3 +1221,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `MINIAI_THINK_FIRST=gated`: think-first only when the question has **no** tool cues (path/drive, file extension, cue word list).
 - With cues: 9D/Part-1 flow (thinking-off first). Offline `scripts/test_round9f_gated.py` FAILURES=0.
 - Review dump: `logs/review_20261031-0103_round9f_part2.log`.
+
+## 2026-10-31 — Round 9F Part 3: measure + keep decisions
+- Case (e): off mean 60.201 s vs gated 46.119 s (**23.39%** improve). Logs: `round9f_case_e_*.json`, `round9f_case_e_summary.json`.
+- Battery ×2: off **14.0** (13+15), gated **14.0** (14+14). Neither ≥ 15.
+- Keep: gated **not** default (stays `off`). Part 1 hide-draft **switched off** (off battery 14 < 15).
+- Quick at final defaults: Safety PASS, 16/16 (`logs/round9f_quick.json`).
+- App restarted; model_state OK (11.665 tok/s); Hi → Hello!
+- Report: `ROUND_9F_REPORT.md`.

@@ -1,4 +1,8 @@
-"""Round 9F Part 1 — thinking-off draft never streams to the UI when want_second."""
+"""Round 9F Part 1 — hide-draft keep failed; assert feature is switched off.
+
+Keep rule: off battery mean ≥ 15. Measured mean 14.0
+(logs/round9f_battery_off.json). Standing rule: fail → switch off.
+"""
 
 from __future__ import annotations
 
@@ -39,8 +43,7 @@ class _TwoPassProvider:
         self.n += 1
         self.streamed_thinking_flags.append(thinking)
         if not thinking:
-            # Draft that would have been shown then erased in 9E-off-without-hide.
-            draft = "DRAFT_SHOULD_NOT_REACH_UI " * 5
+            draft = "DRAFT_MAY_REACH_UI " * 5
             if on_token is not None:
                 on_token(draft)
             return ChatResponse(
@@ -60,15 +63,11 @@ class _TwoPassProvider:
         )
 
 
-def test_hide_draft_zero_ui_deltas_then_stream_final() -> None:
+def test_hide_draft_switched_off_streams_draft() -> None:
     from scripts.agent_loop import _call_model
 
     prov = _TwoPassProvider()
     ui_deltas: list[str] = []
-    thinking_starts: list[int] = []
-
-    def on_delta(text: str) -> None:
-        ui_deltas.append(text)
 
     hist = [
         ChatMessage(role="system", content="You are MiniAI."),
@@ -87,33 +86,29 @@ def test_hide_draft_zero_ui_deltas_then_stream_final() -> None:
         resp = _call_model(
             prov,
             hist,
-            on_stream_delta=on_delta,
-            on_thinking_start=lambda: thinking_starts.append(1),
+            on_stream_delta=lambda text: ui_deltas.append(text),
         )
-    # Draft must not appear in UI deltas; only thinking-on content.
-    draft_leaks = [d for d in ui_deltas if "DRAFT_SHOULD_NOT_REACH_UI" in d]
-    _check("zero_draft_ui_deltas", not draft_leaks, str(ui_deltas))
+    # Keep failed → hide_draft off → thinking-off draft may reach UI before clear.
+    _check(
+        "draft_may_reach_ui",
+        any("DRAFT_MAY_REACH_UI" in d for d in ui_deltas),
+        str(ui_deltas),
+    )
     _check(
         "final_streamed",
         any("FINAL_VISIBLE_ANSWER" in d for d in ui_deltas),
         str(ui_deltas),
     )
-    _check("thinking_ui_shown", len(thinking_starts) >= 1)
     _check("two_model_calls", prov.n == 2, str(prov.n))
     _check("off_then_on", prov.streamed_thinking_flags == [False, True])
     _check("response_is_final", "FINAL_VISIBLE_ANSWER" in (resp.content or ""))
 
 
 def test_default_mode_is_off() -> None:
-    import importlib
-
     import config.settings as st
 
-    # Re-read would need env; assert module default after import with no override.
-    # Process may have env set — check the constant documentation path.
     raw = getattr(st, "THINK_FIRST_MODE", None)
     _check("think_first_mode_attr", raw in ("off", "on", "gated"), str(raw))
-    # Fresh parse of default string in source
     src = Path(st.__file__).read_text(encoding="utf-8")
     _check(
         "default_off_in_source",
@@ -122,7 +117,7 @@ def test_default_mode_is_off() -> None:
 
 
 def main() -> int:
-    test_hide_draft_zero_ui_deltas_then_stream_final()
+    test_hide_draft_switched_off_streams_draft()
     test_default_mode_is_off()
     print(f"FAILURES={FAILURES}")
     return 0 if FAILURES == 0 else 1

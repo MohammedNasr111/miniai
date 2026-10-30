@@ -793,9 +793,9 @@ def _call_model(
             and want_second
             and turn_has_tool_result
         )
-        # Round 9F Part 1: when a second pass is planned, never stream the
-        # thinking-off draft (buffer + Thinking… UI). Model flow matches 9D.
-        hide_draft = bool(want_second)
+        # Round 9F Part 1 hide-draft: KEEP FAILED (off battery mean 14 < 15
+        # in logs/round9f_battery_off.json). Switched off per standing rules.
+        hide_draft = False
         timeout_off = first_pass_timeout_seconds(history, provider.timeout)
         bucket: list[str] = []
         if hide_draft:

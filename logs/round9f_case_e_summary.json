@@ -1,0 +1,29 @@
+{
+  "off_walls_s": [
+    62.83,
+    56.442,
+    61.331
+  ],
+  "off_mean_s": 60.201,
+  "off_discarded": [
+    true,
+    true,
+    true
+  ],
+  "gated_walls_s": [
+    46.7,
+    45.4,
+    46.257
+  ],
+  "gated_mean_s": 46.119,
+  "gated_discarded": [
+    false,
+    false,
+    false
+  ],
+  "improve_pct": 23.39,
+  "logs": {
+    "off": "logs/round9f_case_e_off.json",
+    "gated": "logs/round9f_case_e_gated.json"
+  }
+}
