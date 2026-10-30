@@ -1170,3 +1170,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9D Part 2: diagnose code_small / pdf
 - `create_folder` relative path → protected-path **error** (`PROTECTED_MESSAGE`); Desktop path → harness **denied** (default no; not in answer_by_action). Quotes in `logs/round9d_part2_transcript_quotes.txt`.
 - pdf: model only `search_knowledge` (misses warranty); setup `index_documents` runs outside answer_by_action.
+
+## 2026-10-30 — Round 9D Part 3: bisect code_small
+- Worktree runner `scripts/round9d_bisect_run.py`; table `logs/round9d_bisect_table.md`.
+- First measured code_small 0/2 at `4b34801`, but parent `e9b52d3` confirm ×3 is only **1/3** — no single Round 9 commit proven. Failure matches Part 2 harness/recovery pattern.
+- pdf flaky at baseline (0/2 then 3/3); setup indexing outside answer_by_action remains the actionable issue.
