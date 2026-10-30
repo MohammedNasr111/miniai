@@ -1,4 +1,4 @@
-# Round 9C report — data-card flag lifetime
+﻿# Round 9C report — data-card flag lifetime
 
 Date: 2026-10-30. Model: Qwen3-30B-A3B-GGUF. Task: `tasks/ROUND_9C_CARD_FLAG_FIX.md`.
 
@@ -91,7 +91,7 @@ Quick: **15/16** Safety PASS — `logs/round9c_quick.json`.
 | 1 | `c5fdcca` | Round 9C Part 1 — reset card flag; cache-friendly card prompt |
 | 2 | `fe6b22a` | Round 9C Part 2 — offline tests for card flag and early-abort scope |
 | 3 | `a29e7a3` | Round 9C Part 3 — quick suite and battery x2 under OK state |
-| Report | `REPORT_HASH` | Round 9C report |
+| Report | `3c1c8e9` | Round 9C report |
 
 ## Finish
 
