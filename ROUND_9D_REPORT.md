@@ -1,4 +1,4 @@
-# Round 9D report — simplify cards; bisect / harness fix
+﻿# Round 9D report — simplify cards; bisect / harness fix
 
 Date: 2026-10-30. Model: Qwen3-30B-A3B-GGUF. Task: `tasks/ROUND_9D_BISECT_AND_SIMPLIFY.md`.
 
@@ -110,7 +110,7 @@ Still failing both repeats: `qa_h_code_cli`, `qa_h_multistep`, `qa_m_organise`, 
 | 2 | `bd33f41` | Round 9D Part 2 — diagnose |
 | 3 | `ae06867` | Round 9D Part 3 — bisect |
 | 4 | `e06adbf` | Round 9D Part 4 — harness + hint |
-| 5 / report | *(this commit)* | Round 9D report + Part 5 |
+| 5 / report | `982912ef04b6382c2c98f3ebd55dce7fc3484934` | Round 9D report + Part 5 |
 
 ## Finish
 
@@ -118,3 +118,4 @@ Still failing both repeats: `qa_h_code_cli`, `qa_h_multistep`, `qa_m_organise`, 
 - MiniAI app process restarted (`python -m app`).
 - `check_model_state` = **OK** (tok/s=12.656 ≥ 11.0).
 - “Hi” → `Hello! How can I assist you today?` (`logs/_qa_round9d_hi.txt`).
+
