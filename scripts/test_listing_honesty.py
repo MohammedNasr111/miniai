@@ -381,6 +381,32 @@ def main() -> int:
         normalize_listing_name("`Foo.bar` (196 MB)") == "foo.bar",
         normalize_listing_name("`Foo.bar` (196 MB)"),
     )
+    # Round 9E: exact 30 Oct hand-test answer (bold + em-dash sizes).
+    bold_oct = (
+        "1. **CursorUserSetup-x64-3.19.13.exe** — 196 MB\n"
+        "2. **DiscordSetup.exe** — 132 MB\n"
+        "3. **sci exama.pdf** — 75 MB\n"
+    )
+    # Listing sizes in the hand-test card may differ from prose; names must match.
+    same_bold, meta_bold = maybe_correct_listing_answer(
+        q_oct, bold_oct, transcript=_FakeTx(tx_oct)
+    )
+    check(
+        "oct30_bold_emdash_no_correct",
+        meta_bold is None and same_bold == bold_oct,
+        f"meta={meta_bold!r} out={same_bold[:120]!r}",
+    )
+    check(
+        "oct30_no_removed_note",
+        "Removed" not in same_bold and "weren't in the folder listing" not in same_bold,
+        same_bold[-80:],
+    )
+    check(
+        "normalize_bold_emdash",
+        normalize_listing_name("**CursorUserSetup-x64-3.19.13.exe** — 196 MB")
+        == "cursorusersetup-x64-3.19.13.exe",
+        normalize_listing_name("**CursorUserSetup-x64-3.19.13.exe** — 196 MB"),
+    )
 
     # Explicit slug
     from tests.support import use_temp_data

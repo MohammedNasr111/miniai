@@ -231,7 +231,11 @@ def listing_used_this_turn(transcript: Any) -> bool:
 
 
 def normalize_listing_name(name: str) -> str:
-    """Case-insensitive name match: strip ticks/bold/quotes, sizes, collapse space."""
+    """Case-insensitive name match for listing honesty (Round 9E).
+
+    Strip markdown bold/italics, backticks and quotes; strip a trailing size,
+    date, or em-dash suffix; case-fold; collapse whitespace.
+    """
     s = str(name or "").strip()
     # Prefer the first backtick-wrapped token, then any trailing size text.
     m = re.match(r"^`([^`]+)`\s*(.*)$", s)
@@ -239,8 +243,12 @@ def normalize_listing_name(name: str) -> str:
         s = f"{m.group(1)} {m.group(2)}".strip()
     for _ in range(4):
         prev = s
+        # Bold / italics anywhere on the line (not only whole-string wrap).
+        s = re.sub(r"\*\*([^*]+)\*\*", r"\1", s)
+        s = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"\1", s)
+        s = re.sub(r"__([^_]+)__", r"\1", s)
+        s = re.sub(r"(?<!_)_([^_]+)_(?!_)", r"\1", s)
         s = s.strip().strip("`\"'")
-        s = re.sub(r"^\*\*(.+?)\*\*$", r"\1", s).strip()
         if s == prev:
             break
     s = s.replace("`", "")
@@ -263,6 +271,18 @@ def normalize_listing_name(name: str) -> str:
         "",
         s,
         flags=re.IGNORECASE,
+    ).strip()
+    # Trailing date-ish: "name — 28 Oct, 11:04 pm" / "name - 2026-10-30"
+    s = re.sub(
+        r"\s*[—\-–]\s*\d{1,2}\s+[A-Za-z]{3,9},?\s+\d{1,2}:\d{2}\s*(am|pm)?\s*$",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    ).strip()
+    s = re.sub(
+        r"\s*[—\-–]\s*\d{4}-\d{2}-\d{2}\s*$",
+        "",
+        s,
     ).strip()
     return s.lower()
 
@@ -337,11 +357,26 @@ _FOLDER_TALK = re.compile(
 
 def _names_from_text_span(span: str) -> set[str]:
     names: set[str] = set()
-    for m in _NAME_IN_BACKTICKS.finditer(span or ""):
+    text = span or ""
+    for m in _NAME_IN_BACKTICKS.finditer(text):
         base = _basename_token(m.group(1))
         if base:
             names.add(base)
-    for m in _NAME_AS_PATH.finditer(span or ""):
+    # Bold / folderish tokens (names with spaces, e.g. **sci exama.pdf**).
+    for m in _FOLDERISH.finditer(text):
+        raw = next((g for g in m.groups() if g), None)
+        if not raw:
+            continue
+        base = _basename_token(raw)
+        if base:
+            names.add(base)
+    for m in _NAME_AS_PATH.finditer(text):
+        base = normalize_listing_name(m.group(1))
+        if base:
+            names.add(base)
+    # Numbered/bulleted body as a whole (after markdown/size strip).
+    m = _LIST_LINE_NAME.match(text.strip())
+    if m:
         base = normalize_listing_name(m.group(1))
         if base:
             names.add(base)

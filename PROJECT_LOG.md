@@ -1202,3 +1202,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Slow chip after **two** consecutive DEGRADED; check after warm-up, not mid-flight.
 - Sidebar Writing speed from last local llm_call pps; cloud shows —.
 - Offline `scripts/test_round9e_speed_chip.py` FAILURES=0.
+
+## 2026-10-31 — Round 9E Part 4: listing name normalisation
+- `normalize_listing_name` strips bold/italics anywhere; em-dash sizes; dates.
+- Claim extraction picks bold tokens and spaced names (`sci exama.pdf`).
+- Exact 30 Oct answer (bold + em-dash) → no correction / no Removed. Tests PASS.
