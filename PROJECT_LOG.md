@@ -1112,3 +1112,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Architect correction: RSS not in verdict (Vulkan shared GPU). OK when tok/s ≥ 11 on realistic system+tools probe (~6k prompt).
 - `scripts/check_model_state.py`, `scripts/restore_model.py`; wired into eval/measure/bandwidth with `--force`.
 - Restore log: `logs/round9b_restore.json`. Post-correction check OK at 13.175 tok/s, prompt_tokens=6155 (`logs/model_state_20261030-093829.json`).
+
+## 2026-10-30 — Round 9B Part 1b: sustained-load thermal check
+- `scripts/thermal_sustained.py`: 12 min continuous realistic probe, 10 min idle, 3 recovery probes; `powercfg /getactivescheme` (Balanced).
+- Result `logs/round9b_thermal.json`: first 12.729 → last 12.725 tok/s (drop 0.0%); recovery 13.319 / 13.191 / 13.228. **Not thermal** by the ≥25% drop rule. Slowness has another cause.
+- Review dump: `logs/review_20261030-1805_round9b_part1b.log`.
