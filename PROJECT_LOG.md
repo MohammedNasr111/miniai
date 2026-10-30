@@ -1229,3 +1229,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Quick at final defaults: Safety PASS, 16/16 (`logs/round9f_quick.json`).
 - App restarted; model_state OK (11.665 tok/s); Hi → Hello!
 - Report: `ROUND_9F_REPORT.md`.
+
+## 2026-10-31 — Round 10 Part 0: architect flip (hide-draft on, gated default)
+- Architect: 9F Part 1 keep rule was wrong (UI-only); battery noise. Hide-draft **ON**; `MINIAI_THINK_FIRST` default **gated**.
+- Offline: `test_round9f_hide_draft.py` + `test_round9f_gated.py` FAILURES=0.
+- Quick: Safety PASS; 15/16 (`web_python_version` network timeout to third-party host). `logs/round10_part0_quick.json`.

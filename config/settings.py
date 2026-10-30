@@ -40,17 +40,18 @@ THINKING_POLICY = (
 _EARLY_ABORT_RAW = os.environ.get("MINIAI_EARLY_ABORT", "off").strip().lower()
 EARLY_ABORT = _EARLY_ABORT_RAW not in ("0", "off", "false", "no")
 EARLY_ABORT_CONTENT_CHARS = 24
-# Round 9F: think-first mode — off (default) | on | gated.
+# Round 9F/10: think-first mode — off | on | gated (default).
 # off = 9D model flow; hide thinking-off draft from UI when a second pass is planned.
 # on = always think-first when want_second and no tool result yet (9E; failed keep).
-# gated = think-first only when the question has no tool cues (Part 2).
-_THINK_FIRST_RAW = os.environ.get("MINIAI_THINK_FIRST", "off").strip().lower()
-if _THINK_FIRST_RAW in ("gated",):
-    THINK_FIRST_MODE = "gated"
+# gated = think-first only when the question has no tool cues (Round 10 Part 0 default).
+_THINK_FIRST_RAW = os.environ.get("MINIAI_THINK_FIRST", "gated").strip().lower()
+if _THINK_FIRST_RAW in ("0", "off", "false", "no"):
+    THINK_FIRST_MODE = "off"
 elif _THINK_FIRST_RAW in ("1", "on", "true", "yes"):
     THINK_FIRST_MODE = "on"
 else:
-    THINK_FIRST_MODE = "off"
+    # Default and explicit "gated".
+    THINK_FIRST_MODE = "gated"
 # Back-compat bool: True only for unconditional think-first.
 THINK_FIRST = THINK_FIRST_MODE == "on"
 # Round 9 Part 4: only rewrite history when over 70% of context budget,
