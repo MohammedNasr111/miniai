@@ -1207,3 +1207,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `normalize_listing_name` strips bold/italics anywhere; em-dash sizes; dates.
 - Claim extraction picks bold tokens and spaced names (`sci exama.pdf`).
 - Exact 30 Oct answer (bold + em-dash) → no correction / no Removed. Tests PASS.
+
+## 2026-10-31 — Round 9E report + finish
+- `ROUND_9E_REPORT.md`: Part 2 keep **failed** (case e 24.9%, battery 13.5); Parts 1/3/4 shipped; think-first feel fix kept.
+- App restarted; model_state OK (12.241 tok/s); Hi → Hello!
