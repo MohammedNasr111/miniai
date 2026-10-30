@@ -52,8 +52,17 @@ def main() -> int:
     )
     parser.add_argument("--no-warmup", action="store_true", help="Explicit cold-prefix measure")
     parser.add_argument("--out", default="")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run even if check_model_state reports DEGRADED",
+    )
     args = parser.parse_args()
     do_warmup = bool(args.warmup) and not bool(args.no_warmup)
+
+    from scripts.check_model_state import require_ok
+
+    model_state = require_ok(force=bool(args.force), label="measure_first_token")
 
     from tests.support import use_temp_data
 
@@ -130,6 +139,7 @@ def main() -> int:
         "temp_root": str(root),
         "answer_head": (answer or "")[:240],
         "ok": first_token_s is not None and first_token_s < 15.0,
+        "model_state": model_state,
     }
     stamp = time.strftime("%Y%m%d-%H%M%S")
     path = Path(args.out) if args.out else ROOT / "logs" / f"first_token_{stamp}.json"

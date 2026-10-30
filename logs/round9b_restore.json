@@ -1,0 +1,339 @@
+{
+  "captured_at": "2026-10-29T23:10:56Z",
+  "before": {
+    "captured_at": "2026-10-29T23:10:56Z",
+    "stamp": "20261029-231056",
+    "thresholds": {
+      "tok_s_min": 11.0,
+      "rss_gb_max": 4.0
+    },
+    "llm": {
+      "model_name": "Qwen3-30B-A3B-GGUF",
+      "pid": 11452,
+      "device": "gpu",
+      "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+      "recipe_options": {
+        "ctx_size": 16384,
+        "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+      },
+      "launch_command": [
+        "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+        "-m",
+        "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+        "--ctx-size",
+        "16384",
+        "--port",
+        "8001",
+        "--jinja",
+        "--metrics",
+        "--n-gpu-layers",
+        "99",
+        "-ctk",
+        "q8_0",
+        "-ctv",
+        "q8_0",
+        "-fa",
+        "on",
+        "--parallel",
+        "1"
+      ],
+      "status": "ready"
+    },
+    "llm_rss_gb": 10.605,
+    "free_ram_gb": 3.513,
+    "total_ram_gb": 23.618,
+    "gpu": {
+      "dedicated": [
+        {
+          "instance": "luid_0x00000000_0x00014e8d_phys_0",
+          "bytes": 8048451584.0,
+          "gb": 7.496
+        },
+        {
+          "instance": "luid_0x00000000_0x00016bcf_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016c1a_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        }
+      ],
+      "shared": [
+        {
+          "instance": "luid_0x00000000_0x00014e8d_phys_0",
+          "bytes": 11350003712.0,
+          "gb": 10.571
+        },
+        {
+          "instance": "luid_0x00000000_0x00016bcf_phys_0",
+          "bytes": 8192.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016c1a_phys_0",
+          "bytes": 905822208.0,
+          "gb": 0.844
+        }
+      ]
+    },
+    "probe": {
+      "wall_s": 8.112,
+      "completion_tokens": 128,
+      "tok_s": 15.979,
+      "timings": {
+        "cache_n": 30,
+        "predicted_ms": 7948.166,
+        "predicted_n": 128,
+        "predicted_per_second": 15.97852888326691,
+        "predicted_per_token_ms": 62.5839842519685,
+        "prompt_ms": 62.95,
+        "prompt_n": 1,
+        "prompt_per_second": 15.885623510722795,
+        "prompt_per_token_ms": 62.95
+      },
+      "model": "Qwen3-30B-A3B-GGUF"
+    },
+    "verdict": "DEGRADED",
+    "reason": "LLM RSS 10.605 GB \u2265 4.0 GB",
+    "log_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_state_20261029-231056.json"
+  },
+  "unload": {
+    "returncode": 0,
+    "out_tail": "Unloading model: Qwen3-30B-A3B-GGUF\nModel unloaded successfully!\n"
+  },
+  "wait_ram": {
+    "ok": true,
+    "free_ram_gb": 14.217,
+    "waited_s": 0.0,
+    "samples": [
+      {
+        "elapsed_s": 0.0,
+        "free_ram_gb": 14.217
+      }
+    ]
+  },
+  "load": {
+    "ok": true,
+    "load_s": 19.53,
+    "returncode": 0,
+    "out_tail": "Loading model: Qwen3-30B-A3B-GGUF\nModel loaded successfully!\n",
+    "model": "Qwen3-30B-A3B-GGUF",
+    "ctx_size": 16384,
+    "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+  },
+  "after_attempts": [
+    {
+      "captured_at": "2026-10-29T23:11:32Z",
+      "stamp": "20261029-231132",
+      "thresholds": {
+        "tok_s_min": 11.0,
+        "rss_gb_max": 4.0
+      },
+      "llm": {
+        "model_name": "Qwen3-30B-A3B-GGUF",
+        "pid": 3340,
+        "device": "gpu",
+        "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+        "recipe_options": {
+          "ctx_size": 16384,
+          "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+        },
+        "launch_command": [
+          "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+          "-m",
+          "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+          "--ctx-size",
+          "16384",
+          "--port",
+          "8001",
+          "--jinja",
+          "--metrics",
+          "--n-gpu-layers",
+          "99",
+          "-ctk",
+          "q8_0",
+          "-ctv",
+          "q8_0",
+          "-fa",
+          "on",
+          "--parallel",
+          "1"
+        ],
+        "status": "ready"
+      },
+      "llm_rss_gb": 10.582,
+      "free_ram_gb": 3.642,
+      "total_ram_gb": 23.618,
+      "gpu": {
+        "dedicated": [
+          {
+            "instance": "luid_0x00000000_0x00014e8d_phys_0",
+            "bytes": 8041897984.0,
+            "gb": 7.49
+          },
+          {
+            "instance": "luid_0x00000000_0x00016bcf_phys_0",
+            "bytes": 0.0,
+            "gb": 0.0
+          },
+          {
+            "instance": "luid_0x00000000_0x00016c1a_phys_0",
+            "bytes": 0.0,
+            "gb": 0.0
+          }
+        ],
+        "shared": [
+          {
+            "instance": "luid_0x00000000_0x00014e8d_phys_0",
+            "bytes": 11325943808.0,
+            "gb": 10.548
+          },
+          {
+            "instance": "luid_0x00000000_0x00016bcf_phys_0",
+            "bytes": 8192.0,
+            "gb": 0.0
+          },
+          {
+            "instance": "luid_0x00000000_0x00016c1a_phys_0",
+            "bytes": 905822208.0,
+            "gb": 0.844
+          }
+        ]
+      },
+      "probe": {
+        "wall_s": 8.49,
+        "completion_tokens": 128,
+        "tok_s": 15.987,
+        "timings": {
+          "cache_n": 0,
+          "predicted_ms": 7943.761,
+          "predicted_n": 128,
+          "predicted_per_second": 15.987389348697677,
+          "predicted_per_token_ms": 62.54929921259843,
+          "prompt_ms": 474.412,
+          "prompt_n": 31,
+          "prompt_per_second": 65.34404694653593,
+          "prompt_per_token_ms": 15.303612903225806
+        },
+        "model": "Qwen3-30B-A3B-GGUF"
+      },
+      "verdict": "DEGRADED",
+      "reason": "LLM RSS 10.582 GB \u2265 4.0 GB",
+      "log_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_state_20261029-231132.json"
+    },
+    {
+      "captured_at": "2026-10-29T23:12:08Z",
+      "stamp": "20261029-231208",
+      "thresholds": {
+        "tok_s_min": 11.0,
+        "rss_gb_max": 4.0
+      },
+      "llm": {
+        "model_name": "Qwen3-30B-A3B-GGUF",
+        "pid": 3532,
+        "device": "gpu",
+        "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+        "recipe_options": {
+          "ctx_size": 16384,
+          "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+        },
+        "launch_command": [
+          "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+          "-m",
+          "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+          "--ctx-size",
+          "16384",
+          "--port",
+          "8001",
+          "--jinja",
+          "--metrics",
+          "--n-gpu-layers",
+          "99",
+          "-ctk",
+          "q8_0",
+          "-ctv",
+          "q8_0",
+          "-fa",
+          "on",
+          "--parallel",
+          "1"
+        ],
+        "status": "ready"
+      },
+      "llm_rss_gb": 10.589,
+      "free_ram_gb": 3.654,
+      "total_ram_gb": 23.618,
+      "gpu": {
+        "dedicated": [
+          {
+            "instance": "luid_0x00000000_0x00014e8d_phys_0",
+            "bytes": 8080592896.0,
+            "gb": 7.526
+          },
+          {
+            "instance": "luid_0x00000000_0x00016bcf_phys_0",
+            "bytes": 0.0,
+            "gb": 0.0
+          },
+          {
+            "instance": "luid_0x00000000_0x00016c1a_phys_0",
+            "bytes": 0.0,
+            "gb": 0.0
+          }
+        ],
+        "shared": [
+          {
+            "instance": "luid_0x00000000_0x00014e8d_phys_0",
+            "bytes": 11351547904.0,
+            "gb": 10.572
+          },
+          {
+            "instance": "luid_0x00000000_0x00016bcf_phys_0",
+            "bytes": 8192.0,
+            "gb": 0.0
+          },
+          {
+            "instance": "luid_0x00000000_0x00016c1a_phys_0",
+            "bytes": 905822208.0,
+            "gb": 0.844
+          }
+        ]
+      },
+      "probe": {
+        "wall_s": 8.321,
+        "completion_tokens": 128,
+        "tok_s": 16.154,
+        "timings": {
+          "cache_n": 0,
+          "predicted_ms": 7861.606,
+          "predicted_n": 128,
+          "predicted_per_second": 16.15446004289709,
+          "predicted_per_token_ms": 61.902409448818894,
+          "prompt_ms": 433.29,
+          "prompt_n": 31,
+          "prompt_per_second": 71.54561610007154,
+          "prompt_per_token_ms": 13.97709677419355
+        },
+        "model": "Qwen3-30B-A3B-GGUF"
+      },
+      "verdict": "DEGRADED",
+      "reason": "LLM RSS 10.589 GB \u2265 4.0 GB",
+      "log_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_state_20261029-231208.json"
+    }
+  ],
+  "final_verdict": "DEGRADED",
+  "wait_ram_retry": {
+    "ok": true,
+    "free_ram_gb": 14.371,
+    "waited_s": 0.0,
+    "samples": [
+      {
+        "elapsed_s": 0.0,
+        "free_ram_gb": 14.371
+      }
+    ]
+  },
+  "stop": "Still DEGRADED after retry. Close heavy apps or reboot, then re-run scripts/restore_model.py. This script does not kill user processes."
+}

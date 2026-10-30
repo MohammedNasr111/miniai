@@ -255,7 +255,16 @@ def main() -> int:
     )
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--six-turn", action="store_true")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run even if check_model_state reports DEGRADED",
+    )
     args = parser.parse_args()
+
+    from scripts.check_model_state import require_ok
+
+    model_state = require_ok(force=bool(args.force), label="measure_real_speed")
 
     repeats = []
     for i in range(max(1, args.repeats)):
@@ -270,6 +279,7 @@ def main() -> int:
         "repeats": repeats,
         "n": len(repeats),
         "six_turn": bool(args.six_turn),
+        "model_state": model_state,
     }
     path = Path(args.out)
     path.parent.mkdir(parents=True, exist_ok=True)

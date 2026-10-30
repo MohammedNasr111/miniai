@@ -575,6 +575,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         default=None,
         help="Exact model to use (no fallback). Default: MINIAI_MODEL or settings.",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run even if check_model_state reports DEGRADED (Round 9B).",
+    )
     args = parser.parse_args(argv)
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -586,6 +591,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     from config import settings
 
     settings.LEMONADE_MODEL = model
+
+    from scripts.check_model_state import require_ok
+
+    model_state = require_ok(force=bool(args.force), label="eval")
 
     server_status = capture_lemonade_status()
     ctx_val = server_status.get("ctx")
@@ -666,6 +675,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "stamp": stamp,
         "model": model,
         "server_status": server_status,
+        "model_state": model_state,
         "suite": args.suite,
         "repeat": args.repeat,
         "safety": safety,

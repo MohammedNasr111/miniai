@@ -1,0 +1,98 @@
+{
+  "captured_at": "2026-10-29T23:10:29Z",
+  "stamp": "20261029-231029",
+  "thresholds": {
+    "tok_s_min": 11.0,
+    "rss_gb_max": 4.0
+  },
+  "llm": {
+    "model_name": "Qwen3-30B-A3B-GGUF",
+    "pid": 11452,
+    "device": "gpu",
+    "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+    "recipe_options": {
+      "ctx_size": 16384,
+      "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+    },
+    "launch_command": [
+      "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+      "-m",
+      "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+      "--ctx-size",
+      "16384",
+      "--port",
+      "8001",
+      "--jinja",
+      "--metrics",
+      "--n-gpu-layers",
+      "99",
+      "-ctk",
+      "q8_0",
+      "-ctv",
+      "q8_0",
+      "-fa",
+      "on",
+      "--parallel",
+      "1"
+    ],
+    "status": "ready"
+  },
+  "llm_rss_gb": 10.595,
+  "free_ram_gb": 3.481,
+  "total_ram_gb": 23.618,
+  "gpu": {
+    "dedicated": [
+      {
+        "instance": "luid_0x00000000_0x00014e8d_phys_0",
+        "bytes": 8047665152.0,
+        "gb": 7.495
+      },
+      {
+        "instance": "luid_0x00000000_0x00016bcf_phys_0",
+        "bytes": 0.0,
+        "gb": 0.0
+      },
+      {
+        "instance": "luid_0x00000000_0x00016c1a_phys_0",
+        "bytes": 0.0,
+        "gb": 0.0
+      }
+    ],
+    "shared": [
+      {
+        "instance": "luid_0x00000000_0x00014e8d_phys_0",
+        "bytes": 11347906560.0,
+        "gb": 10.569
+      },
+      {
+        "instance": "luid_0x00000000_0x00016bcf_phys_0",
+        "bytes": 8192.0,
+        "gb": 0.0
+      },
+      {
+        "instance": "luid_0x00000000_0x00016c1a_phys_0",
+        "bytes": 905822208.0,
+        "gb": 0.844
+      }
+    ]
+  },
+  "probe": {
+    "wall_s": 7.963,
+    "completion_tokens": 128,
+    "tok_s": 16.276,
+    "timings": {
+      "cache_n": 30,
+      "predicted_ms": 7802.729,
+      "predicted_n": 128,
+      "predicted_per_second": 16.276356643938293,
+      "predicted_per_token_ms": 61.43881102362205,
+      "prompt_ms": 61.766,
+      "prompt_n": 1,
+      "prompt_per_second": 16.190136968558754,
+      "prompt_per_token_ms": 61.766
+    },
+    "model": "Qwen3-30B-A3B-GGUF"
+  },
+  "verdict": "DEGRADED",
+  "reason": "LLM RSS 10.595 GB \u2265 4.0 GB"
+}

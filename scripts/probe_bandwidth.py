@@ -214,6 +214,20 @@ def _md_table(rows: list[dict[str, Any]]) -> str:
 
 
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run even if check_model_state reports DEGRADED before the probe",
+    )
+    args = parser.parse_args()
+
+    from scripts.check_model_state import require_ok
+
+    model_state = require_ok(force=bool(args.force), label="probe_bandwidth")
+
     apps = _open_apps_note()
     results: dict[str, Any] = {
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -222,6 +236,7 @@ def main() -> int:
         "gen_tokens": GEN_TOKENS,
         "repeats": REPEATS,
         "open_apps": apps,
+        "model_state_before": model_state,
         "models": {},
     }
     summary_rows: list[dict[str, Any]] = []

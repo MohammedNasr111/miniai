@@ -1107,3 +1107,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9 Part 7: final measure + report
 - Quick **16/16** Safety PASS (`logs/round9_final_quick.json`). Battery **13/20** (baseline 16) → round-as-whole not kept. Attribution: early_abort=off 12/20, cache_stable=off 13/20 (inconclusive).
 - Part 3 default **off** (wall worse). Part 4 **on**. Part 5 warm-up criterion failed (~7% first-token). Report: `ROUND_9_REPORT.md`. Restarted app; Hi ok.
+
+## 2026-10-30 — Round 9B Part 1: model-state guard (tok/s-only)
+- Architect correction: RSS not in verdict (Vulkan shared GPU). OK when tok/s ≥ 11 on realistic system+tools probe (~6k prompt).
+- `scripts/check_model_state.py`, `scripts/restore_model.py`; wired into eval/measure/bandwidth with `--force`.
+- Restore log: `logs/round9b_restore.json`. Post-correction check OK at 13.175 tok/s, prompt_tokens=6155 (`logs/model_state_20261030-093829.json`).
