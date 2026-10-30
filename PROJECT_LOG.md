@@ -1158,3 +1158,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Quick 15/16 Safety PASS (`logs/round9c_quick.json`).
 - Battery ×2 defaults: 11/20 + 12/20 (mean 11.5) — keep rule ≥15 **failed** (`logs/round9c_battery.json`).
 - `qa_e_list_folder` still empty of names + false Removed; r1 Lemonade timeouts on two hard coding tasks.
+
+## 2026-10-30 — Round 9C report + finish
+- `ROUND_9C_REPORT.md`: keep rule failed (mean 11.5); flag/cache fix shipped; list_folder honesty/card tension remains.
+- Model state OK; Hi answered.
