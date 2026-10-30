@@ -1180,3 +1180,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Bisect inconclusive → fix Part 2 harness issues: `create_folder`/`create_file: yes` on `qa_m_code_small`; `setup_qa_pdf` wraps `index_documents` in `answer_by_action`.
 - Product: protected `create_folder`/`create_file` errors hint `ws_write`; tool schema steers coding to workspace.
 - Offline `scripts/test_round9d_harness_fix.py` FAILURES=0.
+
+## 2026-10-30 — Round 9D Part 5: measure + report
+- Quick 16/16 Safety PASS (`logs/round9d_quick.json`).
+- Battery ×2: 14/20 + 16/20, mean **15.0** — keep rule **KEPT** (`logs/round9d_battery.json`).
+- code_small, pdf_question, list_folder all 2/2 after fix.
+- `ROUND_9D_REPORT.md`; app restarted; Hi answered; model_state OK.
