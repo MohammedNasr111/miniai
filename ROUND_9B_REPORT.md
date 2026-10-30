@@ -1,4 +1,4 @@
-# Round 9B report — restore, thermal check, fair re-measure
+﻿# Round 9B report — restore, thermal check, fair re-measure
 
 Date: 2026-10-30. Model: Qwen3-30B-A3B-GGUF (production options). Task: `tasks/ROUND_9B_RESTORE_AND_REMEASURE.md`.
 
@@ -122,10 +122,11 @@ Improvement ≈ 3% (need ≥30%).
 | 3 | `5fca459` | Round 9B Part 3 — early abort only on synthesis calls |
 | 4 | `3ab72f9` | Round 9B Part 4 — fair re-measure under OK model state |
 | 5 | `6741d91` | Round 9B Part 5 — slow-state chip and in-app model reload |
-| Report | *(see git log for ROUND_9B_REPORT commit)* | Round 9B report |
+| Report | *14662bcb8b847703c79e3135c11137d76bb627cc* | Round 9B report |
 
 ## Finish
 
 - Restarted MiniAI (`python -m app`); window title MiniAI present (pid 18400).
 - `check_model_state` = **OK** (tok/s=13.022, RSS=11.053 GB logged only; prompt_tokens=6155).
 - "Hi" → `Hello! How can I assist you today?` (`logs/_qa_round9b_hi.txt`).
+
