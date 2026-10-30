@@ -1135,3 +1135,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Battery early abort on: **12/20** mean wall 46.13 s (`logs/round9b_battery_early_abort.json`) — not kept (≥8% wall win and ≥15 passes both fail).
 - Speed ×3 + six-turn: a 18.83 / b 14.66 / c 5.43 / d 11.83 s (`logs/round9b_speed.json`).
 - First-token: no-warmup 15.22 s → warmup 14.76 s (~3%, need ≥30%) (`logs/round9b_first_token_*.json`).
+
+## 2026-10-30 — Round 9B Part 5: in-app slow-state protection
+- On app start and after unload→load, background `check_model_state` when idle (128-token probe).
+- DEGRADED shows rail chip "Running slowly — Reload model"; click runs `restore_model` with progress. Suggests closing heavy apps when free RAM < 8 GB. Never kills user processes. Logs state lines into the chat transcript.

@@ -106,8 +106,20 @@ def _load_prod(model: str = PROD_MODEL) -> dict[str, Any]:
     }
 
 
-def restore_model(*, retries: int = 1) -> dict[str, Any]:
+def restore_model(
+    *,
+    retries: int = 1,
+    on_progress: Optional[Any] = None,
+) -> dict[str, Any]:
     from scripts.check_model_state import check_model_state
+
+    def _progress(msg: str) -> None:
+        print(f"[restore] {msg}", flush=True)
+        if on_progress is not None:
+            try:
+                on_progress(msg)
+            except Exception:
+                pass
 
     result: dict[str, Any] = {
         "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -123,32 +135,31 @@ def restore_model(*, retries: int = 1) -> dict[str, Any]:
     except Exception as exc:
         result["before"] = {"error": f"{type(exc).__name__}: {exc}"}
 
-    print("[restore] unload LLM…", flush=True)
+    _progress("Unloading LLM…")
     result["unload"] = _unload_llm(PROD_MODEL)
-    print("[restore] wait for free RAM…", flush=True)
+    _progress("Waiting for free RAM…")
     result["wait_ram"] = _wait_free_ram()
     if not result["wait_ram"].get("ok"):
-        print(result["wait_ram"].get("note"), flush=True)
+        note = result["wait_ram"].get("note") or ""
+        _progress(str(note))
+        print(note, flush=True)
 
     attempt = 0
     while attempt <= retries:
         attempt += 1
-        print(f"[restore] load {PROD_MODEL} (attempt {attempt})…", flush=True)
+        _progress(f"Loading {PROD_MODEL} (attempt {attempt})…")
         load = _load_prod(PROD_MODEL)
         result["load"] = load
-        print(f"[restore] load ok={load.get('ok')} {load.get('load_s')}s", flush=True)
+        _progress(f"Load finished ok={load.get('ok')} in {load.get('load_s')}s")
         time.sleep(2)
         state = check_model_state(write_log=True)
         result["after_attempts"].append(state)
-        print(
-            f"[restore] state={state.get('verdict')} {state.get('reason')}",
-            flush=True,
-        )
+        _progress(f"State={state.get('verdict')} {state.get('reason')}")
         if state.get("verdict") == "OK":
             result["final_verdict"] = "OK"
             break
         if attempt <= retries:
-            print("[restore] still DEGRADED — unload and retry once…", flush=True)
+            _progress("Still DEGRADED — unload and retry once…")
             _unload_llm(PROD_MODEL)
             result["wait_ram_retry"] = _wait_free_ram()
         else:

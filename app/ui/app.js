@@ -15,6 +15,9 @@
   const chipTaint = document.getElementById("chip-taint");
   const modelStatus = document.getElementById("model-status");
   const modelLamp = document.getElementById("model-lamp");
+  const slowChip = document.getElementById("slow-chip");
+  const restoreProgressRow = document.getElementById("restore-progress-row");
+  const restoreProgress = document.getElementById("restore-progress");
   const memMeter = document.getElementById("mem-meter");
   const memLabel = document.getElementById("mem-label");
   const tokSpeed = document.getElementById("tok-speed");
@@ -1394,6 +1397,26 @@
         if (s.model_state === "loading") modelLamp.classList.add("loading");
         else if (s.model_state === "down") modelLamp.classList.add("down");
       }
+      if (slowChip) {
+        const showSlow = !!s.slow_chip;
+        slowChip.hidden = !showSlow;
+        if (showSlow) {
+          slowChip.disabled = !!s.restore_busy;
+          slowChip.textContent = s.suggest_close_apps
+            ? "Running slowly — Reload model (close heavy apps first)"
+            : "Running slowly — Reload model";
+        }
+      }
+      if (restoreProgressRow && restoreProgress) {
+        const busy = !!s.restore_busy || !!(s.restore_progress && s.perf_checking);
+        const msg = s.restore_busy
+          ? s.restore_progress || "Reloading…"
+          : s.perf_checking
+            ? "Checking speed…"
+            : s.restore_progress || "";
+        restoreProgressRow.hidden = !(s.restore_busy || s.perf_checking || (s.restore_progress && s.perf_verdict === "DEGRADED"));
+        restoreProgress.textContent = msg || "—";
+      }
       if (memLabel) memLabel.textContent = s.memory_label || "—";
       if (memMeter) {
         memMeter.style.width = (s.memory_pct || 0) + "%";
@@ -1540,6 +1563,27 @@
       if (bridge && bridge.open_external) bridge.open_external(href);
     }
   });
+
+  if (slowChip) {
+    slowChip.addEventListener("click", async function () {
+      const a = api();
+      if (!a || !a.restore_model) {
+        showSystemNote("Reload model is not available yet");
+        return;
+      }
+      slowChip.disabled = true;
+      try {
+        const r = await a.restore_model();
+        if (r && r.ok === false && r.error) {
+          showSystemNote(String(r.error));
+          slowChip.disabled = false;
+        }
+      } catch (e) {
+        showSystemNote("Reload model failed to start");
+        slowChip.disabled = false;
+      }
+    });
+  }
 
   async function boot() {
     showEmptyState();

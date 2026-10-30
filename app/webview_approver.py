@@ -189,6 +189,15 @@ class AppBridge:
         self._stream_chars: int = 0
         self._web_pages_read: int = 0
         self._next_cloud: bool = False
+        # Round 9B Part 5: slow-state chip + restore.
+        self._perf_verdict: str = "UNKNOWN"
+        self._perf_reason: str = ""
+        self._perf_tok_s: Optional[float] = None
+        self._perf_free_ram_gb: Optional[float] = None
+        self._perf_checking: bool = False
+        self._restore_busy: bool = False
+        self._restore_progress: str = ""
+        self._perf_check_gen: int = 0
 
     def is_cancelled(self) -> bool:
         return self._cancel.is_set()
@@ -223,6 +232,7 @@ class AppBridge:
         threading.Thread(target=_loop, daemon=True).start()
         self.push_status()
         self.start_model_warmup()
+        self.schedule_perf_check(reason="app_start")
 
     def stop_status_loop(self) -> None:
         self._status_stop.set()
@@ -236,6 +246,166 @@ class AppBridge:
             # Model came back after being absent — prompt cache is cold again.
             self._warmup_started = False
             self.start_model_warmup()
+            self.schedule_perf_check(reason="model_reload")
+
+    def schedule_perf_check(self, *, reason: str = "") -> None:
+        """Queue a background tok/s check (probe runs only when idle)."""
+        self._perf_check_gen += 1
+        gen = self._perf_check_gen
+        reason = reason or "scheduled"
+
+        def _run() -> None:
+            # Wait until idle so the 128-token probe does not steal a turn.
+            for _ in range(6000):
+                if gen != self._perf_check_gen or self._status_stop.is_set():
+                    return
+                if (
+                    not self._busy
+                    and not self._turn_lock.locked()
+                    and not self._restore_busy
+                    and not self._cache_warming
+                    and self._model_ready.is_set()
+                ):
+                    break
+                time.sleep(0.1)
+            if gen != self._perf_check_gen or self._status_stop.is_set():
+                return
+            if self._busy or self._turn_lock.locked() or self._restore_busy:
+                return
+            self._perf_checking = True
+            try:
+                self.push_status()
+            except Exception:
+                pass
+            try:
+                from scripts.check_model_state import check_model_state
+
+                state = check_model_state(write_log=True)
+            except Exception as exc:
+                state = {
+                    "verdict": "ERROR",
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
+            if gen != self._perf_check_gen:
+                return
+            self._perf_checking = False
+            self._perf_verdict = str(state.get("verdict") or "UNKNOWN")
+            self._perf_reason = str(state.get("reason") or "")
+            probe = state.get("probe") if isinstance(state, dict) else None
+            if isinstance(probe, dict) and probe.get("tok_s") is not None:
+                try:
+                    self._perf_tok_s = float(probe.get("tok_s"))
+                    self._last_tok_s = float(probe.get("tok_s"))
+                except (TypeError, ValueError):
+                    pass
+            if state.get("free_ram_gb") is not None:
+                try:
+                    self._perf_free_ram_gb = float(state.get("free_ram_gb"))
+                except (TypeError, ValueError):
+                    pass
+            self._log_perf_state(reason=reason, state=state)
+            try:
+                self.push_status()
+            except Exception:
+                pass
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _log_perf_state(self, *, reason: str, state: dict[str, Any]) -> None:
+        """Append a short machine note to the open chat transcript when possible."""
+        doc = self._chat_doc
+        if doc is None:
+            return
+        try:
+            from app.chats import append_message
+
+            verdict = state.get("verdict")
+            reason_s = state.get("reason") or ""
+            free = state.get("free_ram_gb")
+            line = f"[model_state:{reason}] {verdict}: {reason_s}"
+            if free is not None:
+                line += f" (free_ram_gb={free})"
+            if verdict == "DEGRADED" and free is not None and float(free) < 8.0:
+                line += (
+                    " — free RAM under 8 GB; close heavy apps, then Reload model."
+                )
+            append_message(doc, "system", line)
+        except Exception as exc:
+            logger.info("perf state transcript log failed: %s", exc)
+
+    def start_restore_model(self) -> dict[str, Any]:
+        """UI: reload production LLM via restore_model (never kills user apps)."""
+        if self._restore_busy:
+            return {"ok": False, "error": "restore already running"}
+        if self._busy or self._turn_lock.locked():
+            return {"ok": False, "error": "finish the current turn first"}
+        self._restore_busy = True
+        self._restore_progress = "Starting…"
+        self.push_status()
+
+        def _run() -> None:
+            try:
+                from scripts.restore_model import restore_model
+
+                def _on_progress(msg: str) -> None:
+                    self._restore_progress = str(msg or "")[:160]
+                    try:
+                        self.push_status()
+                    except Exception:
+                        pass
+
+                result = restore_model(retries=1, on_progress=_on_progress)
+                verdict = result.get("final_verdict")
+                self._perf_verdict = str(verdict or self._perf_verdict)
+                after = None
+                attempts = result.get("after_attempts") or []
+                if attempts:
+                    after = attempts[-1]
+                if isinstance(after, dict):
+                    self._perf_reason = str(after.get("reason") or "")
+                    if after.get("free_ram_gb") is not None:
+                        try:
+                            self._perf_free_ram_gb = float(after.get("free_ram_gb"))
+                        except (TypeError, ValueError):
+                            pass
+                    probe = after.get("probe") or {}
+                    if isinstance(probe, dict) and probe.get("tok_s") is not None:
+                        try:
+                            self._perf_tok_s = float(probe.get("tok_s"))
+                            self._last_tok_s = float(probe.get("tok_s"))
+                        except (TypeError, ValueError):
+                            pass
+                if verdict == "OK":
+                    self._restore_progress = "Reload finished — model OK"
+                else:
+                    stop = result.get("stop") or "Still slow after reload"
+                    free = self._perf_free_ram_gb
+                    if free is not None and float(free) < 8.0:
+                        stop += " Close heavy apps (free RAM under 8 GB)."
+                    self._restore_progress = stop[:200]
+                self._log_perf_state(
+                    reason="restore",
+                    state={
+                        "verdict": verdict,
+                        "reason": self._perf_reason or self._restore_progress,
+                        "free_ram_gb": self._perf_free_ram_gb,
+                    },
+                )
+                # Warm again after restore.
+                self._warmup_started = False
+                self.start_model_warmup()
+            except Exception as exc:
+                self._restore_progress = f"Reload failed: {type(exc).__name__}: {exc}"
+                logger.warning("restore_model failed: %s", exc)
+            finally:
+                self._restore_busy = False
+                try:
+                    self.push_status()
+                except Exception:
+                    pass
+
+        threading.Thread(target=_run, daemon=True).start()
+        return {"ok": True, "started": True}
 
     def _health_llms(self) -> list[dict[str, Any]]:
         from config import settings
@@ -439,6 +609,21 @@ class AppBridge:
                 "selfcheck_prompt": selfcheck_prompt,
                 "tok_s": self._last_tok_s,
                 "cloud": self._cloud_status_payload(),
+                "perf_verdict": self._perf_verdict,
+                "perf_reason": self._perf_reason,
+                "perf_tok_s": self._perf_tok_s,
+                "perf_free_ram_gb": self._perf_free_ram_gb,
+                "perf_checking": self._perf_checking,
+                "restore_busy": self._restore_busy,
+                "restore_progress": self._restore_progress,
+                "slow_chip": (
+                    self._perf_verdict == "DEGRADED" and not self._restore_busy
+                ),
+                "suggest_close_apps": (
+                    self._perf_verdict == "DEGRADED"
+                    and self._perf_free_ram_gb is not None
+                    and float(self._perf_free_ram_gb) < 8.0
+                ),
             },
         )
 
@@ -1622,3 +1807,8 @@ class _JsApi:
         if not self._require_index():
             return {"ok": False, "on": False}
         return self._bridge.set_cloud_experimental(on)
+
+    def restore_model(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
+        return self._bridge.start_restore_model()
