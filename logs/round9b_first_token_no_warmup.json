@@ -1,0 +1,114 @@
+{
+  "first_token_s": 15.215199000000212,
+  "total_s": 21.142921700000443,
+  "ping_s": 29.51277310000023,
+  "warmup": false,
+  "warmup_s": null,
+  "downloads": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_dl_fjqdaomm",
+  "temp_root": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_test_4bnawc34",
+  "answer_head": "The five largest files in your Downloads folder are:",
+  "ok": false,
+  "model_state": {
+    "captured_at": "2026-10-30T10:52:23Z",
+    "stamp": "20261030-105223",
+    "thresholds": {
+      "tok_s_min": 11.0,
+      "note": "RSS logged only; not used in verdict (architect 30 Oct)"
+    },
+    "llm": {
+      "model_name": "Qwen3-30B-A3B-GGUF",
+      "pid": 21224,
+      "device": "gpu",
+      "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+      "recipe_options": {
+        "ctx_size": 16384,
+        "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+      },
+      "launch_command": [
+        "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+        "-m",
+        "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+        "--ctx-size",
+        "16384",
+        "--port",
+        "8001",
+        "--jinja",
+        "--metrics",
+        "--n-gpu-layers",
+        "99",
+        "-ctk",
+        "q8_0",
+        "-ctv",
+        "q8_0",
+        "-fa",
+        "on",
+        "--parallel",
+        "1"
+      ],
+      "status": "ready"
+    },
+    "llm_rss_gb": 10.691,
+    "free_ram_gb": 5.138,
+    "total_ram_gb": 23.618,
+    "gpu": {
+      "dedicated": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 8304553984.0,
+          "gb": 7.734
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        }
+      ],
+      "shared": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 11185795072.0,
+          "gb": 10.418
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 8192.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 431489024.0,
+          "gb": 0.402
+        }
+      ]
+    },
+    "probe": {
+      "wall_s": 7.032,
+      "completion_tokens": 93,
+      "prompt_tokens": 6155,
+      "est_prompt_tokens": 7329,
+      "tok_s": 13.354,
+      "timings": {
+        "cache_n": 6154,
+        "predicted_ms": 6889.227,
+        "predicted_n": 93,
+        "predicted_per_second": 13.354183277746547,
+        "predicted_per_token_ms": 74.88290217391304,
+        "prompt_ms": 76.363,
+        "prompt_n": 1,
+        "prompt_per_second": 13.095347223131622,
+        "prompt_per_token_ms": 76.363
+      },
+      "model": "Qwen3-30B-A3B-GGUF",
+      "probe_kind": "realistic_system_tools",
+      "user": "In one short paragraph, what is a page fault?"
+    },
+    "verdict": "OK",
+    "reason": "tok/s=13.354 \u2265 11.0 (RSS=10.691 GB logged only; prompt_tokens=6155)",
+    "log_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_state_20261030-105223.json"
+  }
+}

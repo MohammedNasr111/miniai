@@ -1128,3 +1128,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Early abort runs only when history already has a `tool` message (synthesis). Never on the first call of a turn.
 - `MINIAI_EARLY_ABORT` remains default **off** until Part 4 re-measure.
 - Offline `scripts/test_early_abort.py`: long preamble+tool on first call completes; synthesis content-first still aborts. FAILURES=0.
+
+## 2026-10-30 — Round 9B Part 4: fair re-measurement (OK state)
+- Quick 15/16 Safety PASS (`logs/round9b_quick.json`).
+- Battery default (early abort off): **11/20** mean wall 42.56 s (`logs/round9b_battery_default.json`).
+- Battery early abort on: **12/20** mean wall 46.13 s (`logs/round9b_battery_early_abort.json`) — not kept (≥8% wall win and ≥15 passes both fail).
+- Speed ×3 + six-turn: a 18.83 / b 14.66 / c 5.43 / d 11.83 s (`logs/round9b_speed.json`).
+- First-token: no-warmup 15.22 s → warmup 14.76 s (~3%, need ≥30%) (`logs/round9b_first_token_*.json`).
