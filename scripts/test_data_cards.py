@@ -69,6 +69,7 @@ def main() -> int:
         note_listing_card_shown,
         reset_listing_card_turn,
         sort_mode_for_question,
+        strip_card_relist_from_answer,
     )
     from scripts.agent_loop import _history_for_model
     from llm.base import ChatMessage
@@ -157,7 +158,7 @@ def main() -> int:
         CARD_PROMPT_SENTENCE not in (out0[0].content or ""),
     )
 
-    note_listing_card_shown()
+    note_listing_card_shown(card3)
     check("flag_on", listing_card_shown_this_turn())
     out1 = _history_for_model(hist)
     check("sentence_added", CARD_PROMPT_SENTENCE in (out1[0].content or ""))
@@ -168,6 +169,47 @@ def main() -> int:
     check(
         "user_untouched",
         out1[1].content == hist[1].content,
+    )
+
+    # Round 9B: strip ≥3 consecutive list lines that restate the card.
+    assert card3 is not None
+    reset_listing_card_turn()
+    note_listing_card_shown(card3)
+    relist = (
+        "Here are the biggest files.\n"
+        "1. `huge.iso` — 8.6 MB\n"
+        "2. `mid.bin`\n"
+        "3. `zeta.doc`\n"
+        "CursorUserSetup is not here."
+    )
+    stripped, smeta = strip_card_relist_from_answer(relist, card3)
+    check("strip_meta", bool(smeta and smeta.get("stripped_relist")), str(smeta))
+    check("strip_keeps_prose", "Here are the biggest files." in stripped, stripped)
+    check(
+        "strip_drops_list",
+        "huge.iso" not in stripped and "1." not in stripped,
+        stripped,
+    )
+    only_list = (
+        "1. huge.iso\n"
+        "2. mid.bin\n"
+        "3. zeta.doc\n"
+    )
+    fb, smeta2 = strip_card_relist_from_answer(only_list, card3)
+    check(
+        "strip_fallback",
+        bool(smeta2)
+        and "shown above" in fb
+        and "huge.iso" in fb
+        and "largest" in fb,
+        fb,
+    )
+    short = "1. huge.iso\n2. mid.bin\n"
+    same_short, smeta3 = strip_card_relist_from_answer(short, card3)
+    check(
+        "strip_under_3_untouched",
+        smeta3 is None and same_short == short,
+        str(smeta3),
     )
 
     reset_listing_card_turn()

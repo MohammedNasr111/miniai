@@ -230,9 +230,46 @@ def listing_used_this_turn(transcript: Any) -> bool:
     return bool(last_list_directory_entries(transcript))
 
 
+def normalize_listing_name(name: str) -> str:
+    """Case-insensitive name match: strip ticks/bold/quotes, sizes, collapse space."""
+    s = str(name or "").strip()
+    # Prefer the first backtick-wrapped token, then any trailing size text.
+    m = re.match(r"^`([^`]+)`\s*(.*)$", s)
+    if m:
+        s = f"{m.group(1)} {m.group(2)}".strip()
+    for _ in range(4):
+        prev = s
+        s = s.strip().strip("`\"'")
+        s = re.sub(r"^\*\*(.+?)\*\*$", r"\1", s).strip()
+        if s == prev:
+            break
+    s = s.replace("`", "")
+    s = re.sub(r"\s+", " ", s).strip()
+    # Trailing size: "name (196 MB)", "name — 196 MB", "name 196 MB"
+    s = re.sub(
+        r"\s*[\(\[\{]\s*\d+(\.\d+)?\s*(B|KB|MB|GB|TB)\s*[\)\]\}]\s*$",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    ).strip()
+    s = re.sub(
+        r"\s*[—\-–]\s*\d+(\.\d+)?\s*(B|KB|MB|GB|TB)\s*$",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    ).strip()
+    s = re.sub(
+        r"\s+\d+(\.\d+)?\s*(B|KB|MB|GB|TB)\s*$",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    ).strip()
+    return s.lower()
+
+
 def names_in_listing(entries: list[dict[str, Any]]) -> set[str]:
     return {
-        str(e.get("name") or "").lower()
+        normalize_listing_name(str(e.get("name") or ""))
         for e in entries
         if e.get("name")
     }
@@ -251,15 +288,41 @@ def names_user_asked_to_create(question: str) -> set[str]:
     return names
 
 
+_LIST_LINE_NAME = re.compile(
+    r"^\s*(?:\d+[\.\)]\s*|[-*•]\s*)(.+?)\s*$"
+)
+
+
+def _basename_token(raw: str) -> str:
+    base = raw.replace("\\", "/").split("/")[-1].strip()
+    return normalize_listing_name(base)
+
+
 def names_claimed_in_answer(answer: str) -> set[str]:
     """All file-like names mentioned in the answer (legacy / biggest-files)."""
     names: set[str] = set()
     for m in _NAME_IN_BACKTICKS.finditer(answer or ""):
-        base = m.group(1).replace("\\", "/").split("/")[-1].strip()
+        base = _basename_token(m.group(1))
         if base:
-            names.add(base.lower())
+            names.add(base)
     for m in _NAME_AS_PATH.finditer(answer or ""):
-        names.add(m.group(1).lower())
+        base = normalize_listing_name(m.group(1))
+        if base:
+            names.add(base)
+    # Numbered/bulleted lines: take the line body even with spaces in names.
+    for line in (answer or "").splitlines():
+        m = _LIST_LINE_NAME.match(line)
+        if not m:
+            continue
+        body = m.group(1).strip()
+        # Prefer backtick name on the line; else whole body after normalize.
+        bt = _NAME_IN_BACKTICKS.search(body)
+        if bt:
+            base = _basename_token(bt.group(1))
+        else:
+            base = normalize_listing_name(body)
+        if base:
+            names.add(base)
     return names
 
 
@@ -275,11 +338,13 @@ _FOLDER_TALK = re.compile(
 def _names_from_text_span(span: str) -> set[str]:
     names: set[str] = set()
     for m in _NAME_IN_BACKTICKS.finditer(span or ""):
-        base = m.group(1).replace("\\", "/").split("/")[-1].strip()
+        base = _basename_token(m.group(1))
         if base:
-            names.add(base.lower())
+            names.add(base)
     for m in _NAME_AS_PATH.finditer(span or ""):
-        names.add(m.group(1).lower())
+        base = normalize_listing_name(m.group(1))
+        if base:
+            names.add(base)
     return names
 
 
@@ -318,11 +383,12 @@ def names_claimed_in_listed_folder(
         raw = next((g for g in m.groups() if g), None)
         if not raw:
             continue
-        base = raw.replace("\\", "/").split("/")[-1].strip()
+        base = _basename_token(raw)
         if base:
-            claimed.add(base.lower())
+            claimed.add(base)
 
-    return {n for n in claimed if n not in create}
+    create_n = {normalize_listing_name(x) for x in create}
+    return {n for n in claimed if n not in create_n}
 
 
 def format_top_listing(files: list[dict[str, Any]], *, n: int = 10) -> str:
@@ -356,15 +422,20 @@ def _strip_unknown_names(
     text = answer or ""
     only_l = {x.lower() for x in only} if only is not None else None
 
+    known_n = {normalize_listing_name(x) for x in known}
+    only_n = (
+        {normalize_listing_name(x) for x in only_l} if only_l is not None else None
+    )
+
     def _bt(m: re.Match[str]) -> str:
         raw = m.group(1)
         base = raw.replace("\\", "/").split("/")[-1].strip()
         if not base:
             return m.group(0)
-        low = base.lower()
-        if low in known:
+        low = normalize_listing_name(base)
+        if low in known_n:
             return m.group(0)
-        if only_l is not None and low not in only_l:
+        if only_n is not None and low not in only_n:
             return m.group(0)
         # Only strip when it looks like a file/folder name claim
         # (has extension, or no spaces / short token).
@@ -377,10 +448,10 @@ def _strip_unknown_names(
 
     def _ext(m: re.Match[str]) -> str:
         name = m.group(1)
-        low = name.lower()
-        if low in known:
+        low = normalize_listing_name(name)
+        if low in known_n:
             return m.group(0)
-        if only_l is not None and low not in only_l:
+        if only_n is not None and low not in only_n:
             return m.group(0)
         removed.append(name)
         return ""
@@ -422,16 +493,21 @@ def maybe_correct_listing_answer(
     create_names = names_user_asked_to_create(question)
     n = int(top_n) if top_n is not None else requested_listing_n(question)
 
+    create_norm = {normalize_listing_name(x) for x in create_names}
+
     # Special case: biggest/largest → prefer size-sorted rewrite when needed.
     if is_biggest_files_question(question):
         files = last_size_sorted_listing(transcript)
         if files:
             expected = {
-                str(e.get("name") or "").lower()
+                normalize_listing_name(str(e.get("name") or ""))
                 for e in files[:n]
                 if e.get("name")
             }
-            claimed = names_claimed_in_answer(answer) - create_names
+            claimed = names_claimed_in_answer(answer) - create_norm
+            # Card top-N match after normalisation → never "Corrected".
+            if claimed and expected and expected <= claimed:
+                return answer, None
             if not claimed:
                 fixed = format_top_listing(files, n=n)
                 return fixed, {
@@ -439,7 +515,8 @@ def maybe_correct_listing_answer(
                     "reason": "missing_names",
                     "top_n": n,
                 }
-            invented = {c for c in claimed if c not in names_in_listing(files)}
+            known_files = names_in_listing(files)
+            invented = {c for c in claimed if c not in known_files}
             missing_top = expected - claimed
             if invented or len(missing_top) >= max(3, n // 2):
                 fixed = format_top_listing(files, n=n)

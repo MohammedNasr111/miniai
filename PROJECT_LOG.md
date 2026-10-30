@@ -1117,3 +1117,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `scripts/thermal_sustained.py`: 12 min continuous realistic probe, 10 min idle, 3 recovery probes; `powercfg /getactivescheme` (Balanced).
 - Result `logs/round9b_thermal.json`: first 12.729 → last 12.725 tok/s (drop 0.0%); recovery 13.319 / 13.191 / 13.228. **Not thermal** by the ≥25% drop rule. Slowness has another cause.
 - Review dump: `logs/review_20261030-1805_round9b_part1b.log`.
+
+## 2026-10-30 — Round 9B Part 2: data card persist + listing guard
+- Final answer keeps `data_card` on steps; `append_message` stores steps/total; chat reload passes steps into `showAnswer`.
+- `normalize_listing_name` + card top-N match → no "Corrected" on the 29/30 Oct three-file case (with/without backticks).
+- `strip_card_relist_from_answer`: ≥3 consecutive list lines whose names are on the card are removed; fallback sentence from card when nothing remains.
+- Offline: `scripts/test_listing_honesty.py` FAILURES=0; `scripts/test_data_cards.py` PASS.

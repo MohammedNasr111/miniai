@@ -86,6 +86,9 @@ def append_message(
     role: str,
     text: str,
     sources: Optional[list[dict[str, str]]] = None,
+    *,
+    steps: Optional[list[dict[str, Any]]] = None,
+    total: Optional[str] = None,
 ) -> None:
     entry: dict[str, Any] = {
         "role": role,
@@ -94,6 +97,11 @@ def append_message(
     }
     if sources:
         entry["sources"] = sources
+    # Round 9B: persist trace steps (incl. data cards) for chat reload.
+    if steps:
+        entry["steps"] = steps
+    if total:
+        entry["total"] = total
     doc["messages"].append(entry)
     doc["updated"] = entry["ts"]
     if role == "user" and (doc.get("title") in (None, "", "New chat")):

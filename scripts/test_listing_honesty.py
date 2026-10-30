@@ -33,6 +33,7 @@ def main() -> int:
         is_biggest_files_question,
         maybe_correct_biggest_files_answer,
         maybe_correct_listing_answer,
+        normalize_listing_name,
         requested_listing_n,
     )
     from agent.research_pipeline import is_compare_question
@@ -288,6 +289,98 @@ def main() -> int:
     )
     numbered10 = [ln for ln in fixed10.splitlines() if re.match(r"^\d+\.", ln.strip())]
     check("n_top10_rows", len(numbered10) == 10, f"n={len(numbered10)} meta={meta10}")
+
+    # Round 9B: 29/30 Oct case — right three names must NOT trigger Corrected.
+    oct_listing = [
+        {
+            "name": "CursorUserSetup-x64-3.19.13.exe",
+            "type": "file",
+            "size_bytes": 205_520_896,
+            "size": "196 MB",
+        },
+        {
+            "name": "sci exama.pdf",
+            "type": "file",
+            "size_bytes": 50_000_000,
+            "size": "47.7 MB",
+        },
+        {
+            "name": "DiscordSetup.exe",
+            "type": "file",
+            "size_bytes": 40_000_000,
+            "size": "38.1 MB",
+        },
+        {
+            "name": "other.txt",
+            "type": "file",
+            "size_bytes": 100,
+            "size": "100 B",
+        },
+    ]
+    td_oct = Path(tempfile.mkdtemp(prefix="miniai_list_oct_"))
+    tx_oct = td_oct / "oct.jsonl"
+    tx_oct.write_text(
+        json.dumps({"type": "user_turn", "user_prompt": "3 biggest"})
+        + "\n"
+        + json.dumps(
+            {
+                "type": "tool_call",
+                "name": "list_directory",
+                "args": {"path": r"C:\Users\me\Downloads", "sort_by": "size"},
+                "result": json.dumps(oct_listing),
+                "outcome": "ok",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    q_oct = "What are the 3 biggest files in my Downloads folder?"
+    with_bt = (
+        "1. `CursorUserSetup-x64-3.19.13.exe` (196 MB)\n"
+        "2. `sci exama.pdf`\n"
+        "3. `DiscordSetup.exe`\n"
+        "Those are the three largest."
+    )
+    same_bt, meta_bt = maybe_correct_listing_answer(
+        q_oct, with_bt, transcript=_FakeTx(tx_oct)
+    )
+    check(
+        "oct_bt_no_correct",
+        meta_bt is None and same_bt == with_bt,
+        str(meta_bt),
+    )
+    without_bt = (
+        "1. CursorUserSetup-x64-3.19.13.exe (196 MB)\n"
+        "2. sci exama.pdf\n"
+        "3. DiscordSetup.exe\n"
+    )
+    same_plain, meta_plain = maybe_correct_listing_answer(
+        q_oct, without_bt, transcript=_FakeTx(tx_oct)
+    )
+    check(
+        "oct_plain_no_correct",
+        meta_plain is None and same_plain == without_bt,
+        str(meta_plain),
+    )
+    # Size stuffed inside backticks must still match after normalisation.
+    stuffed = (
+        "1. `CursorUserSetup-x64-3.19.13.exe (196 MB)`\n"
+        "2. `sci exama.pdf`\n"
+        "3. `DiscordSetup.exe`\n"
+    )
+    same_st, meta_st = maybe_correct_listing_answer(
+        q_oct, stuffed, transcript=_FakeTx(tx_oct)
+    )
+    check(
+        "oct_size_in_ticks_no_correct",
+        meta_st is None and same_st == stuffed,
+        str(meta_st),
+    )
+    check(
+        "normalize_strips_size",
+        normalize_listing_name("`Foo.bar` (196 MB)") == "foo.bar",
+        normalize_listing_name("`Foo.bar` (196 MB)"),
+    )
 
     # Explicit slug
     from tests.support import use_temp_data

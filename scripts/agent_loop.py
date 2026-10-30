@@ -1144,7 +1144,7 @@ def run_tool_rounds(
                     args=args_d if isinstance(args_d, dict) else {},
                 )
                 if card:
-                    note_listing_card_shown()
+                    note_listing_card_shown(card)
         history.extend(tool_messages)
 
         # Auto-test once per model round after successful ws_write/ws_edit
@@ -1397,6 +1397,11 @@ def run_tool_rounds(
         shown, cite_meta = append_pdf_citations(
             shown, turn_evidence, tools_used=tools_used
         )
+        from agent.data_cards import (
+            last_listing_card_this_turn,
+            listing_card_shown_this_turn,
+            strip_card_relist_from_answer,
+        )
         from agent.decline_honesty import apply_decline_wording
         from agent.listing_honesty import maybe_correct_listing_answer
         from agent.post_action_verify import verify_create_delete
@@ -1405,6 +1410,12 @@ def run_tool_rounds(
         shown, listing_meta = maybe_correct_listing_answer(
             q, shown, transcript=transcript
         )
+        # Round 9B: when a data card was shown, strip re-listed rows from answer.
+        strip_meta = None
+        if listing_card_shown_this_turn():
+            shown, strip_meta = strip_card_relist_from_answer(
+                shown, last_listing_card_this_turn()
+            )
         fs_verify = verify_create_delete(transcript=transcript)
         if check_meta is None:
             check_meta = {}
@@ -1413,6 +1424,7 @@ def run_tool_rounds(
         check_meta["research_pipeline"] = research_meta
         check_meta["pdf_citations"] = cite_meta
         check_meta["listing_honesty"] = listing_meta
+        check_meta["card_relist_strip"] = strip_meta
         check_meta["decline_honesty"] = decline_meta
         check_meta["post_action_verify"] = fs_verify
         if listing_meta and listing_meta.get("corrected"):

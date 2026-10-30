@@ -949,7 +949,14 @@
         startRun(m.text || "");
         updateRunMeta(currentRun, { status: "" });
       } else if (m.role === "assistant" && currentRun) {
-        showAnswer(m.text || "", m.sources || [], null, null);
+        showAnswer(
+          m.text || "",
+          m.sources || [],
+          m.steps
+            ? { steps: m.steps || [], total: m.total || "" }
+            : null,
+          null
+        );
       }
     });
     if (!(doc.messages || []).length) showEmptyState();

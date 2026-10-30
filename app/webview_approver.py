@@ -957,7 +957,7 @@ class AppBridge:
                     )
                     if card:
                         target["data_card"] = card
-                        note_listing_card_shown()
+                        note_listing_card_shown(card)
                 except Exception:
                     pass
         if self._chat_doc is not None:
@@ -1215,8 +1215,9 @@ class AppBridge:
             check_meta_early = getattr(self._session, "last_check", None)
             self._append_guard_verify_steps(check_meta_early)
             total = format_duration(time.perf_counter() - self._turn_t0)
-            steps = [
-                {
+            steps = []
+            for s in self._turn_steps:
+                row = {
                     "tool": s.get("tool") or "",
                     "name": s["name"]
                     if not s.get("running")
@@ -1232,10 +1233,19 @@ class AppBridge:
                     "running": False,
                     "denied": bool(s.get("denied")),
                 }
-                for s in self._turn_steps
-            ]
+                # Keep data cards under the step on final answer (and in history).
+                if s.get("data_card"):
+                    row["data_card"] = s["data_card"]
+                steps.append(row)
             sources = _extract_sources(answer or "")
-            append_message(self._chat_doc, "assistant", answer or "", sources)
+            append_message(
+                self._chat_doc,
+                "assistant",
+                answer or "",
+                sources,
+                steps=steps,
+                total=total,
+            )
             check_meta = getattr(self._session, "last_check", None)
             check_payload = None
             if isinstance(check_meta, dict):
