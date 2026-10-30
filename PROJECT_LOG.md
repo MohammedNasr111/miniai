@@ -1139,3 +1139,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9B Part 5: in-app slow-state protection
 - On app start and after unload→load, background `check_model_state` when idle (128-token probe).
 - DEGRADED shows rail chip "Running slowly — Reload model"; click runs `restore_model` with progress. Suggests closing heavy apps when free RAM < 8 GB. Never kills user processes. Logs state lines into the chat transcript.
+
+## 2026-10-30 — Round 9B report + finish
+- `ROUND_9B_REPORT.md`: thermal not confirmed; fair speed ≈ Round 9 baseline; battery still <15/20 under OK tok/s; early abort not kept; cache-stable kept; warm-up criterion unmet.
+- Restarted app; Hi answered; model_state OK.
