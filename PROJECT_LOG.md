@@ -1162,3 +1162,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9C report + finish
 - `ROUND_9C_REPORT.md`: keep rule failed (mean 11.5); flag/cache fix shipped; list_folder honesty/card tension remains.
 - Model state OK; Hi answered.
+
+## 2026-10-30 — Round 9D Part 1: simplify data cards
+- Removed `CARD_PROMPT_SENTENCE` and all answer stripping/fallback. UI cards + flag reset + top-N build remain; listing honesty still checks names.
+- Tests updated: card still built/shown; answer text unchanged by card logic.

@@ -1134,14 +1134,10 @@ def run_tool_rounds(
             on_tool_end=on_tool_end,
             cancel_check=cancel_check,
         )
-        from agent.data_cards import (
-            CARD_PROMPT_SENTENCE,
-            build_data_card,
-            note_listing_card_shown,
-        )
+        from agent.data_cards import build_data_card, note_listing_card_shown
         from tools.filesystem.turn_context import get_turn_user_text
 
-        cards_this_round = 0
+        # Round 9D: build UI cards only — no prompt sentence, no answer strip.
         for tc, name, message in zip(resp.tool_calls, call_names, tool_messages):
             text = message.content or ""
             append_evidence(text)
@@ -1175,13 +1171,7 @@ def run_tool_rounds(
                 )
                 if card:
                     note_listing_card_shown(card)
-                    cards_this_round += 1
         history.extend(tool_messages)
-        # Append-only card guidance (never rewrite message 0 — cache-friendly).
-        if cards_this_round:
-            history.append(
-                ChatMessage(role="system", content=CARD_PROMPT_SENTENCE)
-            )
 
         # Auto-test once per model round after successful ws_write/ws_edit
         # (same run_tests CONFIRM; never bypass). Skip if model already
@@ -1433,42 +1423,15 @@ def run_tool_rounds(
         shown, cite_meta = append_pdf_citations(
             shown, turn_evidence, tools_used=tools_used
         )
-        from agent.data_cards import (
-            last_listing_card_this_turn,
-            listing_card_shown_this_turn,
-            strip_card_relist_from_answer,
-        )
         from agent.decline_honesty import apply_decline_wording
         from agent.listing_honesty import maybe_correct_listing_answer
         from agent.post_action_verify import verify_create_delete
 
         shown, decline_meta = apply_decline_wording(shown)
-        # Round 9C: honesty on the unstripped answer first, then strip re-lists.
+        # Round 9D: no card strip/fallback — listing honesty only.
         shown, listing_meta = maybe_correct_listing_answer(
             q, shown, transcript=transcript
         )
-        strip_meta = None
-        if listing_card_shown_this_turn():
-            from agent.data_cards import card_fallback_sentence, real_text_len
-
-            shown, strip_meta = strip_card_relist_from_answer(
-                shown, last_listing_card_this_turn()
-            )
-            if real_text_len(shown or "") < 20:
-                shown = card_fallback_sentence(last_listing_card_this_turn())
-                strip_meta = {
-                    **(strip_meta or {}),
-                    "used_card_fallback": True,
-                    "reason": "short_after_strip",
-                }
-                # Don't surface a false "Corrected" / Removed note from honesty
-                # when the card fallback replaced an emptied answer.
-                if listing_meta and listing_meta.get("corrected"):
-                    listing_meta = {
-                        **listing_meta,
-                        "corrected": False,
-                        "superseded_by_card_fallback": True,
-                    }
         fs_verify = verify_create_delete(transcript=transcript)
         if check_meta is None:
             check_meta = {}
@@ -1477,7 +1440,6 @@ def run_tool_rounds(
         check_meta["research_pipeline"] = research_meta
         check_meta["pdf_citations"] = cite_meta
         check_meta["listing_honesty"] = listing_meta
-        check_meta["card_relist_strip"] = strip_meta
         check_meta["decline_honesty"] = decline_meta
         check_meta["post_action_verify"] = fs_verify
         if listing_meta and listing_meta.get("corrected"):

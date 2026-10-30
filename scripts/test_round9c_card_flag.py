@@ -1,4 +1,7 @@
-"""Offline Round 9C: card flag lifetime, msg0 cache, strip/honesty, early-abort scope."""
+"""Offline: card flag reset + early-abort turn scope (Round 9C/9D).
+
+Round 9D: no card prompt sentence / strip — answer text left to honesty only.
+"""
 
 from __future__ import annotations
 
@@ -31,52 +34,6 @@ class _FakeTx:
 
     def llm_call(self, **fields: Any) -> None:
         self.events.append(dict(fields))
-
-
-class _CaptureProvider:
-    """Records chat payloads; returns scripted responses."""
-
-    def __init__(self) -> None:
-        self.timeout = 30
-        self.payloads: list[list[Any]] = []
-        self._n = 0
-
-    def chat(self, messages, tools=None, **kwargs: Any):
-        from llm.base import ChatResponse
-
-        self.payloads.append(list(messages or []))
-        self._n += 1
-        # First call of a turn: tool call list_directory; later: short answer.
-        if self._n == 1:
-            return ChatResponse(
-                content="",
-                finish_reason="tool_calls",
-                tool_calls=[
-                    {
-                        "id": "c1",
-                        "type": "function",
-                        "function": {
-                            "name": "list_directory",
-                            "arguments": json.dumps(
-                                {"path": r"C:\tmp", "sort_by": "name"}
-                            ),
-                        },
-                    }
-                ],
-                raw={},
-            )
-        return ChatResponse(
-            content=(
-                "1. `alpha.txt`\n2. `beta.txt`\n3. `gamma.txt`\n"
-                "Those are the files."
-            ),
-            finish_reason="stop",
-            tool_calls=None,
-            raw={},
-        )
-
-    def chat_stream(self, messages, tools=None, **kwargs: Any):
-        return self.chat(messages, tools=tools, **kwargs)
 
 
 class _FakeStreamProvider:
@@ -140,30 +97,18 @@ class _FakeStreamProvider:
 
 def main() -> int:
     from agent.data_cards import (
-        CARD_PROMPT_SENTENCE,
         build_data_card,
         listing_card_shown_this_turn,
         note_listing_card_shown,
         reset_listing_card_turn,
-        strip_card_relist_from_answer,
     )
     from agent.listing_honesty import maybe_correct_listing_answer
     from config import settings
     from llm.base import ChatMessage
-    from scripts.agent_loop import (
-        _call_model,
-        _history_for_model,
-        _messages_after_latest_user,
-    )
+    from scripts.agent_loop import _call_model, _history_for_model, _messages_after_latest_user
 
-    # --- (1) Two turns: turn1 lists; turn2 coding — no card sentence, msg0 identical ---
     reset_listing_card_turn()
     sys_msg = "You are MiniAI. Fixed system prompt."
-    hist1 = [
-        ChatMessage(role="system", content=sys_msg),
-        ChatMessage(role="user", content="List the files in C:\\tmp"),
-    ]
-    msg0_before = hist1[0].content
     listing = [
         {"name": "alpha.txt", "type": "file", "size_bytes": 10, "size": "10 B"},
         {"name": "beta.txt", "type": "file", "size_bytes": 20, "size": "20 B"},
@@ -175,50 +120,21 @@ def main() -> int:
         question="List the files in C:\\tmp",
         args={"path": r"C:\tmp"},
     )
+    check("card_built", card is not None)
+
+    hist1 = [
+        ChatMessage(role="system", content=sys_msg),
+        ChatMessage(role="user", content="List the files in C:\\tmp"),
+    ]
+    msg0_before = hist1[0].content
     note_listing_card_shown(card)
-    # Simulate append-only sentence after tool result (agent_loop behaviour).
-    hist1.append(
-        ChatMessage(
-            role="assistant",
-            content="",
-            tool_calls=[
-                {
-                    "id": "c1",
-                    "type": "function",
-                    "function": {
-                        "name": "list_directory",
-                        "arguments": '{"path":"C:\\\\tmp"}',
-                    },
-                }
-            ],
-        )
-    )
-    hist1.append(
-        ChatMessage(
-            role="tool",
-            content=json.dumps(listing),
-            tool_call_id="c1",
-            name="list_directory",
-        )
-    )
-    hist1.append(ChatMessage(role="system", content=CARD_PROMPT_SENTENCE))
     payload1 = _history_for_model(hist1)
     check(
         "turn1_msg0_byte_identical",
         payload1[0].content == msg0_before == sys_msg,
         repr(payload1[0].content)[:80],
     )
-    check(
-        "turn1_has_card_sentence_elsewhere",
-        any(
-            getattr(m, "role", None) == "system"
-            and CARD_PROMPT_SENTENCE in (getattr(m, "content", None) or "")
-            and m is not payload1[0]
-            for m in payload1
-        ),
-    )
 
-    # New turn: reset flag (as chat/agent do); coding question.
     reset_listing_card_turn()
     check("flag_false_at_turn2_start", not listing_card_shown_this_turn())
     hist2 = [
@@ -236,33 +152,13 @@ def main() -> int:
         payload2[0].content == msg0_before,
         repr(payload2[0].content)[:80],
     )
-    check(
-        "turn2_no_card_sentence",
-        CARD_PROMPT_SENTENCE not in "\n".join(
-            getattr(m, "content", None) or "" for m in payload2
-        ),
-    )
 
-    # --- (2) Eval harness: flag False at start of each task (_run_one path) ---
     note_listing_card_shown(card)
-    check("flag_on_before_eval_reset", listing_card_shown_this_turn())
-    from eval.run import _run_one  # import side-effect free for reset pattern
-
-    # Replicate the reset that _run_one performs (without running a live task).
     reset_listing_card_turn()
     check("eval_flag_false_after_task_reset", not listing_card_shown_this_turn())
-    # And chat.run_user_turn resets too.
-    note_listing_card_shown(card)
-    from scripts.chat import run_user_turn
 
-    # Inspect source path: call reset the same way run_user_turn does at entry.
-    with patch.object(settings, "THINKING_POLICY", "off"):
-        pass
-    reset_listing_card_turn()
-    check("chat_turn_reset_clears_flag", not listing_card_shown_this_turn())
-
-    # --- (3) List + card: final answer not empty; no Removed when names correct ---
-    td = Path(tempfile.mkdtemp(prefix="miniai_r9c_"))
+    # List + card: honesty leaves correct names; no strip path empties them.
+    td = Path(tempfile.mkdtemp(prefix="miniai_r9d_"))
     tx = td / "t.jsonl"
     tx.write_text(
         json.dumps({"type": "user_turn", "user_prompt": "List the files"})
@@ -297,35 +193,14 @@ def main() -> int:
         hmeta is None and after_honesty == good,
         str(hmeta),
     )
-    stripped, smeta = strip_card_relist_from_answer(after_honesty, card)
-    check("strip_ran_or_fallback", smeta is not None, str(smeta))
-    check(
-        "answer_not_empty",
-        bool((stripped or "").strip()) and len((stripped or "").strip()) >= 10,
-        repr(stripped),
-    )
+    check("answer_keeps_names", "alpha.txt" in after_honesty and "gamma.txt" in after_honesty)
     check(
         "no_removed_note",
-        "Removed" not in (stripped or "")
-        and "weren't in the folder listing" not in (stripped or ""),
-        stripped,
+        "Removed" not in after_honesty,
+        after_honesty,
     )
 
-    # Short leftover after strip → card fallback (simulate honesty Removed note).
-    messy = (
-        "1. `alpha.txt`\n2. `beta.txt`\n3. `gamma.txt`\n\n"
-        "⚠ Removed 1 name(s) that weren't in the folder listing."
-    )
-    reset_listing_card_turn()
-    note_listing_card_shown(card)
-    fb, sm2 = strip_card_relist_from_answer(messy, card)
-    check(
-        "fallback_no_removed",
-        "Removed" not in fb and "listing above" in fb.lower(),
-        fb,
-    )
-
-    # --- (4) Early-abort: prior-turn tool result must NOT enable abort ---
+    # Early-abort: prior-turn tool result must NOT enable abort
     long_text = "A" * 30
     events = [
         ("content", chunk)
@@ -354,7 +229,6 @@ def main() -> int:
         ChatMessage(role="assistant", content="Done listing."),
         ChatMessage(role="user", content="Why is the sky blue? Explain carefully."),
     ]
-    # Current-turn scope has no tool yet.
     cur = _messages_after_latest_user(prior_tool_hist)
     check(
         "scope_excludes_prior_tools",
@@ -405,10 +279,6 @@ def main() -> int:
         "Sky is blue" in (resp.content or ""),
         repr(resp.content),
     )
-
-    # Silence unused import warning intent
-    _ = _run_one
-    _ = run_user_turn
 
     if FAILURES:
         print(f"\n{FAILURES} failure(s)")

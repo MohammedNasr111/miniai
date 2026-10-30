@@ -1,4 +1,4 @@
-"""Offline: data cards sort/N match the question; prompt sentence only with card."""
+"""Offline: data cards build/sort/N; Round 9D — no prompt rewrite, no answer strip."""
 
 from __future__ import annotations
 
@@ -63,16 +63,14 @@ def _entries() -> list[dict]:
 
 def main() -> int:
     from agent.data_cards import (
-        CARD_PROMPT_SENTENCE,
         build_data_card,
         listing_card_shown_this_turn,
         note_listing_card_shown,
         reset_listing_card_turn,
         sort_mode_for_question,
-        strip_card_relist_from_answer,
     )
-    from scripts.agent_loop import _history_for_model
     from llm.base import ChatMessage
+    from scripts.agent_loop import _history_for_model
 
     raw = json.dumps(_entries())
 
@@ -145,81 +143,41 @@ def main() -> int:
         sc is not None and sc["show_all"] and sc["total"] == 6,
     )
 
+    # Round 9D: flag still tracks cards; history/answer text unchanged by card logic.
     reset_listing_card_turn()
     check("flag_off", not listing_card_shown_this_turn())
     hist = [
         ChatMessage(role="system", content="You are MiniAI."),
         ChatMessage(role="user", content="list files"),
     ]
+    msg0 = hist[0].content
     out0 = _history_for_model(hist)
-    check("no_sentence_without_card", out0 is hist or out0[0].content == hist[0].content)
-    check(
-        "no_card_sentence_absent",
-        CARD_PROMPT_SENTENCE not in (out0[0].content or ""),
-    )
+    check("history_passthrough", out0 is hist or out0[0].content == msg0)
 
     note_listing_card_shown(card3)
     check("flag_on", listing_card_shown_this_turn())
-    # Round 9C: never rewrite message 0 (cache-friendly).
     out1 = _history_for_model(hist)
-    check("msg0_unchanged_with_card", out1 is hist or out1[0].content == hist[0].content)
     check(
-        "no_sentence_in_msg0",
-        CARD_PROMPT_SENTENCE not in (out1[0].content or ""),
+        "msg0_unchanged_with_card",
+        out1[0].content == msg0,
+        repr(out1[0].content)[:60],
     )
+    # Answer text is not rewritten by card helpers (strip removed).
     check(
-        "original_system_untouched",
-        CARD_PROMPT_SENTENCE not in (hist[0].content or ""),
+        "no_strip_helper",
+        not hasattr(
+            __import__("agent.data_cards", fromlist=["strip_card_relist_from_answer"]),
+            "strip_card_relist_from_answer",
+        )
+        or "strip_card_relist_from_answer"
+        not in dir(__import__("agent.data_cards", fromlist=["*"])),
     )
-    check(
-        "user_untouched",
-        out1[1].content == hist[1].content,
-    )
-    check(
-        "new_prompt_wording",
-        "Continue the task normally" in CARD_PROMPT_SENTENCE
-        and "two sentences" not in CARD_PROMPT_SENTENCE,
-    )
+    import agent.data_cards as dc
 
-    # Round 9B: strip ≥3 consecutive list lines that restate the card.
-    assert card3 is not None
-    reset_listing_card_turn()
-    note_listing_card_shown(card3)
-    relist = (
-        "Here are the biggest files.\n"
-        "1. `huge.iso` — 8.6 MB\n"
-        "2. `mid.bin`\n"
-        "3. `zeta.doc`\n"
-        "CursorUserSetup is not here."
-    )
-    stripped, smeta = strip_card_relist_from_answer(relist, card3)
-    check("strip_meta", bool(smeta and smeta.get("stripped_relist")), str(smeta))
-    check("strip_keeps_prose", "Here are the biggest files." in stripped, stripped)
     check(
-        "strip_drops_list",
-        "huge.iso" not in stripped and "1." not in stripped,
-        stripped,
-    )
-    only_list = (
-        "1. huge.iso\n"
-        "2. mid.bin\n"
-        "3. zeta.doc\n"
-    )
-    fb, smeta2 = strip_card_relist_from_answer(only_list, card3)
-    check(
-        "strip_fallback",
-        bool(smeta2)
-        and "shown above" in fb
-        and "huge.iso" in fb
-        and "largest" in fb,
-        fb,
-    )
-    short = "1. huge.iso\n2. mid.bin\n"
-    same_short, smeta3 = strip_card_relist_from_answer(short, card3)
-    check(
-        "strip_under_3_untouched",
-        smeta3 is None and same_short == short,
-        str(smeta3),
+        "strip_removed",
+        not hasattr(dc, "strip_card_relist_from_answer")
+        and not hasattr(dc, "CARD_PROMPT_SENTENCE"),
     )
 
     reset_listing_card_turn()
