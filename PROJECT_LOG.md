@@ -1211,3 +1211,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-31 — Round 9E report + finish
 - `ROUND_9E_REPORT.md`: Part 2 keep **failed** (case e 24.9%, battery 13.5); Parts 1/3/4 shipped; think-first feel fix kept.
 - App restarted; model_state OK (12.241 tok/s); Hi → Hello!
+
+## 2026-10-31 — Round 9F Part 1: hide thinking-off draft (default off)
+- `MINIAI_THINK_FIRST` default **off**; `THINK_FIRST_MODE` off|on|gated.
+- When `want_second`, buffer thinking-off (no UI deltas); show Thinking…; discard final silently; stream thinking-on.
+- Offline `scripts/test_round9f_hide_draft.py` FAILURES=0.

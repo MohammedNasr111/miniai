@@ -720,12 +720,11 @@ def _call_model(
             getattr(m, "role", None) == "tool"
             for m in _messages_after_latest_user(history)
         )
-        # Round 9E: analytical / two_pass with no tool result yet → think first
-        # (skip the thinking-off draft the user would watch get erased).
+        # Think-first (MINIAI_THINK_FIRST=on): skip thinking-off when no tool
+        # result yet. Default is off (Round 9F); gated lands in Part 2.
+        mode = str(getattr(settings, "THINK_FIRST_MODE", "off") or "off")
         think_first = (
-            bool(getattr(settings, "THINK_FIRST", True))
-            and want_second
-            and not turn_has_tool_result
+            mode == "on" and want_second and not turn_has_tool_result
         )
         if think_first:
             _note_thinking()
@@ -759,25 +758,42 @@ def _call_model(
             and want_second
             and turn_has_tool_result
         )
+        # Round 9F Part 1: when a second pass is planned, never stream the
+        # thinking-off draft (buffer + Thinking… UI). Model flow matches 9D.
+        hide_draft = bool(want_second)
         timeout_off = first_pass_timeout_seconds(history, provider.timeout)
-        bucket, on_tok = _forward()
+        bucket: list[str] = []
+        if hide_draft:
+            _note_thinking()
+            on_tok = None  # no UI deltas for a draft that may be discarded
+
+            def _buf_token(piece: str) -> None:
+                if piece:
+                    bucket.append(piece)
+
+            ui_or_buf = _buf_token
+        else:
+            bucket, on_tok = _forward()
+            ui_or_buf = on_tok
         probe_before = snapshot_before_call()
         started = time.perf_counter()
         monitor: _EarlyAbortMonitor | None = None
-        combined_on_tok = on_tok
+        combined_on_tok = ui_or_buf
         on_tool_delta = None
         pass_cancel = cancel_check
         if early_on:
             monitor = _EarlyAbortMonitor(cancel_check)
-            ui_forward = on_tok
+            forward = ui_or_buf
 
             def combined_on_tok(piece: str) -> None:  # type: ignore[no-redef]
                 monitor.on_token(piece)
-                if ui_forward is not None:
-                    ui_forward(piece)
+                if forward is not None:
+                    forward(piece)
 
             on_tool_delta = monitor.on_tool_delta
             pass_cancel = monitor.cancel_check
+        elif hide_draft:
+            combined_on_tok = ui_or_buf
         try:
             response = _stream_or_chat(
                 provider,
@@ -787,14 +803,15 @@ def _call_model(
                 on_token=combined_on_tok,
                 on_tool_delta=on_tool_delta,
                 cancel_check=pass_cancel,
-                force_stream=bool(early_on),
+                force_stream=bool(early_on or hide_draft),
             )
         except StreamCancelled as exc:
             # User Stop → re-raise. Early-abort of a doomed draft → second pass.
             if monitor is None or not monitor.abort_requested:
                 raise
             elapsed = round(time.perf_counter() - started, 3)
-            if on_stream_clear is not None and bucket:
+            # hide_draft: nothing was shown; no clear needed.
+            if (not hide_draft) and on_stream_clear is not None and bucket:
                 on_stream_clear()
             partial = getattr(exc, "partial", None) or "".join(bucket)
             tokens_saved = _estimate_tokens_saved(partial)
@@ -843,7 +860,8 @@ def _call_model(
             return response
         elapsed = round(time.perf_counter() - started, 3)
         if response.tool_calls:
-            if on_stream_clear is not None and bucket:
+            # Draft was buffered only when hide_draft; nothing to clear.
+            if (not hide_draft) and on_stream_clear is not None and bucket:
                 on_stream_clear()
             _log_llm_call(
                 transcript,
@@ -856,6 +874,9 @@ def _call_model(
             )
             return response
         if not want_second:
+            # Buffered answer that will be kept: push to UI once.
+            if hide_draft and on_stream_delta is not None and bucket:
+                on_stream_delta("".join(bucket))
             _log_llm_call(
                 transcript,
                 response,
@@ -866,8 +887,9 @@ def _call_model(
                 probe_before=probe_before,
             )
             return response
-        # Final answer with thinking off: discard and retry with thinking on.
-        if on_stream_clear is not None and bucket:
+        # Final answer with thinking off: discard silently (never shown) and
+        # stream the thinking-on pass.
+        if (not hide_draft) and on_stream_clear is not None and bucket:
             on_stream_clear()
         _log_llm_call(
             transcript,

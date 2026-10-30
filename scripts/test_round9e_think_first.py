@@ -59,6 +59,7 @@ def test_think_first_on_skips_draft() -> None:
     with patch("scripts.agent_loop.settings") as st:
         st.THINKING_POLICY = "smart"
         st.THINK_FIRST = True
+        st.THINK_FIRST_MODE = "on"
         st.EARLY_ABORT = False
         st.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 120
         st.FEATURE_CODING_AUTO_TEST = False
@@ -80,6 +81,7 @@ def test_think_first_off_two_pass_discard() -> None:
     with patch("scripts.agent_loop.settings") as st:
         st.THINKING_POLICY = "smart"
         st.THINK_FIRST = False
+        st.THINK_FIRST_MODE = "off"
         st.EARLY_ABORT = False
         st.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 120
         st.FEATURE_CODING_AUTO_TEST = False
@@ -129,6 +131,7 @@ def test_synthesis_keeps_thinking_off_first() -> None:
     with patch("scripts.agent_loop.settings") as st:
         st.THINKING_POLICY = "smart"
         st.THINK_FIRST = True
+        st.THINK_FIRST_MODE = "on"
         st.EARLY_ABORT = False
         st.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS = 120
         st.FEATURE_CODING_AUTO_TEST = False

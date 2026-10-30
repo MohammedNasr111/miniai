@@ -40,10 +40,19 @@ THINKING_POLICY = (
 _EARLY_ABORT_RAW = os.environ.get("MINIAI_EARLY_ABORT", "off").strip().lower()
 EARLY_ABORT = _EARLY_ABORT_RAW not in ("0", "off", "false", "no")
 EARLY_ABORT_CONTENT_CHARS = 24
-# Round 9E Part 2: analytical / two_pass turns with no tool result yet go
-# straight to thinking-on (no visible discarded thinking-off draft).
-_THINK_FIRST_RAW = os.environ.get("MINIAI_THINK_FIRST", "on").strip().lower()
-THINK_FIRST = _THINK_FIRST_RAW not in ("0", "off", "false", "no")
+# Round 9F: think-first mode — off (default) | on | gated.
+# off = 9D model flow; hide thinking-off draft from UI when a second pass is planned.
+# on = always think-first when want_second and no tool result yet (9E; failed keep).
+# gated = think-first only when the question has no tool cues (Part 2).
+_THINK_FIRST_RAW = os.environ.get("MINIAI_THINK_FIRST", "off").strip().lower()
+if _THINK_FIRST_RAW in ("gated",):
+    THINK_FIRST_MODE = "gated"
+elif _THINK_FIRST_RAW in ("1", "on", "true", "yes"):
+    THINK_FIRST_MODE = "on"
+else:
+    THINK_FIRST_MODE = "off"
+# Back-compat bool: True only for unconditional think-first.
+THINK_FIRST = THINK_FIRST_MODE == "on"
 # Round 9 Part 4: only rewrite history when over 70% of context budget,
 # then compress to under 50% in one step (keeps prompt-cache prefix stable).
 _CACHE_STABLE_RAW = os.environ.get("MINIAI_CACHE_STABLE", "on").strip().lower()
