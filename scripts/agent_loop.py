@@ -680,6 +680,7 @@ def _call_model(
     on_stream_delta=None,
     on_stream_clear=None,
     cancel_check=None,
+    on_thinking_start=None,
 ):
     _tools = active_tool_schemas()
     compress_cross_turn_history(history, tools=_tools)
@@ -694,6 +695,13 @@ def _call_model(
             if on_stream_delta
             else None
         )
+
+    def _note_thinking() -> None:
+        if on_thinking_start is not None:
+            try:
+                on_thinking_start()
+            except Exception:
+                pass
 
     from agent.perf_probe import snapshot_before_call
 
@@ -712,6 +720,40 @@ def _call_model(
             getattr(m, "role", None) == "tool"
             for m in _messages_after_latest_user(history)
         )
+        # Round 9E: analytical / two_pass with no tool result yet → think first
+        # (skip the thinking-off draft the user would watch get erased).
+        think_first = (
+            bool(getattr(settings, "THINK_FIRST", True))
+            and want_second
+            and not turn_has_tool_result
+        )
+        if think_first:
+            _note_thinking()
+            timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
+            bucket, on_tok = _forward()
+            probe_before = snapshot_before_call()
+            started = time.perf_counter()
+            response = _stream_or_chat(
+                provider,
+                history,
+                enable_thinking=True,
+                timeout=timeout_on,
+                on_token=on_tok,
+                cancel_check=cancel_check,
+            )
+            elapsed = round(time.perf_counter() - started, 3)
+            if response.tool_calls and on_stream_clear is not None and bucket:
+                on_stream_clear()
+            _log_llm_call(
+                transcript,
+                response,
+                True,
+                timeout_on,
+                elapsed,
+                discarded=False,
+                probe_before=probe_before,
+            )
+            return response
         early_on = (
             bool(getattr(settings, "EARLY_ABORT", True))
             and want_second
@@ -773,6 +815,7 @@ def _call_model(
                 early_abort=True,
                 tokens_saved=tokens_saved,
             )
+            _note_thinking()
             timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
             bucket2, on_tok2 = _forward()
             probe_before2 = snapshot_before_call()
@@ -835,6 +878,7 @@ def _call_model(
             discarded=True,
             probe_before=probe_before,
         )
+        _note_thinking()
         timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
         bucket2, on_tok2 = _forward()
         probe_before2 = snapshot_before_call()
@@ -922,6 +966,7 @@ def run_tool_rounds(
     on_checking=None,
     on_stream_delta=None,
     on_stream_clear=None,
+    on_thinking_start=None,
     question: str | None = None,
 ):
     """Run tool rounds until the model answers or the round cap is hit.
@@ -1037,9 +1082,15 @@ def run_tool_rounds(
             on_stream_delta=_delta if on_stream_delta else None,
             on_stream_clear=_clear if on_stream_delta else None,
             cancel_check=cancel_check,
+            on_thinking_start=on_thinking_start,
         )
 
     def _model_think(prov, hist, tr=None):
+        if on_thinking_start is not None:
+            try:
+                on_thinking_start()
+            except Exception:
+                pass
         return _call_model_force_thinking(
             prov,
             hist,

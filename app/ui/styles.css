@@ -168,6 +168,7 @@ button,input,textarea{font:inherit;color:inherit}
 .src:hover{border-style:solid}
 .note{font-size:var(--s1);color:var(--muted);border-left:2px solid var(--amber);padding-left:10px}
 .caret{display:inline-block;width:7px;height:1.1em;background:var(--glacier);vertical-align:-2px;margin-left:2px;animation:blink 1s steps(1) infinite}
+.thinking-status{color:var(--muted);font-size:var(--s2);font-variant-numeric:tabular-nums}
 @keyframes blink{50%{opacity:0}}
 .sys-note{max-width:760px;margin:12px auto;padding:10px 14px;border-radius:8px;border:1px solid var(--line);color:var(--muted);font-size:var(--s2)}
 

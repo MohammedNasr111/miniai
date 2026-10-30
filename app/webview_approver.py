@@ -1342,6 +1342,9 @@ class AppBridge:
                 self._stream_chars = 0
                 self._call_js("on_stream_clear", {})
 
+            def _on_thinking_start() -> None:
+                self._call_js("on_thinking_start", {})
+
             self._stream_t0 = 0.0
             self._stream_chars = 0
             from tools.web.research_progress import set_research_progress
@@ -1399,6 +1402,7 @@ class AppBridge:
                     on_checking=_on_checking,
                     on_stream_delta=_on_stream_delta,
                     on_stream_clear=_on_stream_clear,
+                    on_thinking_start=_on_thinking_start,
                     cloud=bool(cloud),
                 )
             finally:

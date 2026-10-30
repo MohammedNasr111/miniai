@@ -138,6 +138,7 @@ def run_user_turn(
     on_checking=None,
     on_stream_delta=None,
     on_stream_clear=None,
+    on_thinking_start=None,
     *,
     cloud: bool = False,
 ) -> str:
@@ -149,6 +150,7 @@ def run_user_turn(
     returns TURN_TIMEOUT_MESSAGE so the session can continue.
 
     on_stream_delta / on_stream_clear forward final-answer streaming to the UI.
+    on_thinking_start fires when a thinking-on call begins (UI "Thinking… Ns").
 
     cloud=True: Gemini with restricted tools; no memories / folder paths /
     local-turn history. Falls back to local on quota/auth/5xx exhaustion.
@@ -291,6 +293,7 @@ def run_user_turn(
                         on_checking=on_checking,
                         on_stream_delta=_delta if on_stream_delta else None,
                         on_stream_clear=_clear if on_stream_delta else None,
+                        on_thinking_start=on_thinking_start,
                         question=user_text,
                     )
                 except Exception as exc:
@@ -475,6 +478,7 @@ def run_user_turn(
             on_checking=on_checking,
             on_stream_delta=_delta if on_stream_delta else None,
             on_stream_clear=_clear if on_stream_delta else None,
+            on_thinking_start=on_thinking_start,
             question=user_text,
         )
         answer = (_fallback_prefix or "") + (response.content or "")

@@ -1,0 +1,32 @@
+{
+  "off_walls": [
+    66.574,
+    61.178,
+    61.628
+  ],
+  "on_walls": [
+    49.879,
+    47.584,
+    44.69
+  ],
+  "mean_off": 63.127,
+  "mean_on": 47.384,
+  "improve_pct": 24.9,
+  "discarded_off": [
+    true,
+    true,
+    true
+  ],
+  "discarded_on": [
+    false,
+    false,
+    false
+  ],
+  "first_visible_on_mean": 30.854,
+  "logs": {
+    "off": "logs/round9e_case_e_off_r2.json",
+    "on": "logs/round9e_case_e_on_r2.json",
+    "off_r1": "logs/round9e_case_e_think_first_off.json",
+    "on_r1": "logs/round9e_case_e_think_first_on.json"
+  }
+}

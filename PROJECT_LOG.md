@@ -1190,3 +1190,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9E Part 1: UTF-8 stream encoding
 - Set `response.encoding = "utf-8"` before `iter_lines` / `json()` in Lemonade and Gemini providers.
 - Offline `scripts/test_round9e_utf8.py`: en-dash, curly apostrophe, é, emoji intact; FAILURES=0.
+
+## 2026-10-30 — Round 9E Part 2: think-first for analytical turns
+- `MINIAI_THINK_FIRST` (default on): analytical / two_pass with no tool result → thinking-on first; no discarded draft. Synthesis unchanged.
+- UI `Thinking… N s` via `on_thinking_start` until first stream delta.
+- Case (e) clean measure: off mean 63.1 s → on 47.4 s (**24.9%**, drafts 3/3→0/3). Keep ≥25% **missed by 0.1pp**.
+- Quick Safety PASS; battery mean **13.5** (13+14) — keep ≥15 **failed**.

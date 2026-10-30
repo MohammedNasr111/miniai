@@ -58,6 +58,8 @@
   let streamLastPaint = 0;
   let streamTimer = null;
   let streamCaret = null;
+  let thinkingTimer = null;
+  let thinkingT0 = 0;
   const STREAM_MIN_MS = 50;
   let paletteIndex = 0;
   let paletteItems = [];
@@ -571,7 +573,45 @@
     streamTimer = null;
   }
 
+  function stopThinking() {
+    if (thinkingTimer) {
+      clearInterval(thinkingTimer);
+      thinkingTimer = null;
+    }
+    thinkingT0 = 0;
+    if (currentRun) {
+      const th = currentRun.answer.querySelector(".thinking-status");
+      if (th) th.remove();
+    }
+  }
+
+  function paintThinking(elapsedS) {
+    const run = currentRun;
+    if (!run) return;
+    run.answer.hidden = false;
+    let el = run.answer.querySelector(".thinking-status");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "thinking-status";
+      run.answer.appendChild(el);
+    }
+    const n = Math.max(0, Math.floor(elapsedS));
+    el.textContent = "Thinking… " + n + " s";
+    maybeScrollBottom();
+  }
+
+  function onThinkingStart() {
+    stopThinking();
+    thinkingT0 = Date.now();
+    paintThinking(0);
+    thinkingTimer = setInterval(function () {
+      if (!thinkingT0) return;
+      paintThinking((Date.now() - thinkingT0) / 1000);
+    }, 1000);
+  }
+
   function onStreamDelta(text) {
+    stopThinking();
     streamPending = text || "";
     const now = Date.now();
     const elapsed = now - streamLastPaint;
@@ -584,6 +624,7 @@
   }
 
   function onStreamClear() {
+    stopThinking();
     clearStreamTimer();
     streamPending = "";
     streamLastPaint = 0;
@@ -591,6 +632,8 @@
     if (currentRun) {
       const raw = currentRun.answer.querySelector(".stream-raw");
       if (raw) raw.remove();
+      const md = currentRun.answer.querySelector(".stream-md");
+      if (md) md.remove();
     }
   }
 
@@ -605,6 +648,7 @@
     }
     const run = currentRun;
     if (!run) return;
+    stopThinking();
     clearStreamTimer();
     streamPending = "";
     streamCaret = null;
@@ -1500,6 +1544,9 @@
     },
     on_stream_clear: function () {
       onStreamClear();
+    },
+    on_thinking_start: function () {
+      onThinkingStart();
     },
     on_answer: function (payload) {
       setTurnControls(false);

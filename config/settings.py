@@ -40,6 +40,10 @@ THINKING_POLICY = (
 _EARLY_ABORT_RAW = os.environ.get("MINIAI_EARLY_ABORT", "off").strip().lower()
 EARLY_ABORT = _EARLY_ABORT_RAW not in ("0", "off", "false", "no")
 EARLY_ABORT_CONTENT_CHARS = 24
+# Round 9E Part 2: analytical / two_pass turns with no tool result yet go
+# straight to thinking-on (no visible discarded thinking-off draft).
+_THINK_FIRST_RAW = os.environ.get("MINIAI_THINK_FIRST", "on").strip().lower()
+THINK_FIRST = _THINK_FIRST_RAW not in ("0", "off", "false", "no")
 # Round 9 Part 4: only rewrite history when over 70% of context budget,
 # then compress to under 50% in one step (keeps prompt-cache prefix stable).
 _CACHE_STABLE_RAW = os.environ.get("MINIAI_CACHE_STABLE", "on").strip().lower()

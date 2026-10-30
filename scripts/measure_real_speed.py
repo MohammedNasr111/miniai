@@ -173,7 +173,18 @@ def _run_turn(session, prompt: str) -> dict[str, Any]:
     }
 
 
-def run_once(*, six_turn: bool = False) -> dict[str, Any]:
+def _run_case_e(session) -> dict[str, Any]:
+    row = _run_turn(
+        session,
+        "In about 150 words, explain how a CPU cache works.",
+    )
+    disc = [c for c in (row.get("calls") or []) if c.get("discarded")]
+    row["draft_discarded"] = bool(disc)
+    row["discarded_n"] = len(disc)
+    return row
+
+
+def run_once(*, six_turn: bool = False, only: str | None = None) -> dict[str, Any]:
     from tests.support import use_temp_data
 
     from llm.lemonade.provider import LemonadeProvider
@@ -188,6 +199,9 @@ def run_once(*, six_turn: bool = False) -> dict[str, Any]:
     session._r9_llm_n = 0  # type: ignore[attr-defined]
     cases: dict[str, Any] = {}
     try:
+        if only == "e":
+            cases["e"] = _run_case_e(session)
+            return {"fixture": str(downloads), "cases": cases, "only": only}
         cases["a"] = _run_turn(
             session,
             f"What are the 3 biggest files in {downloads}? Use list_directory.",
@@ -211,6 +225,11 @@ def run_once(*, six_turn: bool = False) -> dict[str, Any]:
             "Reply with only the codeword.",
         )
         cases["c"] = {"turn1": t1, "turn2": t2, "wall_s": round(t1["wall_s"] + t2["wall_s"], 3)}
+        # Round 9E case (e): analytical explain — think-first must not discard a draft.
+        end_session(session)
+        session = new_session(provider)
+        session._r9_llm_n = 0  # type: ignore[attr-defined]
+        cases["e"] = _run_case_e(session)
         if six_turn:
             end_session(session)
             session = new_session(provider)
@@ -256,6 +275,12 @@ def main() -> int:
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--six-turn", action="store_true")
     parser.add_argument(
+        "--only",
+        choices=["e"],
+        default=None,
+        help="Run only one case (Round 9E: e = CPU-cache explain)",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Run even if check_model_state reports DEGRADED",
@@ -269,11 +294,21 @@ def main() -> int:
     repeats = []
     for i in range(max(1, args.repeats)):
         print(f"\n=== measure_real_speed repeat {i+1}/{args.repeats} ===", flush=True)
-        row = run_once(six_turn=bool(args.six_turn))
+        row = run_once(six_turn=bool(args.six_turn), only=args.only)
         repeats.append(row)
         for key, val in (row.get("cases") or {}).items():
             if isinstance(val, dict) and "wall_s" in val:
-                print(f"  case {key}: wall_s={val.get('wall_s')} first={val.get('first_token_s')}", flush=True)
+                extra = ""
+                if key == "e":
+                    extra = (
+                        f" discarded={val.get('draft_discarded')}"
+                        f" first={val.get('first_token_s')}"
+                    )
+                print(
+                    f"  case {key}: wall_s={val.get('wall_s')} "
+                    f"first={val.get('first_token_s')}{extra}",
+                    flush=True,
+                )
 
     out = {
         "repeats": repeats,
