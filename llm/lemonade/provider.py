@@ -77,6 +77,8 @@ class LemonadeProvider(LLMProvider):
             timeout=timeout,
         )
         response.raise_for_status()
+        # Lemonade may omit charset; requests would otherwise treat text as ISO-8859-1.
+        response.encoding = "utf-8"
         data = response.json()
         choice = data["choices"][0]["message"]
         return ChatResponse(
@@ -120,6 +122,9 @@ class LemonadeProvider(LLMProvider):
             stream=True,
         ) as response:
             response.raise_for_status()
+            # Without charset, requests defaults to ISO-8859-1 and mojibakes UTF-8
+            # (e.g. en-dash → â€"). Force UTF-8 before iter_lines(decode_unicode=True).
+            response.encoding = "utf-8"
             for raw_line in response.iter_lines(decode_unicode=True):
                 if cancel_check is not None and cancel_check():
                     raise StreamCancelled("".join(content_parts))

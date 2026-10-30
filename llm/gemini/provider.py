@@ -391,6 +391,7 @@ class GeminiProvider(LLMProvider):
         meta = self._build_request_meta(payload, messages, tools)
         resp = self._post_with_retry(payload, stream=False, timeout=timeout)
         self._note_sent(meta)
+        resp.encoding = "utf-8"
         data = resp.json()
         choice = (data.get("choices") or [{}])[0]
         message = choice.get("message") or {}
@@ -422,6 +423,8 @@ class GeminiProvider(LLMProvider):
 
         resp = self._post_with_retry(payload, stream=True, timeout=timeout)
         self._note_sent(meta)
+        # Match Lemonade: force UTF-8 so decode_unicode does not use ISO-8859-1.
+        resp.encoding = "utf-8"
         try:
             for raw_line in resp.iter_lines(decode_unicode=True):
                 if cancel_check is not None and cancel_check():

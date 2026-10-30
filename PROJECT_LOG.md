@@ -1186,3 +1186,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Battery ×2: 14/20 + 16/20, mean **15.0** — keep rule **KEPT** (`logs/round9d_battery.json`).
 - code_small, pdf_question, list_folder all 2/2 after fix.
 - `ROUND_9D_REPORT.md`; app restarted; Hi answered; model_state OK.
+
+## 2026-10-30 — Round 9E Part 1: UTF-8 stream encoding
+- Set `response.encoding = "utf-8"` before `iter_lines` / `json()` in Lemonade and Gemini providers.
+- Offline `scripts/test_round9e_utf8.py`: en-dash, curly apostrophe, é, emoji intact; FAILURES=0.
