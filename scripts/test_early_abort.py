@@ -1,4 +1,7 @@
-"""Offline: early-abort of thinking-off drafts (fake streaming provider)."""
+"""Offline: early-abort of thinking-off drafts (fake streaming provider).
+
+Round 9B: abort only when the turn already has a tool result (synthesis).
+"""
 
 from __future__ import annotations
 
@@ -32,6 +35,9 @@ class _FakeStreamProvider:
         self.enable_thinking = False
         self.calls: list[dict[str, Any]] = []
         self._pass = 0
+
+    def chat(self, messages, tools=None, **kwargs: Any):
+        return self.chat_stream(messages, tools=tools, **kwargs)
 
     def chat_stream(
         self,
@@ -104,9 +110,58 @@ def _hist_analytical():
     ]
 
 
-def main() -> int:
+def _hist_synthesis():
+    """History after a tool already ran this turn (synthesis call)."""
+    from llm.base import ChatMessage
+
+    return [
+        ChatMessage(role="system", content="You are MiniAI."),
+        ChatMessage(role="user", content="Why is the sky blue? Explain."),
+        ChatMessage(
+            role="assistant",
+            content="",
+            tool_calls=[
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "web_research", "arguments": "{}"},
+                }
+            ],
+        ),
+        ChatMessage(
+            role="tool",
+            content='{"summary": "Rayleigh scattering"}',
+            tool_call_id="call_1",
+            name="web_research",
+        ),
+    ]
+
+
+def _patches():
     from config import settings
-    from llm.base import ChatResponse
+
+    return [
+        patch.object(settings, "THINKING_POLICY", "smart"),
+        patch.object(settings, "EARLY_ABORT", True),
+        patch(
+            "scripts.agent_loop.compress_cross_turn_history",
+            lambda h, tools=None: None,
+        ),
+        patch("scripts.agent_loop.compress_browser_history", lambda h: None),
+        patch(
+            "scripts.agent_loop.enforce_context_budget",
+            lambda h, tools=None: None,
+        ),
+        patch("scripts.agent_loop.active_tool_schemas", lambda: []),
+        patch(
+            "scripts.agent_loop.first_pass_timeout_seconds", lambda h, t: 30
+        ),
+        patch("agent.perf_probe.snapshot_before_call", lambda: {}),
+        patch("agent.perf_probe.enrich_llm_fields", lambda **kw: {}),
+    ]
+
+
+def main() -> int:
     from scripts.agent_loop import _call_model
 
     tool_tc = {
@@ -115,80 +170,94 @@ def main() -> int:
         "function": {"name": "web_research", "arguments": "{}"},
     }
 
-    # --- (1) content-first long draft → cancelled → thinking-on ---
+    # --- (1) synthesis + long content draft → early abort → thinking-on ---
     clears: list[str] = []
     long_text = "A" * 30  # 30 non-ws chars
-    events = [("content", chunk) for chunk in [long_text[:10], long_text[10:20], long_text[20:]]]
-    prov = _FakeStreamProvider(events, second_content="Sky is blue because Rayleigh scattering.")
+    events = [
+        ("content", chunk)
+        for chunk in [long_text[:10], long_text[10:20], long_text[20:]]
+    ]
+    prov = _FakeStreamProvider(
+        events, second_content="Sky is blue because Rayleigh scattering."
+    )
     tx = _FakeTx()
-    with patch.object(settings, "THINKING_POLICY", "smart"), patch.object(
-        settings, "EARLY_ABORT", True
-    ), patch(
-        "scripts.agent_loop.compress_cross_turn_history", lambda h: None
-    ), patch(
-        "scripts.agent_loop.compress_browser_history", lambda h: None
-    ), patch(
-        "scripts.agent_loop.enforce_context_budget", lambda h, tools=None: None
-    ), patch(
-        "scripts.agent_loop.active_tool_schemas", lambda: []
-    ), patch(
-        "scripts.agent_loop.first_pass_timeout_seconds", lambda h, t: 30
-    ), patch(
-        "agent.perf_probe.snapshot_before_call", lambda: {}
-    ), patch(
-        "agent.perf_probe.enrich_llm_fields",
-        lambda **kw: {},
-    ):
+    ctx = _patches()
+    for p in ctx:
+        p.start()
+    try:
         resp = _call_model(
             prov,
-            _hist_analytical(),
+            _hist_synthesis(),
             transcript=tx,
             on_stream_delta=lambda _t: None,
             on_stream_clear=lambda: clears.append("clear"),
         )
-    check("content_abort_thinking_on", resp.content.startswith("Sky is blue"))
-    check("content_abort_two_calls", len(prov.calls) == 2, str(prov.calls))
+    finally:
+        for p in reversed(ctx):
+            p.stop()
+    check("synth_abort_thinking_on", resp.content.startswith("Sky is blue"))
+    check("synth_abort_two_calls", len(prov.calls) == 2, str(prov.calls))
     check(
-        "content_abort_first_off",
+        "synth_abort_first_off",
         prov.calls[0]["enable_thinking"] is False,
         str(prov.calls[0]),
     )
     check(
-        "content_abort_second_on",
+        "synth_abort_second_on",
         prov.calls[1]["enable_thinking"] is True,
         str(prov.calls[1]),
     )
     aborted = [e for e in tx.events if e.get("early_abort")]
-    check("content_abort_logged", len(aborted) == 1, str(tx.events))
+    check("synth_abort_logged", len(aborted) == 1, str(tx.events))
     check(
-        "content_abort_tokens_saved",
+        "synth_abort_tokens_saved",
         aborted and int(aborted[0].get("tokens_saved") or 0) >= 1,
         str(aborted),
     )
-    check("content_abort_cleared_ui", len(clears) >= 1, str(clears))
+    check("synth_abort_cleared_ui", len(clears) >= 1, str(clears))
 
-    # --- (2) tool-first → completes; no second thinking pass from abort ---
+    # --- (1b) first call of turn + long content → NO early abort ---
+    # (still discarded for thinking-on final answer when no tools)
+    prov1b = _FakeStreamProvider(
+        events, second_content="Sky is blue because Rayleigh scattering."
+    )
+    tx1b = _FakeTx()
+    ctx = _patches()
+    for p in ctx:
+        p.start()
+    try:
+        resp1b = _call_model(
+            prov1b,
+            _hist_analytical(),
+            transcript=tx1b,
+            on_stream_delta=lambda _t: None,
+            on_stream_clear=lambda: None,
+        )
+    finally:
+        for p in reversed(ctx):
+            p.stop()
+    check(
+        "first_call_no_early_abort",
+        not any(e.get("early_abort") for e in tx1b.events),
+        str(tx1b.events),
+    )
+    check(
+        "first_call_still_thinking_on",
+        resp1b.content.startswith("Sky is blue"),
+        repr(resp1b.content),
+    )
+
+    # --- (2) tool-first on first call → completes; no early abort ---
     prov2 = _FakeStreamProvider([("tool", tool_tc)])
     tx2 = _FakeTx()
-    with patch.object(settings, "THINKING_POLICY", "smart"), patch.object(
-        settings, "EARLY_ABORT", True
-    ), patch(
-        "scripts.agent_loop.compress_cross_turn_history", lambda h: None
-    ), patch(
-        "scripts.agent_loop.compress_browser_history", lambda h: None
-    ), patch(
-        "scripts.agent_loop.enforce_context_budget", lambda h, tools=None: None
-    ), patch(
-        "scripts.agent_loop.active_tool_schemas", lambda: []
-    ), patch(
-        "scripts.agent_loop.first_pass_timeout_seconds", lambda h, t: 30
-    ), patch(
-        "agent.perf_probe.snapshot_before_call", lambda: {}
-    ), patch(
-        "agent.perf_probe.enrich_llm_fields",
-        lambda **kw: {},
-    ):
+    ctx = _patches()
+    for p in ctx:
+        p.start()
+    try:
         resp2 = _call_model(prov2, _hist_analytical(), transcript=tx2)
+    finally:
+        for p in reversed(ctx):
+            p.stop()
     check("tool_first_has_tools", bool(resp2.tool_calls), str(resp2))
     check("tool_first_one_call", len(prov2.calls) == 1, str(prov2.calls))
     check(
@@ -197,34 +266,28 @@ def main() -> int:
         str(tx2.events),
     )
 
-    # --- (3) short preamble then tool within 24 chars → completes ---
+    # --- (3) analytical first call: long preamble then tool → must complete ---
+    long_preamble = "I'll check the files in that folder now. "
+    assert sum(1 for c in long_preamble if not c.isspace()) >= 24
+    # Stream preamble in chunks that would trip the old early-abort threshold
+    # before the tool delta arrives.
+    mid = len(long_preamble) // 2
     prov3 = _FakeStreamProvider(
         [
-            ("content", "Ok, "),  # 3 non-ws
-            ("content", "sure."),  # 5 more → 8 total
+            ("content", long_preamble[:mid]),
+            ("content", long_preamble[mid:]),
             ("tool", tool_tc),
         ]
     )
     tx3 = _FakeTx()
-    with patch.object(settings, "THINKING_POLICY", "smart"), patch.object(
-        settings, "EARLY_ABORT", True
-    ), patch(
-        "scripts.agent_loop.compress_cross_turn_history", lambda h: None
-    ), patch(
-        "scripts.agent_loop.compress_browser_history", lambda h: None
-    ), patch(
-        "scripts.agent_loop.enforce_context_budget", lambda h, tools=None: None
-    ), patch(
-        "scripts.agent_loop.active_tool_schemas", lambda: []
-    ), patch(
-        "scripts.agent_loop.first_pass_timeout_seconds", lambda h, t: 30
-    ), patch(
-        "agent.perf_probe.snapshot_before_call", lambda: {}
-    ), patch(
-        "agent.perf_probe.enrich_llm_fields",
-        lambda **kw: {},
-    ):
+    ctx = _patches()
+    for p in ctx:
+        p.start()
+    try:
         resp3 = _call_model(prov3, _hist_analytical(), transcript=tx3)
+    finally:
+        for p in reversed(ctx):
+            p.stop()
     check("preamble_tool_ok", bool(resp3.tool_calls), str(resp3))
     check("preamble_one_call", len(prov3.calls) == 1, str(prov3.calls))
     check(
@@ -234,8 +297,32 @@ def main() -> int:
     )
     check(
         "preamble_content_kept",
-        "Ok" in (resp3.content or ""),
+        "check the files" in (resp3.content or ""),
         repr(resp3.content),
+    )
+
+    # --- (4) short preamble then tool (legacy) ---
+    prov4 = _FakeStreamProvider(
+        [
+            ("content", "Ok, "),
+            ("content", "sure."),
+            ("tool", tool_tc),
+        ]
+    )
+    tx4 = _FakeTx()
+    ctx = _patches()
+    for p in ctx:
+        p.start()
+    try:
+        resp4 = _call_model(prov4, _hist_analytical(), transcript=tx4)
+    finally:
+        for p in reversed(ctx):
+            p.stop()
+    check("short_preamble_tool_ok", bool(resp4.tool_calls), str(resp4))
+    check(
+        "short_preamble_no_early_abort",
+        not any(e.get("early_abort") for e in tx4.events),
+        str(tx4.events),
     )
 
     if FAILURES:

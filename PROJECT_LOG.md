@@ -1123,3 +1123,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `normalize_listing_name` + card top-N match → no "Corrected" on the 29/30 Oct three-file case (with/without backticks).
 - `strip_card_relist_from_answer`: ≥3 consecutive list lines whose names are on the card are removed; fallback sentence from card when nothing remains.
 - Offline: `scripts/test_listing_honesty.py` FAILURES=0; `scripts/test_data_cards.py` PASS.
+
+## 2026-10-30 — Round 9B Part 3: early abort synthesis-only
+- Early abort runs only when history already has a `tool` message (synthesis). Never on the first call of a turn.
+- `MINIAI_EARLY_ABORT` remains default **off** until Part 4 re-measure.
+- Offline `scripts/test_early_abort.py`: long preamble+tool on first call completes; synthesis content-first still aborts. FAILURES=0.

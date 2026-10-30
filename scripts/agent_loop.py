@@ -698,7 +698,17 @@ def _call_model(
             if policy == "two_pass"
             else should_run_thinking_second_pass(history)
         )
-        early_on = bool(getattr(settings, "EARLY_ABORT", True)) and want_second
+        # Round 9B: early-abort only on synthesis (turn already has a tool
+        # result). Never abort the first call of a turn — analytical drafts
+        # often write a short preamble before the tool call.
+        turn_has_tool_result = any(
+            getattr(m, "role", None) == "tool" for m in (history or [])
+        )
+        early_on = (
+            bool(getattr(settings, "EARLY_ABORT", True))
+            and want_second
+            and turn_has_tool_result
+        )
         timeout_off = first_pass_timeout_seconds(history, provider.timeout)
         bucket, on_tok = _forward()
         probe_before = snapshot_before_call()
