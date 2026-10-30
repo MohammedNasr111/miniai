@@ -1153,3 +1153,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 
 ## 2026-10-30 — Round 9C Part 2: offline tests
 - `scripts/test_round9c_card_flag.py`: two-turn msg0 identity / no card sentence on turn 2; eval flag reset; list+card no Removed/empty; prior-turn tool does not enable early abort. FAILURES=0.
+
+## 2026-10-30 — Round 9C Part 3: measure
+- Quick 15/16 Safety PASS (`logs/round9c_quick.json`).
+- Battery ×2 defaults: 11/20 + 12/20 (mean 11.5) — keep rule ≥15 **failed** (`logs/round9c_battery.json`).
+- `qa_e_list_folder` still empty of names + false Removed; r1 Lemonade timeouts on two hard coding tasks.
