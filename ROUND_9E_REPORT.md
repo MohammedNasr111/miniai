@@ -1,4 +1,4 @@
-# Round 9E report — make the app *feel* fast
+﻿# Round 9E report — make the app *feel* fast
 
 Date: 2026-10-30 / 2026-10-31. Model: Qwen3-30B-A3B-GGUF. Task: `tasks/ROUND_9E_FEEL_FAST.md`.
 
@@ -72,8 +72,9 @@ Commit: `882d3b2`
 | 2 think-first + measure | `882d3b2` |
 | 3 speed chip | `34849e3` |
 | 4 listing normalise | `30fad95` |
-| Report | *(this commit)* |
+| Report | `83fcac3278a6a67dce011a1ec75e81238f1c7d3e` |
 
 ## Finish
 
 - MiniAI restarted; `check_model_state` = OK; “Hi” answered (see finish notes in PROJECT_LOG / `logs/_qa_round9e_hi.txt`).
+
