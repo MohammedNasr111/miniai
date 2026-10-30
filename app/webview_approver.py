@@ -198,6 +198,8 @@ class AppBridge:
         self._restore_busy: bool = False
         self._restore_progress: str = ""
         self._perf_check_gen: int = 0
+        # Round 9E: require two consecutive DEGRADED probes before slow chip.
+        self._perf_degraded_streak: int = 0
 
     def is_cancelled(self) -> bool:
         return self._cancel.is_set()
@@ -232,7 +234,7 @@ class AppBridge:
         threading.Thread(target=_loop, daemon=True).start()
         self.push_status()
         self.start_model_warmup()
-        self.schedule_perf_check(reason="app_start")
+        # Perf check runs from warm-up completion (Round 9E), not at app_start.
 
     def stop_status_loop(self) -> None:
         self._status_stop.set()
@@ -291,8 +293,16 @@ class AppBridge:
             self._perf_checking = False
             self._perf_verdict = str(state.get("verdict") or "UNKNOWN")
             self._perf_reason = str(state.get("reason") or "")
+            if self._perf_verdict == "DEGRADED":
+                self._perf_degraded_streak += 1
+            else:
+                self._perf_degraded_streak = 0
             probe = state.get("probe") if isinstance(state, dict) else None
-            if isinstance(probe, dict) and probe.get("tok_s") is not None:
+            if (
+                isinstance(probe, dict)
+                and probe.get("tok_s") is not None
+                and probe.get("tok_s_source") == "predicted_per_second"
+            ):
                 try:
                     self._perf_tok_s = float(probe.get("tok_s"))
                     self._last_tok_s = float(probe.get("tok_s"))
@@ -524,6 +534,11 @@ class AppBridge:
                         self.push_status()
                     except Exception:
                         pass
+                    # Round 9E: only probe after warm-up finished (not mid-flight).
+                    try:
+                        self.schedule_perf_check(reason="warmup_done")
+                    except Exception:
+                        pass
 
         threading.Thread(target=_warm, daemon=True).start()
 
@@ -532,6 +547,44 @@ class AppBridge:
         self._warmup_superseded = True
         self._cache_warming = False
         # Do not clear a cold weight load — the model still must become ready.
+
+    def _refresh_writing_speed(self, *, cloud: bool = False) -> None:
+        """Set sidebar tok/s from last local llm_call's predicted_per_second."""
+        if cloud:
+            self._last_tok_s = 0.0
+            return
+        path = None
+        try:
+            if self._session is not None and self._session.transcript is not None:
+                path = getattr(self._session.transcript, "path", None)
+        except Exception:
+            path = None
+        if not path:
+            return
+        try:
+            from pathlib import Path
+
+            lines = Path(path).read_text(encoding="utf-8").splitlines()
+        except Exception:
+            return
+        for line in reversed(lines):
+            try:
+                row = json.loads(line)
+            except Exception:
+                continue
+            if row.get("type") != "llm_call":
+                continue
+            if row.get("discarded"):
+                continue
+            timings = row.get("timings") or {}
+            pps = timings.get("predicted_per_second")
+            if pps is None:
+                continue
+            try:
+                self._last_tok_s = float(pps)
+            except (TypeError, ValueError):
+                continue
+            return
 
     def push_status(self) -> None:
         from security.gate import is_tainted
@@ -617,10 +670,10 @@ class AppBridge:
                 "restore_busy": self._restore_busy,
                 "restore_progress": self._restore_progress,
                 "slow_chip": (
-                    self._perf_verdict == "DEGRADED" and not self._restore_busy
+                    self._perf_degraded_streak >= 2 and not self._restore_busy
                 ),
                 "suggest_close_apps": (
-                    self._perf_verdict == "DEGRADED"
+                    self._perf_degraded_streak >= 2
                     and self._perf_free_ram_gb is not None
                     and float(self._perf_free_ram_gb) < 8.0
                 ),
@@ -1332,9 +1385,8 @@ class AppBridge:
                 if self._stream_t0 <= 0:
                     self._stream_t0 = time.perf_counter()
                 self._stream_chars = len(text_so_far)
-                elapsed = max(0.001, time.perf_counter() - self._stream_t0)
-                # Rough tok/s: ~4 chars/token for English.
-                self._last_tok_s = (self._stream_chars / 4.0) / elapsed
+                # Round 9E: do not estimate tok/s from wall clock here — sidebar
+                # "Writing speed" uses predicted_per_second after the turn.
                 self._call_js("on_stream_delta", {"text": text_so_far})
 
             def _on_stream_clear() -> None:
@@ -1609,6 +1661,7 @@ class AppBridge:
                     }
                 ] + list(steps)
             fp_ui = ui_payload((self._chat_doc or {}).get("footprint") or {})
+            self._refresh_writing_speed(cloud=bool(cloud) and answered_by == "gemini")
             self._call_js(
                 "on_answer",
                 {

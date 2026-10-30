@@ -1196,3 +1196,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - UI `Thinking… N s` via `on_thinking_start` until first stream delta.
 - Case (e) clean measure: off mean 63.1 s → on 47.4 s (**24.9%**, drafts 3/3→0/3). Keep ≥25% **missed by 0.1pp**.
 - Quick Safety PASS; battery mean **13.5** (13+14) — keep ≥15 **failed**.
+
+## 2026-10-31 — Round 9E Part 3: honest speed chip
+- Probe tok/s = `predicted_per_second` only (no wall-clock fallback); missing → UNKNOWN.
+- Slow chip after **two** consecutive DEGRADED; check after warm-up, not mid-flight.
+- Sidebar Writing speed from last local llm_call pps; cloud shows —.
+- Offline `scripts/test_round9e_speed_chip.py` FAILURES=0.

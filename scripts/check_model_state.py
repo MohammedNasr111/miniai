@@ -148,18 +148,20 @@ def probe_realistic(model: Optional[str] = None) -> dict[str, Any]:
     timings = data.get("timings") or {}
     completion = int(usage.get("completion_tokens") or 0)
     prompt_tokens = usage.get("prompt_tokens")
+    # Round 9E: verdict tok/s must be llama.cpp decode rate only — never wall-clock
+    # (wall includes prefill/queue and falsely flags "Running slowly" after launch).
     tok_s = None
+    tok_s_source = None
     if isinstance(timings, dict) and timings.get("predicted_per_second"):
         tok_s = float(timings["predicted_per_second"])
-    elif completion > 0 and wall > 0:
-        # Prefer decode-only estimate when timings missing: subtract rough prefill.
-        tok_s = completion / wall
+        tok_s_source = "predicted_per_second"
     return {
         "wall_s": round(wall, 3),
         "completion_tokens": completion,
         "prompt_tokens": prompt_tokens,
         "est_prompt_tokens": est_prompt_tokens,
         "tok_s": round(tok_s, 3) if tok_s is not None else None,
+        "tok_s_source": tok_s_source,
         "timings": timings if isinstance(timings, dict) else None,
         "model": name,
         "probe_kind": "realistic_system_tools",
@@ -206,9 +208,10 @@ def check_model_state(
             probe = probe_realistic(model=model or llm.get("model_name"))
             out["probe"] = probe
             tok_s = probe.get("tok_s")
-            if tok_s is None:
-                out["verdict"] = "DEGRADED"
-                out["reason"] = "tok/s unavailable"
+            if tok_s is None or probe.get("tok_s_source") != "predicted_per_second":
+                # Missing timings → do not call the model "slow" (would false-chip).
+                out["verdict"] = "UNKNOWN"
+                out["reason"] = "predicted_per_second unavailable (no wall-clock fallback)"
             elif float(tok_s) < TOK_S_MIN:
                 out["verdict"] = "DEGRADED"
                 out["reason"] = f"tok/s {tok_s} < {TOK_S_MIN}"
