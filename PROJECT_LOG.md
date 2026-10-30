@@ -1216,3 +1216,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `MINIAI_THINK_FIRST` default **off**; `THINK_FIRST_MODE` off|on|gated.
 - When `want_second`, buffer thinking-off (no UI deltas); show Thinking…; discard final silently; stream thinking-on.
 - Offline `scripts/test_round9f_hide_draft.py` FAILURES=0.
+
+## 2026-10-31 — Round 9F Part 2: gated think-first
+- `MINIAI_THINK_FIRST=gated`: think-first only when the question has **no** tool cues (path/drive, file extension, cue word list).
+- With cues: 9D/Part-1 flow (thinking-off first). Offline `scripts/test_round9f_gated.py` FAILURES=0.
+- Review dump: `logs/review_20261031-0103_round9f_part2.log`.

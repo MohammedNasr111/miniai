@@ -520,6 +520,38 @@ _ANALYTICAL_RE = re.compile(
     re.I,
 )
 
+# Round 9F Part 2: tool cues → do not use think-first (prefer thinking-off tool plan).
+_TOOL_CUE_PATH = re.compile(
+    r"(?i)(?:[A-Za-z]:\\|\\\\|/Users/|/home/|~[/\\]|\.\.?[/\\])"
+)
+_TOOL_CUE_EXT = re.compile(
+    r"(?i)\b[\w\- ]+\.(?:pdf|txt|py|js|ts|html|css|json|yaml|yml|md|docx|"
+    r"xlsx|csv|zip|exe|png|jpe?g|gif|mp4|log|dat|bin)\b"
+)
+_TOOL_CUE_WORDS = re.compile(
+    r"(?i)\b("
+    r"file|folder|directory|downloads|desktop|documents|pdf|project|"
+    r"workspace|code|script|test|bug|fix|debug|website|html|search|"
+    r"latest|current|today|news|price|remember|organise|organize|"
+    r"move|delete|create|make|"
+    r"write\s+a|run|install|open|window|app"
+    r")\b"
+)
+
+
+def question_has_tool_cues(question: str) -> bool:
+    """True if the user question looks like a tool/file/coding/web task."""
+    text = question or ""
+    if not text.strip():
+        return False
+    if _TOOL_CUE_PATH.search(text):
+        return True
+    if _TOOL_CUE_EXT.search(text):
+        return True
+    if _TOOL_CUE_WORDS.search(text):
+        return True
+    return False
+
 
 def _tool_names_this_turn(history: list) -> set[str]:
     """Tool names invoked since the latest user message (via assistant tool_calls)."""
@@ -720,12 +752,15 @@ def _call_model(
             getattr(m, "role", None) == "tool"
             for m in _messages_after_latest_user(history)
         )
-        # Think-first (MINIAI_THINK_FIRST=on): skip thinking-off when no tool
-        # result yet. Default is off (Round 9F); gated lands in Part 2.
+        # Think-first: on = always when want_second + no tool result;
+        # gated = only when the question has no tool cues (Round 9F Part 2).
         mode = str(getattr(settings, "THINK_FIRST_MODE", "off") or "off")
-        think_first = (
-            mode == "on" and want_second and not turn_has_tool_result
-        )
+        think_first = False
+        if want_second and not turn_has_tool_result:
+            if mode == "on":
+                think_first = True
+            elif mode == "gated":
+                think_first = not question_has_tool_cues(_latest_user_text(history))
         if think_first:
             _note_thinking()
             timeout_on = settings.LEMONADE_SYNTHESIS_TIMEOUT_SECONDS
