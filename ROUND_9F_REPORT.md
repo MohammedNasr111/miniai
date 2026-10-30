@@ -1,4 +1,4 @@
-# Round 9F report — gated think-first
+﻿# Round 9F report — gated think-first
 
 Date: 2026-10-31. Model: Qwen3-30B-A3B-GGUF. Task: `tasks/ROUND_9F_THINK_FIRST_GATED.md`.
 
@@ -87,10 +87,11 @@ Notes vs 9E think-first damage: `qa_h_code_debug` recovered to 1/2 under gated (
 |---|---|
 | 1 hide-draft + default off | `a6de3f9` |
 | 2 gated cues | `1aea8ce` |
-| 3 measure + hide-draft switch-off + this report | (this commit) |
+| 3 measure + hide-draft switch-off + this report | `7fbdcd8f894fe5b0db3ad8ebfcc641ba120118d0` |
 
 ## Finish
 
 - MiniAI restarted (`python -m app`).
 - `check_model_state` = OK — tok/s=11.665 ≥ 11.0 (`logs/_qa_round9f_hi.txt`).
 - “Hi” → `Hello! How can I assist you today?`
+
