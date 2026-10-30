@@ -403,7 +403,10 @@ TOOL_SCHEMAS = [
                 "Create a new empty folder (directory) at the given path. "
                 "Fails if the path already exists. Prompts for confirmation. "
                 "Use this when the user asks to make a folder or directory — "
-                "never create_file for that."
+                "never create_file for that. Prefer an absolute path under "
+                "Desktop/Documents/Downloads. Relative paths under the MiniAI "
+                "project are refused. For writing code with tests, prefer "
+                "ws_write in the isolated workspace instead of create_folder."
             ),
             "parameters": {
                 "type": "object",

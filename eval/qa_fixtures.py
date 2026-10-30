@@ -402,10 +402,14 @@ def setup_qa_pdf(ctx: EvalContext) -> None:
     c.drawString(72, 700, clause)
     c.save()
     # Pre-index into the temp knowledge store so search_knowledge can hit it.
+    # Setup runs outside _run_live_task's answer_by_action; approve indexing here
+    # or CONFIRM defaults to deny and the PDF stays invisible (Round 9D Part 2/4).
     try:
+        from tests.support import answer_by_action
         from tools.knowledge.knowledge_tools import index_documents
 
-        index_documents(str(d))
+        with answer_by_action({"index_documents": "yes"}, default="no"):
+            index_documents(str(d))
     except Exception:
         pass
     ctx.state["dir"] = str(d)

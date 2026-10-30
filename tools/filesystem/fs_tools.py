@@ -25,7 +25,18 @@ from typing import Any, Optional
 from send2trash import send2trash
 
 from security.gate import Tier, check_permission
-from security.protected_paths import assert_not_protected
+from security.protected_paths import (
+    PROTECTED_MESSAGE,
+    ProtectedPathError,
+    assert_not_protected,
+)
+
+# Appended when create_folder/create_file hit a protected path so the model
+# recovers with workspace tools instead of retrying the same call (Round 9D).
+_PROTECTED_CODING_HINT = (
+    " Do not retry create_folder/create_file under the MiniAI project directory. "
+    "For coding tasks, use ws_write to put files in the isolated workspace instead."
+)
 
 _FOLDER_WORD = re.compile(r"(?i)\bfolders?\b")
 
@@ -357,7 +368,10 @@ def create_folder(path: str) -> str:
     """Create a new directory. CONFIRM; refuses if it already exists."""
     target = resolve_fs_path(path)
     shown = str(target)
-    assert_not_protected(shown)
+    try:
+        assert_not_protected(shown)
+    except ProtectedPathError:
+        raise ProtectedPathError(PROTECTED_MESSAGE + _PROTECTED_CODING_HINT) from None
     if target.exists():
         raise FileExistsError(
             f"Path already exists, not creating folder: {shown}."
@@ -395,7 +409,10 @@ def create_file(path: str, content: str) -> str:
 
     target = resolve_fs_path(path)
     shown = str(target)
-    assert_not_protected(shown)
+    try:
+        assert_not_protected(shown)
+    except ProtectedPathError:
+        raise ProtectedPathError(PROTECTED_MESSAGE + _PROTECTED_CODING_HINT) from None
     # Folder requests must not create extensionless files named like folders.
     user_q = get_turn_user_text()
     if (

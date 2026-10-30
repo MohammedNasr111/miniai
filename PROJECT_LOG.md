@@ -1175,3 +1175,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Worktree runner `scripts/round9d_bisect_run.py`; table `logs/round9d_bisect_table.md`.
 - First measured code_small 0/2 at `4b34801`, but parent `e9b52d3` confirm ×3 is only **1/3** — no single Round 9 commit proven. Failure matches Part 2 harness/recovery pattern.
 - pdf flaky at baseline (0/2 then 3/3); setup indexing outside answer_by_action remains the actionable issue.
+
+## 2026-10-30 — Round 9D Part 4: harness + recovery hint
+- Bisect inconclusive → fix Part 2 harness issues: `create_folder`/`create_file: yes` on `qa_m_code_small`; `setup_qa_pdf` wraps `index_documents` in `answer_by_action`.
+- Product: protected `create_folder`/`create_file` errors hint `ws_write`; tool schema steers coding to workspace.
+- Offline `scripts/test_round9d_harness_fix.py` FAILURES=0.

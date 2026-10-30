@@ -11,6 +11,10 @@ answer_by_action:
   ws_write: "yes"
   ws_edit: "yes"
   install_package: "yes"
+  # Model often tries create_folder/create_file before ws_*; default "no" denied
+  # Desktop recovery (Round 9D Part 2/4). Relative paths under MiniAI still refuse.
+  create_folder: "yes"
+  create_file: "yes"
 setup: eval.qa_fixtures.setup_qa_code_small
 teardown: eval.qa_fixtures.teardown_qa_code_small
 grader: eval.qa_fixtures.grade_qa_m_code_small
