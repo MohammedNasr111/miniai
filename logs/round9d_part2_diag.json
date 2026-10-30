@@ -1,0 +1,226 @@
+{
+  "stamp": "20261030-210126",
+  "model": "Qwen3-30B-A3B-GGUF",
+  "server_status": {
+    "raw": "Server is running on port 13305\n\nProperty            Value\n--------------------------------------------------\nVersion             11.9.0\nWebSocket Port      9000\nMax Models/Type     1\n\nModel                         Type      Device    Recipe        Ctx      Status    Checkpoint\n-----------------------------------------------------------------------------------------------------------------------\nQwen3-30B-A3B-GGUF            llm       gpu       llamacpp      16384    ready     unsloth/Qwen3-30B-A3B-GGUF:Q4_0\nnomic-embed-text-v1-GGUF      embedding gpu       llamacpp      8192     ready     nomic-ai/nomic-embed-text-v1-GGUF:Q4_K_S\n",
+    "error": null,
+    "ctx": 16384,
+    "model": "Qwen3-30B-A3B-GGUF"
+  },
+  "model_state": {
+    "captured_at": "2026-10-30T12:58:09Z",
+    "stamp": "20261030-125809",
+    "thresholds": {
+      "tok_s_min": 11.0,
+      "note": "RSS logged only; not used in verdict (architect 30 Oct)"
+    },
+    "llm": {
+      "model_name": "Qwen3-30B-A3B-GGUF",
+      "pid": 21224,
+      "device": "gpu",
+      "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+      "recipe_options": {
+        "ctx_size": 16384,
+        "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+      },
+      "launch_command": [
+        "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+        "-m",
+        "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+        "--ctx-size",
+        "16384",
+        "--port",
+        "8001",
+        "--jinja",
+        "--metrics",
+        "--n-gpu-layers",
+        "99",
+        "-ctk",
+        "q8_0",
+        "-ctv",
+        "q8_0",
+        "-fa",
+        "on",
+        "--parallel",
+        "1"
+      ],
+      "status": "ready"
+    },
+    "llm_rss_gb": 0.147,
+    "free_ram_gb": 4.553,
+    "total_ram_gb": 23.618,
+    "gpu": {
+      "dedicated": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 8376770560.0,
+          "gb": 7.801
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        }
+      ],
+      "shared": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 11206901760.0,
+          "gb": 10.437
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 8192.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 431489024.0,
+          "gb": 0.402
+        }
+      ]
+    },
+    "probe": {
+      "wall_s": 7.834,
+      "completion_tokens": 102,
+      "prompt_tokens": 6155,
+      "est_prompt_tokens": 7329,
+      "tok_s": 13.126,
+      "timings": {
+        "cache_n": 6154,
+        "predicted_ms": 7694.431,
+        "predicted_n": 102,
+        "predicted_per_second": 13.126376726232259,
+        "predicted_per_token_ms": 76.18248514851484,
+        "prompt_ms": 77.657,
+        "prompt_n": 1,
+        "prompt_per_second": 12.87713921475205,
+        "prompt_per_token_ms": 77.657
+      },
+      "model": "Qwen3-30B-A3B-GGUF",
+      "probe_kind": "realistic_system_tools",
+      "user": "In one short paragraph, what is a page fault?"
+    },
+    "verdict": "OK",
+    "reason": "tok/s=13.126 \u2265 11.0 (RSS=0.147 GB logged only; prompt_tokens=6155)",
+    "log_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_state_20261030-125809.json"
+  },
+  "suite": "full",
+  "repeat": 2,
+  "safety": "N/A",
+  "ability_rates": {
+    "qa_medium": {
+      "passed": 0,
+      "total": 2,
+      "rate": 0.0,
+      "mean_wall_s": 45.078
+    }
+  },
+  "baseline_drops": [],
+  "baseline_model_mismatch": null,
+  "results": [
+    {
+      "id": "qa_m_code_small",
+      "ability": "qa_medium",
+      "suite": "full",
+      "mode": "live",
+      "pass": false,
+      "reason": "{'wall_s': 18.487, 'approvals': 0, 'tools': ['create_folder'], 'coherent': True, 'coherence_why': 'ok', 'model_ok': True, 'used': False, 'passed': False, 'has_test': True, 'coherence': 'ok'}",
+      "wall_s": 17.605,
+      "model_calls": 5,
+      "prompt_tokens": 12780,
+      "infra_retries": 0,
+      "answers": [
+        "It seems there was an issue with creating the project folder. Let's try a different approach. I will write the Python function and tests directly in the workspace and then run them. \n\nFirst, I'll create the function to check if a string is a palindrome and then write the tests for it. Finally, I'll run the tests. Let's proceed with this plan. \n\nI will write the function and tests in the workspace."
+      ],
+      "error": ""
+    },
+    {
+      "id": "qa_m_pdf_question",
+      "ability": "qa_medium",
+      "suite": "full",
+      "mode": "live",
+      "pass": false,
+      "reason": "{'wall_s': 73.928, 'approvals': 0, 'tools': ['search_knowledge'], 'coherent': True, 'coherence_why': 'ok', 'model_ok': True, 'has_clause': False, 'has_page': False, 'coherence': 'ok'}",
+      "wall_s": 72.55,
+      "model_calls": 2,
+      "prompt_tokens": 15209,
+      "infra_retries": 0,
+      "answers": [
+        "The `search_knowledge` tool did not locate the specific `warranty.pdf` file in the temporary directory. The results retrieved were from MiniAI's project documentation (e.g., `ARCHITECTURE.md`) and other internal files, but none referenced the `miniai_qa_pdf_c99rjjz_` folder or its contents.\n\nTo proceed, I would need to:\n1. Verify if the file exists at the specified path using `list_directory`.\n2. If found, read its contents with `read_file` (though PDFs may require specialized tools).\n3. Index the folder with `index_documents` if the file should be part of the knowledge base.\n\nWould you like me to check the directory structure or attempt to read the file directly? Note that binary files like PDFs may not be fully readable via standard tools."
+      ],
+      "error": ""
+    }
+  ],
+  "raw_runs": [
+    {
+      "id": "qa_m_code_small",
+      "ability": "qa_medium",
+      "suite": "full",
+      "mode": "live",
+      "pass": false,
+      "reason": "{'wall_s': 18.487, 'approvals': 0, 'tools': ['create_folder'], 'coherent': True, 'coherence_why': 'ok', 'model_ok': True, 'used': False, 'passed': False, 'has_test': True, 'coherence': 'ok'}",
+      "wall_s": 18.487,
+      "model_calls": 3,
+      "prompt_tokens": 6419,
+      "infra_retries": 0,
+      "answers": [
+        "It seems there was an issue with creating the project folder. Let's try a different approach. I will write the Python function and tests directly in the workspace and then run them. \n\nFirst, I'll create the function to check if a string is a palindrome and then write the tests for it. Finally, I'll run the tests. Let's proceed with this plan. \n\nI will write the function and tests in the workspace."
+      ],
+      "error": ""
+    },
+    {
+      "id": "qa_m_pdf_question",
+      "ability": "qa_medium",
+      "suite": "full",
+      "mode": "live",
+      "pass": false,
+      "reason": "{'wall_s': 73.928, 'approvals': 0, 'tools': ['search_knowledge'], 'coherent': True, 'coherence_why': 'ok', 'model_ok': True, 'has_clause': False, 'has_page': False, 'coherence': 'ok'}",
+      "wall_s": 73.928,
+      "model_calls": 1,
+      "prompt_tokens": 7604,
+      "infra_retries": 0,
+      "answers": [
+        "The `search_knowledge` tool did not locate the specific `warranty.pdf` file in the temporary directory. The results retrieved were from MiniAI's project documentation (e.g., `ARCHITECTURE.md`) and other internal files, but none referenced the `miniai_qa_pdf_c99rjjz_` folder or its contents.\n\nTo proceed, I would need to:\n1. Verify if the file exists at the specified path using `list_directory`.\n2. If found, read its contents with `read_file` (though PDFs may require specialized tools).\n3. Index the folder with `index_documents` if the file should be part of the knowledge base.\n\nWould you like me to check the directory structure or attempt to read the file directly? Note that binary files like PDFs may not be fully readable via standard tools."
+      ],
+      "error": ""
+    },
+    {
+      "id": "qa_m_code_small",
+      "ability": "qa_medium",
+      "suite": "full",
+      "mode": "live",
+      "pass": false,
+      "reason": "{'wall_s': 16.724, 'approvals': 1, 'tools': ['create_folder'], 'coherent': True, 'coherence_why': 'ok', 'model_ok': True, 'used': False, 'passed': False, 'has_test': True, 'coherence': 'ok'}",
+      "wall_s": 16.724,
+      "model_calls": 2,
+      "prompt_tokens": 6361,
+      "infra_retries": 0,
+      "answers": [
+        "You declined, so nothing was changed. Let's try a different approach. I will write the code directly in the workspace. Would you like me to proceed with writing the Python function and tests?"
+      ],
+      "error": ""
+    },
+    {
+      "id": "qa_m_pdf_question",
+      "ability": "qa_medium",
+      "suite": "full",
+      "mode": "live",
+      "pass": false,
+      "reason": "{'wall_s': 71.173, 'approvals': 0, 'tools': ['search_knowledge'], 'coherent': True, 'coherence_why': 'ok', 'model_ok': True, 'has_clause': False, 'has_page': False, 'coherence': 'ok'}",
+      "wall_s": 71.173,
+      "model_calls": 1,
+      "prompt_tokens": 7605,
+      "infra_retries": 0,
+      "answers": [
+        "The warranty information from the file `warranty.pdf` is not present in the indexed documents or knowledge base. The search results for \"warranty\" only included excerpts from project architecture files (e.g., `ARCHITECTURE.md`) and did not reference the specific PDF mentioned. \n\nTo access the warranty content, you would need to:\n1. Verify if the PDF is properly indexed (ensure the folder path `C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_qa_pdf_i980ag7b` is included in the knowledge base).\n2. Use `read_file` directly on the PDF if it's accessible, though binary files like PDFs require specialized tools for extraction.\n\nLet me know if you'd like assistance with indexing or file access."
+      ],
+      "error": ""
+    }
+  ]
+}

@@ -1166,3 +1166,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9D Part 1: simplify data cards
 - Removed `CARD_PROMPT_SENTENCE` and all answer stripping/fallback. UI cards + flag reset + top-N build remain; listing honesty still checks names.
 - Tests updated: card still built/shown; answer text unchanged by card logic.
+
+## 2026-10-30 — Round 9D Part 2: diagnose code_small / pdf
+- `create_folder` relative path → protected-path **error** (`PROTECTED_MESSAGE`); Desktop path → harness **denied** (default no; not in answer_by_action). Quotes in `logs/round9d_part2_transcript_quotes.txt`.
+- pdf: model only `search_knowledge` (misses warranty); setup `index_documents` runs outside answer_by_action.
