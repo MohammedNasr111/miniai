@@ -172,6 +172,13 @@ def run_user_turn(
     )
 
     cloud = coerce_cloud_flag(cloud)
+    # Round 9C: reset listing-card flag at every user turn.
+    try:
+        from agent.data_cards import reset_listing_card_turn
+
+        reset_listing_card_turn()
+    except Exception:
+        pass
     session.ensure_system()
     pre_len = len(session.history)
     session.last_stream_partial = ""  # type: ignore[attr-defined]

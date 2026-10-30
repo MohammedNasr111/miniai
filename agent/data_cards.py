@@ -9,9 +9,9 @@ from typing import Any, Optional
 from agent.listing_honesty import requested_listing_n
 
 CARD_PROMPT_SENTENCE = (
-    "The listing is already shown to the user as a table; do not re-list the "
-    "rows — answer in at most two sentences, naming only the items that answer "
-    "the question."
+    "The listing is shown to the user as a table above. Don't repeat the "
+    "table; refer to items by name only when they answer the question. "
+    "Continue the task normally (call tools if more steps are needed)."
 )
 
 _NEWEST_RE = re.compile(
@@ -128,14 +128,34 @@ def strip_card_relist_from_answer(
         "stripped_relist": True,
         "removed_lines": len(drop),
     }
-    if meaningful and text:
+    if meaningful and text and real_text_len(text) >= 20:
         return text, meta
 
+    # Too short / empty after strip → card-based sentence (never leave blank
+    # or a lone "Removed N name(s)" honesty note).
+    fallback = card_fallback_sentence(card)
+    meta["used_card_fallback"] = True
+    return fallback, meta
+
+
+def real_text_len(text: str) -> int:
+    """Count non-whitespace chars, ignoring honesty warning lines."""
+    s = text or ""
+    s = re.sub(r"(?m)^.*(?:⚠\s*)?Removed\s+\d+\s+name\(s\).*$", "", s)
+    s = re.sub(r"weren't in the folder listing\.?", "", s, flags=re.I)
+    return len(re.sub(r"\s+", "", s))
+
+
+def card_fallback_sentence(card: Optional[dict[str, Any]] = None) -> str:
+    """Short sentence built from the card rows when the answer was emptied."""
+    card = card if card is not None else _last_card_this_turn
+    if not card:
+        return "The listing is shown above."
     rows = list(card.get("rows") or [])
     n = len(rows) or int(card.get("shown") or 3)
     names = [str(r.get("name") or "") for r in rows[:n] if r.get("name")]
     if not names:
-        return text or answer, meta
+        return "The listing is shown above."
     top = names[0]
     size = ""
     if rows and rows[0].get("size"):
@@ -146,15 +166,9 @@ def strip_card_relist_from_answer(
         names_join = f"{names[0]} and {names[1]}"
     else:
         names_join = ", ".join(names[:-1]) + f", and {names[-1]}"
-    fallback = (
-        f"The {n} biggest are shown above — {top} is the largest{size}."
-        if card.get("sort") == "size"
-        else f"The listing above shows {names_join}."
-    )
-    # Prefer any leading sentence still present.
-    if text and _line_listing_name(text.splitlines()[0]) is None:
-        return (text.rstrip() + " " + fallback).strip(), meta
-    return fallback, meta
+    if card.get("sort") == "size":
+        return f"The {n} biggest are shown above — {top} is the largest{size}."
+    return f"The listing above shows {names_join}."
 
 
 def sort_mode_for_question(question: str) -> str:

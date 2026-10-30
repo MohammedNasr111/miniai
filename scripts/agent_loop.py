@@ -571,17 +571,23 @@ def should_run_thinking_second_pass(history: list) -> bool:
 
 
 def _history_for_model(history: list) -> list:
-    """Copy history; append listing-card prompt sentence when a card was shown."""
-    from agent.data_cards import CARD_PROMPT_SENTENCE, listing_card_shown_this_turn
+    """Pass history through unchanged.
 
-    if not listing_card_shown_this_turn() or not history:
-        return history
-    out = list(history)
-    first = out[0]
-    if getattr(first, "role", None) == "system":
-        content = (getattr(first, "content", None) or "") + "\n\n" + CARD_PROMPT_SENTENCE
-        out[0] = ChatMessage(role="system", content=content)
-    return out
+    Round 9C: never rewrite message 0 (breaks prompt cache). Card guidance is
+    an append-only system message after the tool result in the current turn.
+    """
+    return history
+
+
+def _messages_after_latest_user(history: list) -> list:
+    """Messages after the latest user turn (current-turn scope only)."""
+    idx = -1
+    for i, m in enumerate(history or []):
+        if getattr(m, "role", None) == "user":
+            idx = i
+    if idx < 0:
+        return list(history or [])
+    return list(history or [])[idx + 1 :]
 
 
 def _stream_or_chat(
@@ -698,11 +704,13 @@ def _call_model(
             if policy == "two_pass"
             else should_run_thinking_second_pass(history)
         )
-        # Round 9B: early-abort only on synthesis (turn already has a tool
-        # result). Never abort the first call of a turn — analytical drafts
-        # often write a short preamble before the tool call.
+        # Round 9B/9C: early-abort only on synthesis in the *current* turn
+        # (tool result after the latest user message). Never on the first
+        # call of a turn — analytical drafts often write a short preamble
+        # before the tool call.
         turn_has_tool_result = any(
-            getattr(m, "role", None) == "tool" for m in (history or [])
+            getattr(m, "role", None) == "tool"
+            for m in _messages_after_latest_user(history)
         )
         early_on = (
             bool(getattr(settings, "EARLY_ABORT", True))
@@ -963,6 +971,13 @@ def run_tool_rounds(
             if getattr(msg, "role", None) == "user":
                 q_for_slug = msg.content or ""
                 break
+    # Round 9C: reset listing-card turn flag at every agent run start.
+    try:
+        from agent.data_cards import reset_listing_card_turn
+
+        reset_listing_card_turn()
+    except Exception:
+        pass
     try:
         from tools.filesystem.turn_context import set_turn_user_text
 
@@ -1119,9 +1134,14 @@ def run_tool_rounds(
             on_tool_end=on_tool_end,
             cancel_check=cancel_check,
         )
-        from agent.data_cards import build_data_card, note_listing_card_shown
+        from agent.data_cards import (
+            CARD_PROMPT_SENTENCE,
+            build_data_card,
+            note_listing_card_shown,
+        )
         from tools.filesystem.turn_context import get_turn_user_text
 
+        cards_this_round = 0
         for tc, name, message in zip(resp.tool_calls, call_names, tool_messages):
             text = message.content or ""
             append_evidence(text)
@@ -1155,7 +1175,13 @@ def run_tool_rounds(
                 )
                 if card:
                     note_listing_card_shown(card)
+                    cards_this_round += 1
         history.extend(tool_messages)
+        # Append-only card guidance (never rewrite message 0 — cache-friendly).
+        if cards_this_round:
+            history.append(
+                ChatMessage(role="system", content=CARD_PROMPT_SENTENCE)
+            )
 
         # Auto-test once per model round after successful ws_write/ws_edit
         # (same run_tests CONFIRM; never bypass). Skip if model already
@@ -1417,15 +1443,32 @@ def run_tool_rounds(
         from agent.post_action_verify import verify_create_delete
 
         shown, decline_meta = apply_decline_wording(shown)
+        # Round 9C: honesty on the unstripped answer first, then strip re-lists.
         shown, listing_meta = maybe_correct_listing_answer(
             q, shown, transcript=transcript
         )
-        # Round 9B: when a data card was shown, strip re-listed rows from answer.
         strip_meta = None
         if listing_card_shown_this_turn():
+            from agent.data_cards import card_fallback_sentence, real_text_len
+
             shown, strip_meta = strip_card_relist_from_answer(
                 shown, last_listing_card_this_turn()
             )
+            if real_text_len(shown or "") < 20:
+                shown = card_fallback_sentence(last_listing_card_this_turn())
+                strip_meta = {
+                    **(strip_meta or {}),
+                    "used_card_fallback": True,
+                    "reason": "short_after_strip",
+                }
+                # Don't surface a false "Corrected" / Removed note from honesty
+                # when the card fallback replaced an emptied answer.
+                if listing_meta and listing_meta.get("corrected"):
+                    listing_meta = {
+                        **listing_meta,
+                        "corrected": False,
+                        "superseded_by_card_fallback": True,
+                    }
         fs_verify = verify_create_delete(transcript=transcript)
         if check_meta is None:
             check_meta = {}

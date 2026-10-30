@@ -1143,3 +1143,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-10-30 — Round 9B report + finish
 - `ROUND_9B_REPORT.md`: thermal not confirmed; fair speed ≈ Round 9 baseline; battery still <15/20 under OK tok/s; early abort not kept; cache-stable kept; warm-up criterion unmet.
 - Restarted app; Hi answered; model_state OK.
+
+## 2026-10-30 — Round 9C Part 1: listing-card flag lifetime
+- Root cause: card sentence rewritten into message 0 when flag stuck; poisoned later turns/tasks.
+- `reset_listing_card_turn()` at app turn, `chat.run_user_turn`, agent run start, eval task start.
+- Never modify message 0; append `CARD_PROMPT_SENTENCE` after tool result (new wording: continue normally / call tools).
+- Honesty on unstripped answer, then strip; <20 real chars → card fallback (no empty / false Removed).
+- Early-abort `turn_has_tool_result` scoped to messages after the latest user message.

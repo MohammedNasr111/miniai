@@ -1281,6 +1281,13 @@ class AppBridge:
             self._web_pages_read = 0
             self._turn_t0 = time.perf_counter()
             self._turn_ask = text
+            # Round 9C: reset listing-card flag at every app user turn.
+            try:
+                from agent.data_cards import reset_listing_card_turn
+
+                reset_listing_card_turn()
+            except Exception:
+                pass
             self._call_js(
                 "on_activity",
                 {

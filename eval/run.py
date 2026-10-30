@@ -297,6 +297,13 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext, model: str) -> None:
                         reset_session()
                         close_session()
                         session = new_session(provider)
+                    # Round 9C: card flag must be False at the start of each task prompt.
+                    try:
+                        from agent.data_cards import reset_listing_card_turn
+
+                        reset_listing_card_turn()
+                    except Exception:
+                        pass
                     answer = run_user_turn(session, prompt)
                     ctx.answers.append(answer or "")
                 ctx.prompt_log = list(prompt_log)
@@ -327,6 +334,14 @@ def _run_live_task(task: dict[str, Any], ctx: EvalContext, model: str) -> None:
 
 
 def _run_one(task: dict[str, Any], model: str) -> dict[str, Any]:
+    # Round 9C: ensure listing-card flag is clear before each eval task.
+    try:
+        from agent.data_cards import reset_listing_card_turn
+
+        reset_listing_card_turn()
+    except Exception:
+        pass
+
     from tests.support import use_temp_data
 
     task_id = task["id"]

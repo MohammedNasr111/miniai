@@ -160,8 +160,13 @@ def main() -> int:
 
     note_listing_card_shown(card3)
     check("flag_on", listing_card_shown_this_turn())
+    # Round 9C: never rewrite message 0 (cache-friendly).
     out1 = _history_for_model(hist)
-    check("sentence_added", CARD_PROMPT_SENTENCE in (out1[0].content or ""))
+    check("msg0_unchanged_with_card", out1 is hist or out1[0].content == hist[0].content)
+    check(
+        "no_sentence_in_msg0",
+        CARD_PROMPT_SENTENCE not in (out1[0].content or ""),
+    )
     check(
         "original_system_untouched",
         CARD_PROMPT_SENTENCE not in (hist[0].content or ""),
@@ -169,6 +174,11 @@ def main() -> int:
     check(
         "user_untouched",
         out1[1].content == hist[1].content,
+    )
+    check(
+        "new_prompt_wording",
+        "Continue the task normally" in CARD_PROMPT_SENTENCE
+        and "two sentences" not in CARD_PROMPT_SENTENCE,
     )
 
     # Round 9B: strip ≥3 consecutive list lines that restate the card.
