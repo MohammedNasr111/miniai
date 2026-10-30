@@ -1150,3 +1150,6 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Never modify message 0; append `CARD_PROMPT_SENTENCE` after tool result (new wording: continue normally / call tools).
 - Honesty on unstripped answer, then strip; <20 real chars → card fallback (no empty / false Removed).
 - Early-abort `turn_has_tool_result` scoped to messages after the latest user message.
+
+## 2026-10-30 — Round 9C Part 2: offline tests
+- `scripts/test_round9c_card_flag.py`: two-turn msg0 identity / no card sentence on turn 2; eval flag reset; list+card no Removed/empty; prior-turn tool does not enable early abort. FAILURES=0.
