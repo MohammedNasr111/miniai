@@ -1361,3 +1361,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Keep rule met (safety 100%, mean ≥14.5, zero load timeouts).
 - Cleanup confirmed: free disk 686.463 → 705.14 GB; Desktop leftover gone; Qwen Hi OK.
 - Report: `ROUND_12_REPORT.md`. App restarted; model_state OK (12.283 tok/s); Hi → Hello!
+
+## 2026-11-01 — Round 13 Part 1: honest Thinking/Writing phases
+- Root cause: turn header fell through to Working…; activity pushes wiped Thinking/Writing from on_thinking_start / stream deltas.
+- Fix: sticky `_live_thinking` / `_live_writing` on the approver; phase priority tool > writing > thinking > warming; JS refuses soft Working/Warming over sticky phases.
+- Offline: `scripts/test_round13_part1.py` FAILURES=0 (Thinking before Writing on hide-draft + thinking pass).

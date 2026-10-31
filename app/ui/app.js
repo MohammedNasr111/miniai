@@ -672,7 +672,14 @@
       });
     }
     if (payload.phase) {
-      setLivePhase(payload.phase);
+      // Round 13: never let a bare Working/Warming wipe Thinking/Writing.
+      const incoming = payload.phase;
+      const curKind = (run && run.phaseKind) || "";
+      const soft = incoming.kind === "working" || incoming.kind === "warming";
+      const sticky = curKind === "thinking" || curKind === "writing";
+      if (!(soft && sticky)) {
+        setLivePhase(incoming);
+      }
     } else if (payload.waiting) {
       setLivePhase({
         label: "Waiting for your approval",
@@ -685,6 +692,10 @@
         show_elapsed: false,
         kind: "checking",
       });
+    } else if (payload.thinking) {
+      setLivePhase({ label: "Thinking…", show_elapsed: true, kind: "thinking" });
+    } else if (payload.writing) {
+      setLivePhase({ label: "Writing…", show_elapsed: true, kind: "writing" });
     } else if (payload.running) {
       setLivePhase({ label: "Working…", show_elapsed: true, kind: "working" });
     }

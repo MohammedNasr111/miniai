@@ -1378,19 +1378,29 @@ class AppBridge:
             if s.get("data_card"):
                 row["data_card"] = s["data_card"]
             steps.append(row)
+        # Round 13 Part 1: keep thinking/writing sticky so tool-less LLM waits
+        # don't fall back to "Working…" and wipe the honest label.
+        thinking = bool(getattr(self, "_live_thinking", False))
+        writing = bool(getattr(self, "_live_writing", False))
         phase = phase_from_turn(
             waiting=waiting,
             checking=checking or bool(getattr(self, "_answer_checking", False)),
             steps=steps,
             warming=bool(self._cache_warming or self._model_loading),
+            thinking=thinking,
+            writing=writing,
         )
         payload = {
             "steps": steps,
             "waiting": waiting,
             "checking": checking or bool(getattr(self, "_answer_checking", False)),
             "total": format_duration(total),
-            "running": any(s.get("running") for s in self._turn_steps),
+            "running": any(s.get("running") for s in self._turn_steps)
+            or thinking
+            or writing,
             "phase": phase,
+            "thinking": thinking,
+            "writing": writing,
         }
         ask = getattr(self, "_turn_ask", "") or ""
         if ask:
@@ -1488,6 +1498,8 @@ class AppBridge:
             self._turn_t0 = time.perf_counter()
             self._turn_ask = text
             self._answer_checking = False
+            self._live_thinking = False
+            self._live_writing = False
             # Round 9C: reset listing-card flag at every app user turn.
             try:
                 from agent.data_cards import reset_listing_card_turn
@@ -1497,6 +1509,7 @@ class AppBridge:
                 pass
             from app.turn_phase import phase_from_turn
 
+            warming_now = bool(self._cache_warming or self._model_loading)
             self._call_js(
                 "on_activity",
                 {
@@ -1505,11 +1518,17 @@ class AppBridge:
                     "total": "0s",
                     "running": True,
                     "ask": text,
-                    "phase": phase_from_turn(warming=True),
+                    "phase": phase_from_turn(
+                        warming=warming_now,
+                        thinking=False,
+                        writing=False,
+                    ),
                 },
             )
             def _on_checking() -> None:
                 self._answer_checking = True
+                self._live_thinking = False
+                self._live_writing = False
                 self._push_live_activity(waiting=False, checking=True)
 
             def _on_stream_delta(accumulated: str) -> None:
@@ -1517,6 +1536,11 @@ class AppBridge:
                 if self._stream_t0 <= 0:
                     self._stream_t0 = time.perf_counter()
                 self._stream_chars = len(text_so_far)
+                # Round 13 Part 1: first visible delta → Writing… (and clear Thinking).
+                if text_so_far and not self._live_writing:
+                    self._live_writing = True
+                    self._live_thinking = False
+                    self._push_live_activity(waiting=False)
                 # Round 9E: do not estimate tok/s from wall clock here — sidebar
                 # "Writing speed" uses predicted_per_second after the turn.
                 self._call_js("on_stream_delta", {"text": text_so_far})
@@ -1524,9 +1548,15 @@ class AppBridge:
             def _on_stream_clear() -> None:
                 self._stream_t0 = 0.0
                 self._stream_chars = 0
+                # Draft discarded / tool call: leave Writing until next signal.
+                self._live_writing = False
                 self._call_js("on_stream_clear", {})
 
             def _on_thinking_start() -> None:
+                # Round 13 Part 1: emit Thinking… via activity (sticky) + JS hook.
+                self._live_thinking = True
+                self._live_writing = False
+                self._push_live_activity(waiting=False)
                 self._call_js("on_thinking_start", {})
 
             self._stream_t0 = 0.0

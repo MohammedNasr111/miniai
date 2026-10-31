@@ -51,7 +51,12 @@ def phase_from_turn(
     thinking: bool = False,
     writing: bool = False,
 ) -> dict[str, Any]:
-    """Return {label, show_elapsed, kind} for the turn header."""
+    """Return {label, show_elapsed, kind} for the turn header.
+
+    Priority (Round 13): approval → checking → running tool → writing →
+    thinking → warming → working. Thinking/writing must beat a blank
+    "Working…" so hide-draft and thinking passes stay honest in the UI.
+    """
     if waiting:
         return {
             "label": "Waiting for your approval",
@@ -64,10 +69,6 @@ def phase_from_turn(
             "show_elapsed": False,
             "kind": "checking",
         }
-    if writing:
-        return {"label": "Writing…", "show_elapsed": True, "kind": "writing"}
-    if thinking:
-        return {"label": "Thinking…", "show_elapsed": True, "kind": "thinking"}
 
     for step in reversed(list(steps or [])):
         if not step.get("running"):
@@ -105,6 +106,10 @@ def phase_from_turn(
             name = name + "…"
         return {"label": name, "show_elapsed": True, "kind": "tool"}
 
+    if writing:
+        return {"label": "Writing…", "show_elapsed": True, "kind": "writing"}
+    if thinking:
+        return {"label": "Thinking…", "show_elapsed": True, "kind": "thinking"}
     if warming:
         return {"label": "Warming up…", "show_elapsed": True, "kind": "warming"}
     return {"label": "Working…", "show_elapsed": True, "kind": "working"}
