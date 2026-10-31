@@ -1251,3 +1251,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - No candidate beat control (B/C skipped Part 1). Production stays **Qwen3-30B-A3B-GGUF**.
 - Report: `ROUND_10_REPORT.md`. Disk usage listed for James (keep/delete B/C).
 - App restarted; model_state OK (12.453 tok/s); Hi → Hello!
+
+## 2026-10-31 — Round 10B Part 1: per-model state threshold
+- `check_model_state`: OK when tok/s ≥ 90% of `logs/model_ref_<model>.json` (established on first clean probe).
+- Control A ref established: tok/s=14.444 → effective min 13.0 (`logs/model_ref_Qwen3-30B-A3B-GGUF.json`).
+- Offline: `scripts/test_round10b_model_ref.py` FAILURES=0.

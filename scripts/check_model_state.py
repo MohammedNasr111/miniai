@@ -1,10 +1,12 @@
-"""Round 9B: detect slow Lemonade LLM decode (thermal / bad residency).
+"""Round 9B / 10B: detect slow Lemonade LLM decode (thermal / bad residency).
 
 Architect correction (30 Oct): on Windows/Vulkan, high llama-server RSS mirrors
 shared GPU memory and is NOT a slowness signal. Verdict is tok/s only.
 
-OK when tok/s ≥ 11 on a realistic ~6k-token probe (system_prompt + tools +
-short user, generate 128 tokens). RSS and GPU memory are logged only.
+Round 10B: OK when tok/s ≥ 90% of the model's own reference speed
+(logs/model_ref_<model>.json), set on the first clean realistic probe.
+Legacy absolute floor TOK_S_MIN remains only as a fallback when no ref exists
+yet (then the probe establishes the ref and returns OK).
 Writes logs/model_state_<stamp>.json. Exit 0=OK, 1=DEGRADED, 2=error.
 """
 
@@ -12,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -22,9 +25,70 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# Legacy absolute floor (pre-10B). Prefer per-model reference when present.
 TOK_S_MIN = 11.0
+REF_FRACTION = 0.90
 PROBE_TOKENS = 128
 PROBE_USER = "In one short paragraph, what is a page fault?"
+
+
+def model_ref_slug(model: str) -> str:
+    """Safe filename stem for logs/model_ref_<slug>.json."""
+    text = (model or "unknown").strip() or "unknown"
+    text = re.sub(r"[^\w.\-]+", "_", text, flags=re.UNICODE)
+    return text[:120]
+
+
+def model_ref_path(model: str) -> Path:
+    return ROOT / "logs" / f"model_ref_{model_ref_slug(model)}.json"
+
+
+def load_model_ref(model: str) -> Optional[dict[str, Any]]:
+    path = model_ref_path(model)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    try:
+        tok = float(data.get("tok_s"))
+    except (TypeError, ValueError):
+        return None
+    if tok <= 0:
+        return None
+    return data
+
+
+def save_model_ref(model: str, tok_s: float, *, extra: Optional[dict[str, Any]] = None) -> Path:
+    path = model_ref_path(model)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "model": model,
+        "tok_s": round(float(tok_s), 3),
+        "ref_fraction": REF_FRACTION,
+        "tok_s_min_effective": round(float(tok_s) * REF_FRACTION, 3),
+        "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "probe_kind": "realistic_system_tools",
+    }
+    if extra:
+        payload.update(extra)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def effective_tok_s_min(model: str) -> tuple[float, str, Optional[dict[str, Any]]]:
+    """Return (threshold, source, ref_dict_or_none).
+
+    source is 'model_ref' or 'legacy_floor'.
+    """
+    ref = load_model_ref(model)
+    if ref is not None:
+        thr = float(ref["tok_s"]) * REF_FRACTION
+        return thr, "model_ref", ref
+    return float(TOK_S_MIN), "legacy_floor", None
 
 
 def _llm_health() -> dict[str, Any]:
@@ -174,10 +238,13 @@ def check_model_state(
     write_log: bool = True,
     skip_probe: bool = False,
     model: Optional[str] = None,
+    establish_ref: bool = True,
 ) -> dict[str, Any]:
-    """Return state dict with verdict OK|DEGRADED|ERROR.
+    """Return state dict with verdict OK|DEGRADED|ERROR|UNKNOWN.
 
-    Verdict uses tok/s only (≥ TOK_S_MIN). RSS/GPU are informational.
+    Verdict uses tok/s vs 90% of logs/model_ref_<model>.json when present.
+    If no ref yet and establish_ref, the first clean probe writes the ref and
+    returns OK. RSS/GPU are informational.
     """
     from agent.perf_probe import free_ram_gb, total_ram_gb
     from scripts.probe_system import _gpu_adapter_memory
@@ -187,8 +254,12 @@ def check_model_state(
         "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "stamp": stamp,
         "thresholds": {
-            "tok_s_min": TOK_S_MIN,
-            "note": "RSS logged only; not used in verdict (architect 30 Oct)",
+            "tok_s_min_legacy": TOK_S_MIN,
+            "ref_fraction": REF_FRACTION,
+            "note": (
+                "Round 10B: OK if tok/s ≥ 90% of model_ref; "
+                "RSS logged only (architect 30 Oct)"
+            ),
         },
     }
     try:
@@ -200,26 +271,68 @@ def check_model_state(
         out["free_ram_gb"] = free_ram_gb()
         out["total_ram_gb"] = total_ram_gb()
         out["gpu"] = _gpu_adapter_memory()
+        model_name = model or llm.get("model_name") or "unknown"
+        out["model"] = model_name
+        thr, thr_source, ref = effective_tok_s_min(str(model_name))
+        out["thresholds"]["tok_s_min"] = round(thr, 3)
+        out["thresholds"]["tok_s_min_source"] = thr_source
+        if ref is not None:
+            out["thresholds"]["model_ref_tok_s"] = ref.get("tok_s")
+            out["thresholds"]["model_ref_path"] = str(model_ref_path(str(model_name)))
         if skip_probe:
             out["probe"] = {"skipped": True}
             out["verdict"] = "OK"
             out["reason"] = "probe skipped (informational RSS/GPU only)"
         else:
-            probe = probe_realistic(model=model or llm.get("model_name"))
+            probe = probe_realistic(model=model_name)
             out["probe"] = probe
             tok_s = probe.get("tok_s")
             if tok_s is None or probe.get("tok_s_source") != "predicted_per_second":
                 # Missing timings → do not call the model "slow" (would false-chip).
                 out["verdict"] = "UNKNOWN"
                 out["reason"] = "predicted_per_second unavailable (no wall-clock fallback)"
-            elif float(tok_s) < TOK_S_MIN:
+            elif thr_source == "legacy_floor" and establish_ref:
+                # First clean load for this model: store reference, treat as OK.
+                ref_path = save_model_ref(
+                    str(model_name),
+                    float(tok_s),
+                    extra={
+                        "prompt_tokens": probe.get("prompt_tokens"),
+                        "wall_s": probe.get("wall_s"),
+                    },
+                )
+                out["thresholds"]["tok_s_min"] = round(float(tok_s) * REF_FRACTION, 3)
+                out["thresholds"]["tok_s_min_source"] = "model_ref_established"
+                out["thresholds"]["model_ref_tok_s"] = round(float(tok_s), 3)
+                out["thresholds"]["model_ref_path"] = str(ref_path)
+                out["verdict"] = "OK"
+                out["reason"] = (
+                    f"established model_ref tok/s={round(float(tok_s), 3)} "
+                    f"(effective min {round(float(tok_s) * REF_FRACTION, 3)}); "
+                    f"RSS={rss} GB logged only"
+                )
+            elif float(tok_s) < thr:
                 out["verdict"] = "DEGRADED"
-                out["reason"] = f"tok/s {tok_s} < {TOK_S_MIN}"
+                out["reason"] = (
+                    f"tok/s {tok_s} < {round(thr, 3)} "
+                    f"({thr_source}"
+                    + (
+                        f"; ref={ref.get('tok_s')}×{REF_FRACTION}"
+                        if ref is not None
+                        else ""
+                    )
+                    + ")"
+                )
             else:
                 out["verdict"] = "OK"
                 out["reason"] = (
-                    f"tok/s={tok_s} ≥ {TOK_S_MIN} "
-                    f"(RSS={rss} GB logged only; "
+                    f"tok/s={tok_s} ≥ {round(thr, 3)} ({thr_source}"
+                    + (
+                        f"; ref={ref.get('tok_s')}×{REF_FRACTION}"
+                        if ref is not None
+                        else ""
+                    )
+                    + f"; RSS={rss} GB logged only; "
                     f"prompt_tokens={probe.get('prompt_tokens') or probe.get('est_prompt_tokens')})"
                 )
     except Exception as exc:
