@@ -719,6 +719,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+    # Round 13 Part 3: hold eval.lock for the whole run so nightly self-check skips.
+    from eval.eval_lock import acquire_eval_lock, release_eval_lock
+
+    acquire_eval_lock()
+    try:
+        return _main_body(args)
+    finally:
+        release_eval_lock()
+
+
+def _main_body(args: argparse.Namespace) -> int:
     model = resolve_target_model(args.model)
     print(f"MODEL: {model}", flush=True)
     os.environ["MINIAI_MODEL"] = model

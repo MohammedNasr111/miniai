@@ -210,6 +210,20 @@ def read_selfcheck_summary(logs_dir: Path | None = None) -> dict[str, Any]:
     date = data.get("date") or data.get("finished") or ""
     if isinstance(date, str) and len(date) >= 10:
         date = date[:10]
+    # Round 13 Part 3: eval collision skip — neutral, not red.
+    if data.get("skipped") or str(data.get("skip_reason") or "") == "evaluation running":
+        return {
+            "ok": True,
+            "passed": passed,
+            "total": total,
+            "failed": 0,
+            "date": date,
+            "label": "Skipped (eval running)",
+            "level": "neutral",
+            "stale": False,
+            "prompt_run": False,
+            "skipped": True,
+        }
     age = _selfcheck_age_days(str(date) if date else "")
     # Stale when last successful full pass is older than 3 days — user decides.
     successful = failed == 0 and total > 0

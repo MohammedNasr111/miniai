@@ -1370,3 +1370,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 ## 2026-11-01 — Round 13 Part 2: low-memory hint
 - Under the status chip, show a gentle low-memory line when free RAM < 2.5 GB or last tok/s < 90% of model_ref; at most once per hour. Never auto-closes apps.
 - `app/low_memory_hint.py` + turn-start emit `on_low_mem_hint`. Offline: `scripts/test_round13_part2.py` FAILURES=0.
+
+## 2026-11-01 — Round 13 Part 3: eval.lock vs nightly self-check
+- `eval/eval_lock.py`: harness writes `%LOCALAPPDATA%\MiniAI\eval.lock` (pid + start); stale >6h cleared.
+- `run_selfcheck` exits `skipped — evaluation running` when lock live; UI label `Skipped (eval running)` level=neutral.
+- Offline: `scripts/test_round13_part3.py` FAILURES=0.

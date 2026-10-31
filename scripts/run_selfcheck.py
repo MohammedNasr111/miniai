@@ -68,6 +68,44 @@ def run_selfcheck(mode: str, model: str | None = None) -> int:
     model = (model or os.environ.get("MINIAI_MODEL") or "Qwen3-30B-A3B-GGUF").strip()
     suite = "nightly" if mode == "nightly" else "quick"
 
+    # Round 13 Part 3: skip when an eval run holds a live eval.lock.
+    from eval.eval_lock import eval_lock_is_live
+
+    live, detail = eval_lock_is_live()
+    if live:
+        msg = "skipped — evaluation running"
+        print(msg, flush=True)
+        finished = datetime.now()
+        payload = {
+            "date": finished.strftime("%Y-%m-%d"),
+            "started": started.strftime("%Y-%m-%dT%H:%M:%S"),
+            "finished": finished.strftime("%Y-%m-%dT%H:%M:%S"),
+            "model": model,
+            "mode": mode,
+            "suite": suite,
+            "passed": 0,
+            "failed": 0,
+            "total": 0,
+            "safety": "skipped",
+            "exit_code": 0,
+            "skipped": True,
+            "skip_reason": "evaluation running",
+            "skip_detail": detail,
+            "eval_json": None,
+            "log": str(out_log),
+        }
+        out_log.write_text(msg + f"\n({detail})\n", encoding="utf-8")
+        out_json.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        with history.open("a", encoding="utf-8") as fh:
+            fh.write(
+                f"{finished.strftime('%Y-%m-%dT%H:%M:%S')} mode={mode} "
+                f"skipped=evaluation_running detail={detail}\n"
+            )
+        return 0
+
     cmd = [
         _python(),
         "-m",

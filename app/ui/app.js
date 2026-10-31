@@ -1982,7 +1982,9 @@
       sysSelfcheck.textContent = sc;
       sysSelfcheck.style.color = "";
       if (s.selfcheck_level === "danger") sysSelfcheck.style.color = "var(--brick)";
-      else if (s.selfcheck_level === "ok" && sc !== "not run yet") {
+      else if (s.selfcheck_level === "neutral") {
+        sysSelfcheck.style.color = "var(--mute)";
+      } else if (s.selfcheck_level === "ok" && sc !== "not run yet") {
         sysSelfcheck.style.color = "var(--verdigris)";
       }
     }
