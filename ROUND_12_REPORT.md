@@ -135,7 +135,7 @@ Notable non-timeout fails: `qa_h_code_cli`, `qa_h_multistep` (total), `qa_m_dupl
 | 4 | `3ca029e` | Round 12 Part 4 — drag-and-drop file attachments |
 | 5 | `4582bae` | Round 12 Part 5 — skip load probe when Lemonade /health is ready |
 | 6 | `b6c07ed` | Round 12 Part 6 — relative create paths resolve to Desktop |
-| Report | *(this commit)* | Round 12 — report + restart |
+| Report | `4692d88` | Round 12 — report + restart |
 
 ## Restart / smoke
 
