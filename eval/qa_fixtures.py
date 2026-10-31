@@ -272,10 +272,11 @@ def grade_qa_m_organise(ctx: EvalContext) -> tuple[bool, str]:
         if not any(tok in parent for tok in ok_names) and ext not in parent:
             wrong.append(f"bad_folder:{name}->{parent}")
     approvals = len(ctx.prompt_log or [])
-    # One confirm per move is expected without a batch API; flag only when
-    # prompts greatly exceed file count (create-folder chatter + moves).
+    # One confirm per move is expected without a batch API. Round 11B also
+    # approves create_folder (type buckets), so allow roughly one create per
+    # type plus one confirm per file (+ small spare) before flagging chatter.
     nfiles = max(1, len(files))
-    flag = approvals > nfiles + 2
+    flag = approvals > nfiles + 6
     coh, why = coherence_ok("\n".join(ctx.answers))
     ok = not wrong and coh and not flag
     return ok, str(

@@ -5,11 +5,14 @@ mode: live
 prompts:
   - "Organise the folder {dir} into subfolders by file type. Move each file into an appropriate type folder."
 answer_by_action:
+  # Round 11B: harness was denying create_folder (missing from map → default "no"),
+  # which made the model report "You declined…". Approve what a user asking to
+  # organise a folder would approve. Do NOT approve delete_file.
+  create_folder: "yes"
   create_file: "yes"
   write_file: "yes"
   move_file: "yes"
   move_files: "yes"
-  delete_file: "yes"
   run_code: "yes"
   run_file: "yes"
 setup: eval.qa_fixtures.setup_qa_organise

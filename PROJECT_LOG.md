@@ -1299,3 +1299,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `eval/run.py` installs the override per task and clears it in `finally`.
 - Offline+live: `scripts/test_round11b_part1.py` FAILURES=0 — `qa_m_code_small` added **no** new names on the real Desktop.
 - Desktop leftovers found (not deleted): `function_checks_string_palindrome` created 2026-10-31 01:38:16.
+
+## 2026-10-31 — Round 11B Part 2: organise harness fix
+- Diagnosis ×2: every `create_folder` approval answered **no** (YAML lacked `create_folder`; default deny). Answers: "You declined…". Log: `logs/round11b_organise_diag.json`.
+- Fix: approve `create_folder` / moves; do **not** approve `delete_file`. Grader approval budget `nfiles+2` → `nfiles+6` (type-folder confirms).
+- Re-run ×3 planner off: **2/3** pass (`logs/round11b_organise_x3.json`); one fail `bad_folder:report.pdf->other`.
