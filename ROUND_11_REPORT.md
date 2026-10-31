@@ -1,4 +1,4 @@
-# Round 11 report — plan-first for long tasks
+﻿# Round 11 report — plan-first for long tasks
 
 Date: 2026-10-31. Task: `tasks/ROUND_11_PLANNER.md`.
 
@@ -134,7 +134,7 @@ Full battery ×2 and quick suite for a winning mode: **not run** (no winner).
 | 0 Groq provider | `36c7a0a` |
 | 1 planner | `272bea6` |
 | 2 UI checklist | `cf72c00` |
-| 3 measure + this report | (this commit) |
+| 3 measure + this report | `b858adb6e106cd351a206dcde09a6409a6016d9c` |
 
 ## Finish
 
@@ -142,3 +142,4 @@ Full battery ×2 and quick suite for a winning mode: **not run** (no winner).
 - Planner prefs/default **off**.
 - `check_model_state` = **OK** — tok/s=12.51 ≥ 11.98 (`logs/_qa_round11_hi.txt`).
 - “Hi” → `Hello! How can I assist you today?`
+
