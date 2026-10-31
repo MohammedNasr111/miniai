@@ -1293,3 +1293,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Groq skipped (no key). No winning mode → no battery ×2 / quick for cutover.
 - Default Planner **Off**. Report: `ROUND_11_REPORT.md`.
 - App restarted; model_state OK (12.51 tok/s); Hi → Hello! (`logs/_qa_round11_hi.txt`).
+
+## 2026-10-31 — Round 11B Part 1: evals stay out of real user folders
+- `config/paths.py`: eval override remaps Desktop/Documents/… into the eval temp tree (`install_eval_user_folders`); `real_user_folders()` still sees OS paths.
+- `eval/run.py` installs the override per task and clears it in `finally`.
+- Offline+live: `scripts/test_round11b_part1.py` FAILURES=0 — `qa_m_code_small` added **no** new names on the real Desktop.
+- Desktop leftovers found (not deleted): `function_checks_string_palindrome` created 2026-10-31 01:38:16.

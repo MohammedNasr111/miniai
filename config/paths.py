@@ -38,6 +38,9 @@ _USER_SHELL_REG: dict[str, str] = {
 USER_FOLDER_NAMES: tuple[str, ...] = tuple(_USER_FOLDER_IDS.keys())
 
 _user_folders_cache: Optional[dict[str, Path]] = None
+# Round 11B: eval harness remaps Desktop/Documents/… to a temp tree so live
+# tasks never write under the user's real folders.
+_eval_user_folders_override: Optional[dict[str, Path]] = None
 
 
 class _GUID(ctypes.Structure):
@@ -159,13 +162,25 @@ def resolve_user_folders(
     known_folder_getter: Optional[Callable[[str], Optional[Path]]] = None,
     registry_getter: Optional[Callable[[str], Optional[Path]]] = None,
     use_cache: bool = True,
+    ignore_eval_override: bool = False,
 ) -> dict[str, Path]:
     """Resolve Desktop, Documents, Downloads, Pictures, Music, Videos.
 
     Order per folder: SHGetKnownFolderPath(FOLDERID_*), then registry
     User Shell Folders, then Path.home()/Name.
+
+    When an eval override is active (unless ignore_eval_override), return that
+    temp map instead — live evals must not touch the user's real folders.
     """
     global _user_folders_cache
+    if (
+        not ignore_eval_override
+        and _eval_user_folders_override is not None
+        and known_folder_getter is None
+        and registry_getter is None
+    ):
+        return dict(_eval_user_folders_override)
+
     if use_cache and known_folder_getter is None and registry_getter is None:
         if _user_folders_cache is not None:
             return dict(_user_folders_cache)
@@ -195,6 +210,48 @@ def resolve_user_folders(
 def clear_user_folders_cache() -> None:
     global _user_folders_cache
     _user_folders_cache = None
+
+
+def set_eval_user_folders(folders: Optional[dict[str, Path]]) -> None:
+    """Install or clear the eval-only user-folder map (temp fixture tree)."""
+    global _eval_user_folders_override, _user_folders_cache
+    if folders is None:
+        _eval_user_folders_override = None
+    else:
+        _eval_user_folders_override = {
+            name: Path(folders[name]) for name in USER_FOLDER_NAMES if name in folders
+        }
+        # Require a complete map so expand_user_path never falls through unevenly.
+        missing = [n for n in USER_FOLDER_NAMES if n not in _eval_user_folders_override]
+        if missing:
+            raise ValueError(f"eval user folders missing: {missing}")
+    _user_folders_cache = None
+
+
+def eval_user_folders_active() -> bool:
+    return _eval_user_folders_override is not None
+
+
+def install_eval_user_folders(temp_root: Path) -> dict[str, Path]:
+    """Create Desktop/Documents/… under temp_root and activate the override."""
+    base = Path(temp_root) / "user_folders"
+    folders: dict[str, Path] = {}
+    for name in USER_FOLDER_NAMES:
+        p = base / name
+        p.mkdir(parents=True, exist_ok=True)
+        folders[name] = p
+    set_eval_user_folders(folders)
+    return folders
+
+
+def real_user_folders() -> dict[str, Path]:
+    """Always the OS-resolved folders (ignores eval override). For audits only."""
+    return resolve_user_folders(
+        known_folder_getter=None,
+        registry_getter=None,
+        use_cache=False,
+        ignore_eval_override=True,
+    )
 
 
 def user_folders_prompt_line(

@@ -348,6 +348,10 @@ def _run_one(task: dict[str, Any], model: str) -> dict[str, Any]:
     ability = task["ability"]
     mode = task.get("mode", "live")
     temp_root = use_temp_data()
+    # Round 11B: redirect Desktop/Documents/… into the eval temp tree.
+    from config.paths import install_eval_user_folders, set_eval_user_folders
+
+    install_eval_user_folders(temp_root)
     # Temp browser profile for isolation
     browser_profile = temp_root / "browser_profile"
     browser_profile.mkdir(parents=True, exist_ok=True)
@@ -397,6 +401,10 @@ def _run_one(task: dict[str, Any], model: str) -> dict[str, Any]:
         reason = f"{type(exc).__name__}: {exc}"
         err_tb = traceback.format_exc()
     finally:
+        try:
+            set_eval_user_folders(None)
+        except Exception:
+            pass
         try:
             from config.temp_cleanup import cleanup_stale_miniai_temps
 
