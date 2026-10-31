@@ -1525,6 +1525,40 @@ class AppBridge:
                     ),
                 },
             )
+            # Round 13 Part 2: gentle low-memory / slow-speed hint (≤1/hour).
+            try:
+                from app.low_memory_hint import hint_payload
+                from scripts.check_model_state import load_model_ref
+
+                free_now: Optional[float] = self._perf_free_ram_gb
+                try:
+                    import psutil
+
+                    free_now = round(psutil.virtual_memory().available / (1024**3), 3)
+                    self._perf_free_ram_gb = free_now
+                except Exception:
+                    pass
+                ref_tok: Optional[float] = None
+                try:
+                    from config import settings as _st
+
+                    ref = load_model_ref(str(getattr(_st, "LEMONADE_MODEL", "") or ""))
+                    if isinstance(ref, dict) and ref.get("tok_s") is not None:
+                        ref_tok = float(ref["tok_s"])
+                except Exception:
+                    ref_tok = None
+                last_tok = self._last_tok_s
+                if last_tok is None:
+                    last_tok = self._perf_tok_s
+                hint = hint_payload(
+                    free_ram_gb=free_now,
+                    last_tok_s=last_tok,
+                    ref_tok_s=ref_tok,
+                )
+                if hint:
+                    self._call_js("on_low_mem_hint", hint)
+            except Exception:
+                pass
             def _on_checking() -> None:
                 self._answer_checking = True
                 self._live_thinking = False

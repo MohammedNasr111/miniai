@@ -80,6 +80,10 @@ button,input,textarea{font:inherit;color:inherit}
   background:color-mix(in srgb,var(--brick) 10%,var(--raised));color:var(--brick);
 }
 .status-chip-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.low-mem-hint{
+  margin:0;padding:0 2px;font:400 var(--s0)/1.35 var(--display);color:var(--mute);
+}
+.low-mem-hint[hidden]{display:none!important}
 .status-retry{
   appearance:none;width:100%;text-align:center;cursor:pointer;
   border:1px solid var(--line);background:var(--slate);color:var(--text);

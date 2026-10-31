@@ -21,6 +21,7 @@
   const modelLamp = document.getElementById("model-lamp");
   const statusChip = document.getElementById("status-chip");
   const statusChipLabel = document.getElementById("status-chip-label");
+  const lowMemHint = document.getElementById("low-mem-hint");
   const statusRetry = document.getElementById("status-retry");
   const systemPop = document.getElementById("system-pop");
   const systemPopClose = document.getElementById("system-pop-close");
@@ -2106,6 +2107,17 @@
     on_activity: function (payload) {
       setTurnControls(true);
       syncSteps(payload || {});
+    },
+    on_low_mem_hint: function (payload) {
+      if (!lowMemHint) return;
+      const text = (payload && payload.text) || "";
+      if (!text) {
+        lowMemHint.hidden = true;
+        lowMemHint.textContent = "";
+        return;
+      }
+      lowMemHint.textContent = text;
+      lowMemHint.hidden = false;
     },
     on_approval: function (req) {
       setTurnControls(true);

@@ -1366,3 +1366,7 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Root cause: turn header fell through to Working…; activity pushes wiped Thinking/Writing from on_thinking_start / stream deltas.
 - Fix: sticky `_live_thinking` / `_live_writing` on the approver; phase priority tool > writing > thinking > warming; JS refuses soft Working/Warming over sticky phases.
 - Offline: `scripts/test_round13_part1.py` FAILURES=0 (Thinking before Writing on hide-draft + thinking pass).
+
+## 2026-11-01 — Round 13 Part 2: low-memory hint
+- Under the status chip, show a gentle low-memory line when free RAM < 2.5 GB or last tok/s < 90% of model_ref; at most once per hour. Never auto-closes apps.
+- `app/low_memory_hint.py` + turn-start emit `on_low_mem_hint`. Offline: `scripts/test_round13_part2.py` FAILURES=0.
