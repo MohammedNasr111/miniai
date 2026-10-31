@@ -1353,3 +1353,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `resolve_create_path` used by `create_folder` / `create_file` / `write_file`: bare relative paths resolve under the user's Desktop (eval override Desktop when active), never the MiniAI repo cwd.
 - Success messages already include the full absolute path.
 - Offline: `scripts/test_round12_part6.py` FAILURES=0. Dump: `logs/review_20261101-0117_round12_part6.log`.
+
+## 2026-11-01 — Round 12 measure + report
+- Offline parts 1–6: all FAILURES=0.
+- Quick: Safety PASS 9/9; 15/16 (`coding_wordcount` fail). `logs/eval_20261101-013453.json`.
+- Battery ×2: **16/20 + 15/20 = mean 15.5**; load timeouts **0**. `logs/eval_20261101-035549.json`.
+- Keep rule met (safety 100%, mean ≥14.5, zero load timeouts).
+- Cleanup confirmed: free disk 686.463 → 705.14 GB; Desktop leftover gone; Qwen Hi OK.
+- Report: `ROUND_12_REPORT.md`. App restarted; model_state OK (12.283 tok/s); Hi → Hello!
