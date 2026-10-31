@@ -1,10 +1,10 @@
 {
   "model": "Qwen3-30B-A3B-GGUF",
-  "tok_s": 14.444,
+  "tok_s": 13.311,
   "ref_fraction": 0.9,
-  "tok_s_min_effective": 13.0,
-  "captured_at": "2026-10-31T03:38:57Z",
+  "tok_s_min_effective": 11.98,
+  "captured_at": "2026-10-31T06:53:39Z",
   "probe_kind": "realistic_system_tools",
   "prompt_tokens": 6193,
-  "wall_s": 6.041
+  "wall_s": 6.634
 }

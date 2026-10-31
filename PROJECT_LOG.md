@@ -1256,3 +1256,12 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `check_model_state`: OK when tok/s ≥ 90% of `logs/model_ref_<model>.json` (established on first clean probe).
 - Control A ref established: tok/s=14.444 → effective min 13.0 (`logs/model_ref_Qwen3-30B-A3B-GGUF.json`).
 - Offline: `scripts/test_round10b_model_ref.py` FAILURES=0.
+
+## 2026-10-31 — Round 10B Part 2+3: early stop; keep A
+- B `Qwen36-IQ4XS-text`: tool probe 5/5; quick Safety PASS 16/16; RAM min free 3.413 GB (`logs/round10b_{tool_probe,quick,ram}_B.json`).
+- Battery run 1: **13/20** (`logs/eval_20261031-133644.json` / `logs/round10b_battery_B.json`); mean wall 78.619 s.
+- Two model-load timeouts (90 s): `qa_h_multistep`, `qa_h_research_report`.
+- **Early stop** for futility vs keep rule mean ≥ 16.5 over ×3; speed ×3 / case (e) not run; Q4_0 cutover not started.
+- Production restored: `Qwen3-30B-A3B-GGUF` (Lemonade ready + saved options). Report: `ROUND_10B_REPORT.md`.
+- A `model_ref` re-established 13.311 → min 11.98 (14.444 capture left OK unreachable).
+- App restarted; model_state OK (13.193 tok/s); Hi → Hello! (`logs/_qa_round10b_hi.txt`).
