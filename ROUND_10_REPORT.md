@@ -1,4 +1,4 @@
-# Round 10 report — brain bake-off v2
+﻿# Round 10 report — brain bake-off v2
 
 Date: 2026-10-31. Task: `tasks/ROUND_10_BRAIN_BAKEOFF.md`.
 
@@ -134,10 +134,11 @@ Also registered Lemonade aliases: `Qwen36-IQ4XS-text`, `Qwen3.6-35B-A3B-IQ4_XS`,
 | 0 hide-draft + gated default | `64013ec` |
 | 1 adapters + B/C skip | `6bd881e` |
 | 2 measure A | `1e11834` |
-| 3 decision + this report | `PLACEHOLDER_PART3` |
+| 3 decision + this report | `c8561e880a7485c2ecc817130e1051f2df7b394f` |
 
 ## Finish
 
 - MiniAI restarted (`python -m app`).
 - `check_model_state` = OK — tok/s=12.453 ≥ 11.0 (`logs/_qa_round10_hi.txt`).
 - “Hi” → `Hello! How can I assist you today?`
+
