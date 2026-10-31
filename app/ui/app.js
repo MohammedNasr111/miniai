@@ -15,6 +15,18 @@
   const chipTaint = document.getElementById("chip-taint");
   const modelStatus = document.getElementById("model-status");
   const modelLamp = document.getElementById("model-lamp");
+  const statusChip = document.getElementById("status-chip");
+  const statusChipLabel = document.getElementById("status-chip-label");
+  const statusRetry = document.getElementById("status-retry");
+  const systemPop = document.getElementById("system-pop");
+  const systemPopClose = document.getElementById("system-pop-close");
+  const sysModel = document.getElementById("sys-model");
+  const sysTok = document.getElementById("sys-tok");
+  const sysMem = document.getElementById("sys-mem");
+  const sysSelfcheck = document.getElementById("sys-selfcheck");
+  const sysGemini = document.getElementById("sys-gemini");
+  const sysGroq = document.getElementById("sys-groq");
+  const sysReload = document.getElementById("sys-reload");
   const slowChip = document.getElementById("slow-chip");
   const restoreProgressRow = document.getElementById("restore-progress-row");
   const restoreProgress = document.getElementById("restore-progress");
@@ -24,6 +36,7 @@
   const selfcheckLabel = document.getElementById("selfcheck-label");
   const cloudLabel = document.getElementById("cloud-label");
   const settingsPanel = document.getElementById("settings-panel");
+  let lastStatus = null;
   const settingsClose = document.getElementById("settings-close");
   const geminiKeyInput = document.getElementById("gemini-key-input");
   const geminiSave = document.getElementById("gemini-save");
@@ -1570,41 +1583,150 @@
       appEl.classList.remove("show-rail");
     } else if (e.key === "Escape") {
       if (settingsPanel && !settingsPanel.hidden) closeSettings();
+      else if (systemPop && !systemPop.hidden) closeSystemPop();
       else if (!palette.hidden) closePalette();
       else appEl.classList.remove("show-rail", "show-foot");
     }
   });
+
+  function closeSystemPop() {
+    if (!systemPop) return;
+    systemPop.hidden = true;
+    if (statusChip) statusChip.setAttribute("aria-expanded", "false");
+  }
+
+  function openSystemPop() {
+    if (!systemPop) return;
+    systemPop.hidden = false;
+    if (statusChip) statusChip.setAttribute("aria-expanded", "true");
+  }
+
+  function toggleSystemPop() {
+    if (!systemPop) return;
+    if (systemPop.hidden) openSystemPop();
+    else closeSystemPop();
+  }
+
+  function statusChipState(s) {
+    if (!s || s.lemonade_up === false || s.model_state === "down") {
+      return {
+        state: "offline",
+        label: "Offline — Lemonade not running",
+        retry: true,
+      };
+    }
+    if (s.restore_busy || s.perf_checking || s.model_state === "loading") {
+      return { state: "warming", label: "Warming up…", retry: false };
+    }
+    if (s.turn_busy || s.busy) {
+      return { state: "working", label: "Working…", retry: false };
+    }
+    if (s.slow_chip) {
+      return { state: "slow", label: "Running slowly — Reload", retry: false };
+    }
+    return { state: "ready", label: "Ready · on this PC", retry: false };
+  }
+
+  function applyStatusChip(s) {
+    lastStatus = s || lastStatus;
+    const info = statusChipState(s || {});
+    if (statusChip) {
+      statusChip.dataset.state = info.state;
+      statusChip.title =
+        info.state === "slow"
+          ? "Model is generating slowly. Open System to reload."
+          : "System status";
+    }
+    if (statusChipLabel) statusChipLabel.textContent = info.label;
+    if (statusRetry) statusRetry.hidden = !info.retry;
+    if (modelLamp) {
+      modelLamp.classList.remove("loading", "down");
+      if (info.state === "warming" || info.state === "working") {
+        modelLamp.classList.add("loading");
+      } else if (info.state === "offline") {
+        modelLamp.classList.add("down");
+      }
+    }
+  }
+
+  function fillSystemPop(s) {
+    if (!s) return;
+    if (sysModel) sysModel.textContent = s.model_name || s.model || "—";
+    if (sysTok) {
+      const tok = s.tok_s != null ? Number(s.tok_s) : 0;
+      sysTok.textContent = tok > 0 ? tok.toFixed(1) + " tok/s" : "—";
+    }
+    if (sysMem) sysMem.textContent = s.memory_label || "—";
+    if (sysSelfcheck) {
+      let sc = String(s.selfcheck || "not run yet")
+        .replace(/\u00b7/g, " of ")
+        .trim();
+      if (!sc || sc === "…" || sc === "...") sc = "not run yet";
+      if (!s.selfcheck_prompt) {
+        sc = sc.replace(/^Self-check:\s*/i, "").trim() || "not run yet";
+      }
+      sysSelfcheck.textContent = sc;
+      sysSelfcheck.style.color = "";
+      if (s.selfcheck_level === "danger") sysSelfcheck.style.color = "var(--brick)";
+      else if (s.selfcheck_level === "ok" && sc !== "not run yet") {
+        sysSelfcheck.style.color = "var(--verdigris)";
+      }
+    }
+    if (sysGemini) {
+      const g = (s.cloud && s.cloud.status) || "Not connected";
+      sysGemini.textContent = g;
+    }
+    if (sysGroq) {
+      const gq = (s.groq && s.groq.status) || "Not connected";
+      sysGroq.textContent = gq;
+    }
+    if (sysReload) sysReload.disabled = !!(s.restore_busy || s.turn_busy);
+  }
+
+  async function startReloadModel() {
+    const a = api();
+    if (!a || !a.restore_model) {
+      showSystemNote("Reload model is not available yet");
+      return;
+    }
+    if (sysReload) sysReload.disabled = true;
+    if (slowChip) slowChip.disabled = true;
+    try {
+      const r = await a.restore_model();
+      if (r && r.ok === false && r.error) {
+        showSystemNote(String(r.error));
+        if (sysReload) sysReload.disabled = false;
+        if (slowChip) slowChip.disabled = false;
+      }
+    } catch (e) {
+      showSystemNote("Reload model failed to start");
+      if (sysReload) sysReload.disabled = false;
+      if (slowChip) slowChip.disabled = false;
+    }
+  }
 
   /* ----- bridge callbacks ----- */
   window.miniai = {
     on_status: function (s) {
       if (!s) return;
       if (modelStatus) modelStatus.textContent = s.model || "Model";
-      if (modelLamp) {
-        modelLamp.classList.remove("loading", "down");
-        if (s.model_state === "loading") modelLamp.classList.add("loading");
-        else if (s.model_state === "down") modelLamp.classList.add("down");
-      }
+      applyStatusChip(s);
+      fillSystemPop(s);
       if (slowChip) {
-        const showSlow = !!s.slow_chip;
-        slowChip.hidden = !showSlow;
-        if (showSlow) {
-          slowChip.disabled = !!s.restore_busy;
-          slowChip.textContent = s.suggest_close_apps
-            ? "Running slowly — Reload model (close heavy apps first)"
-            : "Running slowly — Reload model";
-        }
+        // Keep for keyboard/tests; rail uses status chip instead.
+        slowChip.hidden = true;
+        slowChip.disabled = !!s.restore_busy;
+        slowChip.textContent = "Running slowly — Reload";
       }
-      if (restoreProgressRow && restoreProgress) {
-        const busy = !!s.restore_busy || !!(s.restore_progress && s.perf_checking);
+      if (restoreProgress) {
         const msg = s.restore_busy
           ? s.restore_progress || "Reloading…"
           : s.perf_checking
             ? "Checking speed…"
             : s.restore_progress || "";
-        restoreProgressRow.hidden = !(s.restore_busy || s.perf_checking || (s.restore_progress && s.perf_verdict === "DEGRADED"));
         restoreProgress.textContent = msg || "—";
       }
+      if (restoreProgressRow) restoreProgressRow.hidden = true;
       if (memLabel) memLabel.textContent = s.memory_label || "—";
       if (memMeter) {
         memMeter.style.width = (s.memory_pct || 0) + "%";
@@ -1617,29 +1739,21 @@
           .replace(/\u00b7/g, " of ")
           .trim();
         if (!sc || sc === "…" || sc === "...") sc = "not run yet";
-        // Stale prompt keeps "Self-check: last run … Run now?"; otherwise strip prefix.
         if (!s.selfcheck_prompt) {
           sc = sc.replace(/^Self-check:\s*/i, "").trim() || "not run yet";
         }
         selfcheckLabel.textContent = sc;
         selfcheckLabel.classList.toggle("prompt", !!s.selfcheck_prompt);
-        selfcheckLabel.style.color = "";
-        if (s.selfcheck_prompt) {
-          /* color via .prompt */
-        } else if (s.selfcheck_level === "danger") {
-          selfcheckLabel.style.color = "var(--brick)";
-        } else if (s.selfcheck_level === "ok" && sc !== "not run yet") {
-          selfcheckLabel.style.color = "var(--verdigris)";
-        } else {
-          selfcheckLabel.style.color = "var(--muted)";
-        }
       }
       if (tokSpeed && s.tok_s != null) {
         tokSpeed.textContent =
           s.tok_s > 0 ? Number(s.tok_s).toFixed(1) + " tok/s" : "—";
       }
       if (cloudLabel && s.cloud) {
-        cloudLabel.textContent = s.cloud.label || "Cloud: not connected";
+        // Never contradict "Runs on this PC" — opt-in connections only.
+        const gem = s.cloud.connected ? "Gemini connected" : "Gemini not connected";
+        const groq = s.groq && s.groq.connected ? "Groq connected" : "Groq not connected";
+        cloudLabel.textContent = gem + "; " + groq;
         if (typeof s.cloud.experimental === "boolean") {
           cloudExperimentalOn = !!s.cloud.experimental;
           if (cloudExperimental) cloudExperimental.checked = cloudExperimentalOn;
@@ -1761,24 +1875,38 @@
     }
   });
 
-  if (slowChip) {
-    slowChip.addEventListener("click", async function () {
-      const a = api();
-      if (!a || !a.restore_model) {
-        showSystemNote("Reload model is not available yet");
+  if (statusChip) {
+    statusChip.addEventListener("click", function () {
+      const st = (lastStatus && statusChipState(lastStatus).state) || "";
+      if (st === "slow") {
+        openSystemPop();
         return;
       }
-      slowChip.disabled = true;
-      try {
-        const r = await a.restore_model();
-        if (r && r.ok === false && r.error) {
-          showSystemNote(String(r.error));
-          slowChip.disabled = false;
-        }
-      } catch (e) {
-        showSystemNote("Reload model failed to start");
-        slowChip.disabled = false;
-      }
+      toggleSystemPop();
+    });
+  }
+  if (statusRetry) {
+    statusRetry.addEventListener("click", function () {
+      startReloadModel();
+    });
+  }
+  if (systemPopClose) {
+    systemPopClose.addEventListener("click", closeSystemPop);
+  }
+  if (sysReload) {
+    sysReload.addEventListener("click", function () {
+      startReloadModel();
+    });
+  }
+  document.addEventListener("click", function (e) {
+    if (!systemPop || systemPop.hidden) return;
+    const t = e.target;
+    if (systemPop.contains(t) || (statusChip && statusChip.contains(t))) return;
+    closeSystemPop();
+  });
+  if (slowChip) {
+    slowChip.addEventListener("click", function () {
+      startReloadModel();
     });
   }
 

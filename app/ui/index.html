@@ -14,14 +14,34 @@
     <button class="newchat" id="btn-new-chat" type="button">New chat <kbd>Ctrl N</kbd></button>
     <nav class="chats" id="history-list" aria-label="Chats"></nav>
     <section class="machine" aria-label="This PC">
-      <div class="mrow"><span><span class="lamp" id="model-lamp" aria-hidden="true"></span><span id="model-status">Model</span></span></div>
-      <button type="button" class="slow-chip" id="slow-chip" hidden title="Model is generating slowly. Click to reload it.">Running slowly — Reload model</button>
-      <div class="mrow" id="restore-progress-row" hidden><span>Reload</span><strong id="restore-progress">—</strong></div>
-      <div class="mrow"><span>Writing speed</span><strong id="tok-speed">—</strong></div>
-      <div class="mrow"><span>Memory</span><strong id="mem-label">—</strong></div>
-      <div class="gauge" aria-hidden="true"><i id="mem-meter"></i></div>
-      <div class="mrow"><span>Nightly self-check</span><button type="button" class="selfcheck-btn" id="selfcheck-label" title="Run self-check">…</button></div>
-      <div class="mrow"><span>Cloud</span><strong id="cloud-label">Cloud: not connected</strong></div>
+      <button type="button" class="status-chip" id="status-chip" aria-haspopup="dialog" aria-expanded="false" aria-controls="system-pop">
+        <span class="lamp" id="model-lamp" aria-hidden="true"></span>
+        <span class="status-chip-label" id="status-chip-label">Ready · on this PC</span>
+      </button>
+      <button type="button" class="status-retry" id="status-retry" hidden>Retry</button>
+      <!-- Hidden hooks kept for status updates / tests (not shown in the rail). -->
+      <span id="model-status" class="sr-only">Model</span>
+      <span id="tok-speed" class="sr-only">—</span>
+      <span id="mem-label" class="sr-only">—</span>
+      <span id="selfcheck-label" class="sr-only">…</span>
+      <span id="cloud-label" class="sr-only">Gemini not connected</span>
+      <span id="restore-progress" class="sr-only">—</span>
+      <div id="restore-progress-row" class="sr-only" hidden></div>
+      <button type="button" id="slow-chip" class="sr-only" hidden tabindex="-1">Running slowly — Reload</button>
+      <div class="system-pop" id="system-pop" role="dialog" aria-label="System" hidden>
+        <header class="system-pop-head">
+          <h2>System</h2>
+          <button type="button" class="iconbtn" id="system-pop-close" aria-label="Close">Close</button>
+        </header>
+        <div class="mrow"><span>Model</span><strong id="sys-model">—</strong></div>
+        <div class="mrow"><span>Writing speed</span><strong id="sys-tok">—</strong></div>
+        <div class="mrow"><span>Memory</span><strong id="sys-mem">—</strong></div>
+        <div class="gauge" aria-hidden="true"><i id="mem-meter"></i></div>
+        <div class="mrow"><span>Nightly self-check</span><strong id="sys-selfcheck">—</strong></div>
+        <div class="mrow"><span>Gemini (opt-in)</span><strong id="sys-gemini">Not connected</strong></div>
+        <div class="mrow"><span>Groq planner (opt-in)</span><strong id="sys-groq">Not connected</strong></div>
+        <button type="button" class="system-reload" id="sys-reload">Reload model</button>
+      </div>
     </section>
   </aside>
 
@@ -46,7 +66,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         </button>
       </form>
-      <div class="hint"><span>Runs on this PC. Only web searches go online, and they show up in the footprint.</span><span>Ctrl K for commands</span></div>
+      <div class="hint"><span>Runs on this PC. Web searches and opt-in cloud requests are listed in the Footprint.</span><span>Ctrl K for commands</span></div>
     </div>
   </main>
 

@@ -417,22 +417,28 @@ class AppBridge:
         threading.Thread(target=_run, daemon=True).start()
         return {"ok": True, "started": True}
 
-    def _health_llms(self) -> list[dict[str, Any]]:
+    def _lemonade_health(self) -> tuple[bool, list[dict[str, Any]]]:
+        """Return (server_up, loaded_llm_rows)."""
         from config import settings
 
         try:
             url = f"{settings.LEMONADE_BASE_URL.rstrip('/')}/health"
             data = requests.get(url, timeout=2).json()
             models = data.get("all_models_loaded") or []
-            return [
+            llms = [
                 m
                 for m in models
                 if isinstance(m, dict)
                 and m.get("type") == "llm"
                 and m.get("loaded")
             ]
+            return True, llms
         except Exception:
-            return []
+            return False, []
+
+    def _health_llms(self) -> list[dict[str, Any]]:
+        _up, llms = self._lemonade_health()
+        return llms
 
     def _model_is_loaded(self) -> bool:
         from config import settings
@@ -616,9 +622,13 @@ class AppBridge:
                 mem_level = "warn"
         except Exception as exc:
             logger.info("memory meter unavailable: %s", exc)
-        model = self._loaded_model_name()
+        lemonade_up, _llms = self._lemonade_health()
+        model = self._loaded_model_name() if lemonade_up else ""
         display = model[:-5] if model.endswith("-GGUF") else model
-        if self._model_loading and not self._model_ready.is_set():
+        if not lemonade_up:
+            model_label = "Lemonade offline"
+            model_state = "down"
+        elif self._model_loading and not self._model_ready.is_set():
             model_label = "Loading model…"
             model_state = "loading"
         elif self._cache_warming:
@@ -630,7 +640,7 @@ class AppBridge:
             if "Qwen3" in short and "30B" in short:
                 model_label = "Qwen3 30B, on this PC"
             else:
-                model_label = f"{short}, on this PC"
+                model_label = f"{short}, on this PC" if short else "Model"
             model_state = "ready"
         selfcheck_label = "not run yet"
         selfcheck_level = "ok"
@@ -651,7 +661,11 @@ class AppBridge:
             "on_status",
             {
                 "model": model_label,
+                "model_name": model or display or "—",
                 "model_state": model_state,
+                "lemonade_up": bool(lemonade_up),
+                "turn_busy": bool(self._busy),
+                "busy": bool(self._busy),
                 "runner": runner,
                 "tainted": is_tainted(),
                 "memory_pct": mem_pct,
@@ -662,6 +676,7 @@ class AppBridge:
                 "selfcheck_prompt": selfcheck_prompt,
                 "tok_s": self._last_tok_s,
                 "cloud": self._cloud_status_payload(),
+                "groq": self._groq_status_payload(),
                 "perf_verdict": self._perf_verdict,
                 "perf_reason": self._perf_reason,
                 "perf_tok_s": self._perf_tok_s,
@@ -681,6 +696,7 @@ class AppBridge:
         )
 
     def _cloud_status_payload(self) -> dict[str, Any]:
+        """Gemini opt-in connection status (never implies the brain left this PC)."""
         try:
             from security.gemini_key import ui_status
 
@@ -693,12 +709,13 @@ class AppBridge:
             except Exception:
                 model_name = ""
             connected = bool(st.get("connected"))
+            # Wording: opt-in Gemini — do not say the app "runs in the cloud".
             if connected and model_name:
-                label = f"Cloud: {model_name}"
+                label = f"Gemini connected ({model_name})"
             elif connected:
-                label = "Cloud: connected"
+                label = "Gemini connected"
             else:
-                label = "Cloud: not connected"
+                label = "Gemini not connected"
             from app.prefs import get_cloud_experimental
 
             return {
@@ -714,8 +731,28 @@ class AppBridge:
                 "connected": False,
                 "status": "Not connected",
                 "model": "",
-                "label": "Cloud: not connected",
+                "label": "Gemini not connected",
                 "experimental": False,
+            }
+
+    def _groq_status_payload(self) -> dict[str, Any]:
+        """Groq planner opt-in status (planner-only; brain stays on this PC)."""
+        try:
+            from security.groq_key import ui_status
+
+            st = ui_status()
+            connected = bool(st.get("connected"))
+            return {
+                "connected": connected,
+                "status": st.get("status") or "Not connected",
+                "label": "Groq connected" if connected else "Groq not connected",
+            }
+        except Exception as exc:
+            logger.info("groq status unavailable: %s", exc)
+            return {
+                "connected": False,
+                "status": "Not connected",
+                "label": "Groq not connected",
             }
 
     def gemini_status(self) -> dict[str, Any]:

@@ -1321,3 +1321,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Report: `ROUND_11B_REPORT.md`. Review dump: `logs/review_20261101-0038_round11b_report.log`.
 - Decisions: keep eval folder redirect + organise harness fix; leave `ANALYZE_TABLE` Off; leave Planner Off.
 - App restarted; model_state OK (12.244 tok/s); Hi → Hello! (`logs/_qa_round11b_hi.txt`).
+
+## 2026-11-01 — Round 12 Part 1: one status chip
+- Sidebar engineering rows replaced by one chip: Ready / Warming up / Working / Running slowly — Reload / Offline — Lemonade not running (+ Retry).
+- Click opens System popover (model, writing speed, memory, self-check, Gemini + Groq opt-in, Reload model).
+- Footer: "Runs on this PC. Web searches and opt-in cloud requests are listed in the Footprint." Cloud wording no longer says the brain left this PC.
+- Capture: `app/design/actual_v15_status_chip.png`. Offline: `scripts/test_round12_part1.py` FAILURES=0.

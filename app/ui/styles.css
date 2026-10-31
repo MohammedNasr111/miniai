@@ -54,14 +54,53 @@ button,input,textarea{font:inherit;color:inherit}
 .chat{display:block;width:100%;text-align:left;padding:7px 8px;border-radius:6px;border:0;background:none;color:var(--muted);font-size:var(--s2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .chat:hover{color:var(--text);background:var(--raised)}
 .chat[aria-current="true"]{color:var(--text);background:var(--raised)}
-.machine{border-top:1px solid var(--line);padding:14px 6px 2px;display:grid;gap:9px;font-size:var(--s1);color:var(--muted)}
+.machine{border-top:1px solid var(--line);padding:14px 6px 2px;display:grid;gap:8px;font-size:var(--s1);color:var(--muted);position:relative}
 .mrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .mrow strong{font:500 var(--s2)/1 var(--display);color:var(--text);font-variant-numeric:tabular-nums}
 .selfcheck-btn{appearance:none;background:none;border:0;padding:0;margin:0;font:500 var(--s2)/1.2 var(--display);color:var(--text);font-variant-numeric:tabular-nums;text-align:right;cursor:default;max-width:11rem}
 .selfcheck-btn.prompt{color:var(--amber,#C4A35A);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-.lamp{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--verdigris);margin-right:6px;box-shadow:0 0 0 3px color-mix(in srgb,var(--verdigris) 20%,transparent)}
+.lamp{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--verdigris);margin-right:6px;flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--verdigris) 20%,transparent)}
 .lamp.loading{background:var(--amber);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber) 20%,transparent)}
 .lamp.down{background:var(--brick);box-shadow:0 0 0 3px color-mix(in srgb,var(--brick) 20%,transparent)}
+.status-chip{
+  appearance:none;width:100%;display:flex;align-items:center;gap:2px;text-align:left;cursor:pointer;
+  border:1px solid var(--line);background:var(--raised);color:var(--text);
+  border-radius:8px;padding:9px 10px;font:500 var(--s1)/1.35 var(--display);
+}
+.status-chip:hover{border-color:color-mix(in srgb,var(--glacier) 45%,var(--line))}
+.status-chip[data-state="warming"],.status-chip[data-state="working"]{border-color:color-mix(in srgb,var(--amber) 40%,var(--line))}
+.status-chip[data-state="slow"]{
+  border-color:color-mix(in srgb,var(--amber) 55%,var(--line));
+  background:color-mix(in srgb,var(--amber) 12%,var(--raised));color:var(--amber);
+}
+.status-chip[data-state="offline"]{
+  border-color:color-mix(in srgb,var(--brick) 55%,var(--line));
+  background:color-mix(in srgb,var(--brick) 10%,var(--raised));color:var(--brick);
+}
+.status-chip-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status-retry{
+  appearance:none;width:100%;text-align:center;cursor:pointer;
+  border:1px solid var(--line);background:var(--slate);color:var(--text);
+  border-radius:8px;padding:7px 10px;font:500 var(--s1)/1.3 var(--display);
+}
+.status-retry:hover{background:var(--raised)}
+.system-pop{
+  position:absolute;left:0;right:0;bottom:calc(100% + 8px);z-index:12;
+  background:var(--raised);border:1px solid var(--line);border-radius:10px;
+  padding:12px;display:grid;gap:8px;box-shadow:0 12px 32px rgba(0,0,0,.4);
+}
+.system-pop[hidden]{display:none!important}
+.system-pop-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.system-pop-head h2{margin:0;font:600 var(--s2)/1.2 var(--display);color:var(--text)}
+.system-pop .iconbtn{display:inline-block}
+.system-reload{
+  appearance:none;width:100%;margin-top:4px;cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--glacier) 45%,var(--line));
+  background:var(--slate);color:var(--text);border-radius:8px;padding:8px 10px;
+  font:500 var(--s1)/1.3 var(--display);
+}
+.system-reload:hover{background:color-mix(in srgb,var(--glacier) 12%,var(--slate))}
+.system-reload:disabled{opacity:.65;cursor:default}
 .slow-chip{
   appearance:none;width:100%;text-align:left;cursor:pointer;
   border:1px solid color-mix(in srgb,var(--amber) 55%,var(--line));
