@@ -1,4 +1,4 @@
-# Round 10B report — Qwen3.6 battery (early stop)
+﻿# Round 10B report — Qwen3.6 battery (early stop)
 
 Date: 2026-10-31. Task: `tasks/ROUND_10B_QWEN36_BATTERY.md`.
 
@@ -122,7 +122,7 @@ Also registered: `Qwen36-IQ4XS-text`, `Qwen3.6-35B-A3B-IQ4_XS`, `Nemotron-3.5-Li
 | Part | Hash |
 |---|---|
 | 1 per-model state threshold | `fe1ded0` |
-| 2+3 early-stop report + restore | (this commit) |
+| 2+3 early-stop report + restore | `5ac2356d62387f70e7162f3cfc5d072db7f7d1f0` |
 
 ## Finish
 
@@ -131,3 +131,4 @@ Also registered: `Qwen36-IQ4XS-text`, `Qwen3.6-35B-A3B-IQ4_XS`, `Nemotron-3.5-Li
 - A `model_ref` re-established to tok/s=13.311 → effective min 11.98 (outlier 14.444 ref left production DEGRADED at steady speed).
 - `check_model_state` = **OK** — tok/s=13.193 ≥ 11.98 (`logs/_qa_round10b_hi.txt`).
 - “Hi” → `Hello! How can I assist you today?`
+
