@@ -1286,3 +1286,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Bridge `on_plan` + answer `plan` payload; `demo_plan_checklist` / `MINIAI_DEMO_PLAN` hand-test hook.
 - Capture: `app/design/actual_v14_plan_checklist.png` via `miniai_capture.py`.
 - Offline: `scripts/test_round11_part2.py` FAILURES=0.
+
+## 2026-10-31 — Round 11 Part 3: measure; keep Off
+- Targets+guards ×3: off **1/9** targets, **8/9** guards, mean wall 104.173 s (`logs/round11_off_targets.json`).
+- local **0/9** targets, **6/9** guards, mean wall 167.113 s — fails keep (need targets≥4, guards≥7, wall≤156.3 s).
+- Groq skipped (no key). No winning mode → no battery ×2 / quick for cutover.
+- Default Planner **Off**. Report: `ROUND_11_REPORT.md`.
+- App restarted; model_state OK (12.51 tok/s); Hi → Hello! (`logs/_qa_round11_hi.txt`).
