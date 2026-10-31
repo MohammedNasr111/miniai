@@ -83,6 +83,7 @@
   let streamCaret = null;
   let thinkingTimer = null;
   let thinkingT0 = 0;
+  let phaseTimer = null;
   const STREAM_MIN_MS = 50;
   let paletteIndex = 0;
   let paletteItems = [];
@@ -296,7 +297,7 @@
     meta.innerHTML =
       "<span><b>" +
       escapeHtml(nowHm()) +
-      "</b></span><span class=\"meta-status\">Working</span><span class=\"meta-steps\"><b>0</b> steps</span><span class=\"meta-left\"><b>Nothing</b> left this PC</span>";
+      "</b></span><span class=\"meta-status\">Warming up… 0 s</span><span class=\"meta-steps\"><b>0</b> steps</span><span class=\"meta-left\"><b>Nothing</b> left this PC</span>";
     ask.appendChild(meta);
     art.appendChild(ask);
     const planBox = document.createElement("div");
@@ -321,6 +322,11 @@
       leftCount: 0,
       t0: Date.now(),
     };
+    setLivePhase({
+      label: "Warming up…",
+      show_elapsed: true,
+      kind: "warming",
+    });
     maybeScrollBottom();
     return currentRun;
   }
@@ -383,12 +389,65 @@
     maybeScrollBottom();
   }
 
+  function stopPhaseTimer() {
+    if (phaseTimer) {
+      clearInterval(phaseTimer);
+      phaseTimer = null;
+    }
+  }
+
+  function paintPhaseElapsed() {
+    const run = currentRun;
+    if (!run || !run.meta || run.phaseDone) return;
+    const st = run.meta.querySelector(".meta-status");
+    if (!st) return;
+    const label = run.phaseLabel || "Working…";
+    if (run.phaseShowElapsed === false) {
+      st.textContent = label;
+      return;
+    }
+    const t0 = run.phaseT0 || Date.now();
+    const n = Math.max(0, Math.floor((Date.now() - t0) / 1000));
+    st.textContent = label + " " + n + " s";
+  }
+
+  function setLivePhase(phase, opts) {
+    const run = currentRun;
+    if (!run || !run.meta) return;
+    opts = opts || {};
+    const label =
+      (phase && phase.label) ||
+      opts.label ||
+      "Working…";
+    const showElapsed =
+      phase && typeof phase.show_elapsed === "boolean"
+        ? phase.show_elapsed
+        : opts.showElapsed !== false;
+    const kind = (phase && phase.kind) || opts.kind || "";
+    // Restart elapsed when the phase kind/label changes.
+    if (run.phaseKind !== kind || run.phaseLabel !== label) {
+      run.phaseT0 = Date.now();
+    }
+    run.phaseLabel = label;
+    run.phaseShowElapsed = showElapsed;
+    run.phaseKind = kind;
+    run.phaseDone = false;
+    paintPhaseElapsed();
+    if (!phaseTimer) {
+      phaseTimer = setInterval(paintPhaseElapsed, 1000);
+    }
+  }
+
   function updateRunMeta(run, opts) {
     if (!run || !run.meta) return;
     const st = run.meta.querySelector(".meta-status");
     const steps = run.meta.querySelector(".meta-steps");
     const left = run.meta.querySelector(".meta-left");
-    if (opts.status != null && st) st.innerHTML = opts.status;
+    if (opts.status != null && st) {
+      stopPhaseTimer();
+      run.phaseDone = true;
+      st.innerHTML = opts.status;
+    }
     if (steps) {
       const n = opts.steps != null ? opts.steps : run.stepEls.length;
       steps.innerHTML = "<b>" + n + "</b> step" + (n === 1 ? "" : "s");
@@ -608,13 +667,24 @@
         running: true,
       });
     }
-    updateRunMeta(run, {
-      status: payload.waiting
-        ? "Waiting for you"
-        : payload.running
-          ? "Working"
-          : null,
-    });
+    if (payload.phase) {
+      setLivePhase(payload.phase);
+    } else if (payload.waiting) {
+      setLivePhase({
+        label: "Waiting for your approval",
+        show_elapsed: false,
+        kind: "approval",
+      });
+    } else if (payload.checking) {
+      setLivePhase({
+        label: "Checking the answer…",
+        show_elapsed: false,
+        kind: "checking",
+      });
+    } else if (payload.running) {
+      setLivePhase({ label: "Working…", show_elapsed: true, kind: "working" });
+    }
+    updateRunMeta(run, { steps: run.stepEls.length });
   }
 
   function clearStreamTimer() {
@@ -689,6 +759,7 @@
   function onThinkingStart() {
     stopThinking();
     thinkingT0 = Date.now();
+    setLivePhase({ label: "Thinking…", show_elapsed: true, kind: "thinking" });
     paintThinking(0);
     thinkingTimer = setInterval(function () {
       if (!thinkingT0) return;
@@ -698,6 +769,7 @@
 
   function onStreamDelta(text) {
     stopThinking();
+    setLivePhase({ label: "Writing…", show_elapsed: true, kind: "writing" });
     streamPending = text || "";
     const now = Date.now();
     const elapsed = now - streamLastPaint;

@@ -1354,7 +1354,9 @@ class AppBridge:
                 pass
         self._push_live_activity(waiting=False)
 
-    def _push_live_activity(self, waiting: bool) -> None:
+    def _push_live_activity(self, waiting: bool, *, checking: bool = False) -> None:
+        from app.turn_phase import phase_from_turn
+
         total = time.perf_counter() - self._turn_t0 if self._turn_t0 else 0.0
         steps = []
         for s in self._turn_steps:
@@ -1371,15 +1373,24 @@ class AppBridge:
                 "t": s.get("t") or "",
                 "running": bool(s.get("running")),
                 "denied": bool(s.get("denied")),
+                "args": s.get("args") or {},
             }
             if s.get("data_card"):
                 row["data_card"] = s["data_card"]
             steps.append(row)
+        phase = phase_from_turn(
+            waiting=waiting,
+            checking=checking or bool(getattr(self, "_answer_checking", False)),
+            steps=steps,
+            warming=bool(self._cache_warming or self._model_loading),
+        )
         payload = {
             "steps": steps,
             "waiting": waiting,
+            "checking": checking or bool(getattr(self, "_answer_checking", False)),
             "total": format_duration(total),
             "running": any(s.get("running") for s in self._turn_steps),
+            "phase": phase,
         }
         ask = getattr(self, "_turn_ask", "") or ""
         if ask:
@@ -1476,6 +1487,7 @@ class AppBridge:
             self._web_pages_read = 0
             self._turn_t0 = time.perf_counter()
             self._turn_ask = text
+            self._answer_checking = False
             # Round 9C: reset listing-card flag at every app user turn.
             try:
                 from agent.data_cards import reset_listing_card_turn
@@ -1483,6 +1495,8 @@ class AppBridge:
                 reset_listing_card_turn()
             except Exception:
                 pass
+            from app.turn_phase import phase_from_turn
+
             self._call_js(
                 "on_activity",
                 {
@@ -1491,36 +1505,12 @@ class AppBridge:
                     "total": "0s",
                     "running": True,
                     "ask": text,
+                    "phase": phase_from_turn(warming=True),
                 },
             )
             def _on_checking() -> None:
-                self._call_js(
-                    "on_activity",
-                    {
-                        "steps": [
-                            {
-                                "name": s["name"],
-                                "t": s.get("t") or "",
-                                "running": False,
-                            }
-                            for s in self._turn_steps
-                        ]
-                        + [
-                            {
-                                "name": "Checking the answer against sources…",
-                                "t": "",
-                                "running": True,
-                            }
-                        ],
-                        "waiting": False,
-                        "total": format_duration(
-                            time.perf_counter() - self._turn_t0
-                        ),
-                        "running": True,
-                        "checking": True,
-                        "ask": getattr(self, "_turn_ask", "") or text,
-                    },
-                )
+                self._answer_checking = True
+                self._push_live_activity(waiting=False, checking=True)
 
             def _on_stream_delta(accumulated: str) -> None:
                 text_so_far = accumulated or ""

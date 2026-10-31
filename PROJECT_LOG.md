@@ -1332,3 +1332,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Gear in sidebar header; Ctrl+,; Ctrl+K matches Settings / Gemini / Groq / Planner / Cloud / Keys.
 - Three scrollable sections: This PC (model, speed, reload), Cloud (Gemini key + experimental), Planner (mode + Groq key). DPAPI save/test/remove unchanged.
 - Capture: `app/design/actual_v15_settings.png`. Offline: `scripts/test_round12_part2.py` FAILURES=0.
+
+## 2026-11-01 — Round 12 Part 3: live phases + elapsed
+- Turn header shows phase + elapsed seconds (Warming up / Reading path / Waiting for approval / Thinking / Writing / Checking); no ETA.
+- Finishes as existing "Took N s · steps". `app/turn_phase.py` + activity `phase` payload; JS timer.
+- Capture: `app/design/actual_v15_live_phase.png`. Offline: `scripts/test_round12_part3.py` FAILURES=0.
