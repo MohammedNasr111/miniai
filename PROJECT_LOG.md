@@ -1273,3 +1273,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `MINIAI_PLANNER` / prefs `planner_mode`: off|local|groq (default off until keep rule).
 - `log_redact` covers `gsk_…` + stored Groq key.
 - Offline: `scripts/test_round11_part0.py` FAILURES=0.
+
+## 2026-10-31 — Round 11 Part 1: planner (local + Groq, finish guard)
+- `needs_plan` for multi-step verbs / project|app / and then / long+verb; never easy chat.
+- Local planner: same message 0 + tools (cache-safe); plan JSON ≤8 steps; thinking on; ignore tool calls; retry once.
+- Groq planner: same JSON; 20s; fallback to local with note.
+- Plan appended as system message; finish guard once per planned turn.
+- `MINIAI_PLANNER=off|local|groq`. Offline: `scripts/test_round11_part1.py` FAILURES=0.

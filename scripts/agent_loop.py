@@ -1106,6 +1106,32 @@ def run_tool_rounds(
             )
         )
 
+    # Round 11: plan-first for multi-step tasks (cache-safe local / opt-in Groq).
+    plan_meta = None
+    try:
+        from agent.planner import maybe_attach_plan, reset_plan_turn
+        from tools.registry import active_tool_schemas as _ats_plan
+
+        reset_plan_turn()
+        plan_meta = maybe_attach_plan(
+            provider,
+            history,
+            q_for_slug,
+            tools=_ats_plan(),
+        )
+        if plan_meta and transcript is not None:
+            try:
+                transcript.write(
+                    "plan",
+                    source=plan_meta.get("source"),
+                    steps=len(plan_meta.get("steps") or []),
+                    note=plan_meta.get("note") or "",
+                )
+            except Exception:
+                pass
+    except Exception:
+        plan_meta = None
+
     # Part 3: pre-fetch comparison research (3 sub-queries → web_research).
     try:
         pipeline_evidence = maybe_prepare_compare_research(
@@ -1435,6 +1461,46 @@ def run_tool_rounds(
             transcript.final(raw=shown, shown=shown)
     else:
         raw = response.content or ""
+        # Round 11 finish guard: once per planned turn, verify done_when.
+        try:
+            from agent.planner import (
+                apply_finish_guard_done_flags,
+                finish_guard_message,
+                mark_finish_guard_fired,
+                should_run_finish_guard,
+            )
+
+            if should_run_finish_guard():
+                mark_finish_guard_fired()
+                history.append(finish_guard_message())
+                if on_stream_clear is not None:
+                    _clear()
+                try:
+                    response = _model(provider, history, transcript)
+                except StreamCancelled as exc:
+                    if on_stream_delta is not None and exc.partial:
+                        on_stream_delta(exc.partial)
+                    raise KeyboardInterrupt() from exc
+                while response.tool_calls and rounds < max_rounds:
+                    response = _consume_tool_round(response, next_call=_model)
+                    if early_stop_status is not None:
+                        break
+                apply_finish_guard_done_flags(response.content or "")
+                if early_stop_status is not None:
+                    shown = check_run_claims(early_stop_status, transcript=transcript)
+                    response.content = shown
+                    if transcript is not None:
+                        transcript.final(raw=early_stop_status, shown=shown)
+                    response.check_meta = {"plan": plan_meta}
+                    from tools.desktop.task_grant import clear_task_grant
+
+                    clear_task_grant()
+                    return response
+                raw = response.content or ""
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            pass
         # Snapshot what the UI already saw (pre-guard).
         streamed_snapshot = streamed_final or raw
         shown = clean_final_answer(raw)
@@ -1550,6 +1616,13 @@ def run_tool_rounds(
         check_meta["listing_honesty"] = listing_meta
         check_meta["decline_honesty"] = decline_meta
         check_meta["post_action_verify"] = fs_verify
+        try:
+            from agent.planner import plan_ui_payload
+
+            check_meta["plan"] = plan_ui_payload() or plan_meta
+        except Exception:
+            if plan_meta is not None:
+                check_meta["plan"] = plan_meta
         if listing_meta and listing_meta.get("corrected"):
             check_meta["fixed"] = True
             check_meta["source"] = "listing"
