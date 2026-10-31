@@ -253,6 +253,23 @@ def resolve_fs_path(path: str) -> Path:
     return expand_user_path(raw)
 
 
+def resolve_create_path(path: str) -> Path:
+    """Resolve paths for create_folder / create_file / write_file.
+
+    Round 12 Part 6: bare relative paths (e.g. ``Inbox`` or ``notes.txt``) land
+    on the user's Desktop — never the MiniAI repo cwd. Absolute paths and
+    ``Desktop\\…`` / ``Documents\\…`` expansions are unchanged. Eval override
+    (11B) still remaps Desktop into the temp tree.
+    """
+    from config.paths import resolve_user_folders
+
+    target = resolve_fs_path(path)
+    if not target.is_absolute():
+        desktop = resolve_user_folders()["Desktop"]
+        target = desktop.joinpath(*target.parts) if target.parts else desktop
+    return target
+
+
 def read_file(path: str) -> str:
     check_permission(
         action="read_file",
@@ -366,7 +383,7 @@ def _under_existing_user_folder(target: Path) -> bool:
 
 def create_folder(path: str) -> str:
     """Create a new directory. CONFIRM; refuses if it already exists."""
-    target = resolve_fs_path(path)
+    target = resolve_create_path(path)
     shown = str(target)
     try:
         assert_not_protected(shown)
@@ -407,7 +424,7 @@ def create_folder(path: str) -> str:
 def create_file(path: str, content: str) -> str:
     from tools.filesystem.turn_context import get_turn_user_text
 
-    target = resolve_fs_path(path)
+    target = resolve_create_path(path)
     shown = str(target)
     try:
         assert_not_protected(shown)
@@ -447,7 +464,7 @@ def create_file(path: str, content: str) -> str:
 
 
 def write_file(path: str, content: str) -> str:
-    target = resolve_fs_path(path)
+    target = resolve_create_path(path)
     shown = str(target)
     assert_not_protected(shown)
     if target.exists():

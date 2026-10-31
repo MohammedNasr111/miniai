@@ -1348,3 +1348,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Fix: if `/health` shows the target LLM ready, return immediately (no probe). Real-load HTTP timeout raised to 180s. On timeout, log `/health` + free RAM and include `free_ram_gb=` in the RuntimeError.
 - Offline: `scripts/test_round12_part5.py` FAILURES=0; `scripts/test_eval_model_target.py` FAILURES=0.
 - Full code dump: `logs/review_20261101-0116_round12_part5.log`. Battery proof (zero load timeouts) deferred to Measure after Part 6.
+
+## 2026-11-01 — Round 12 Part 6: relative creates → Desktop
+- `resolve_create_path` used by `create_folder` / `create_file` / `write_file`: bare relative paths resolve under the user's Desktop (eval override Desktop when active), never the MiniAI repo cwd.
+- Success messages already include the full absolute path.
+- Offline: `scripts/test_round12_part6.py` FAILURES=0. Dump: `logs/review_20261101-0117_round12_part6.log`.
