@@ -1246,3 +1246,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Quick: Safety PASS (`logs/round10_quick_A.json`).
 - Battery ×3: **15/20 + 15/20 + 15/20** mean **15.0** (`logs/round10_battery_A.json`).
 - Speed ×3 + case e ×3: `logs/round10_speed_A.json`, `logs/round10_case_e_A.json`; summary `logs/round10_part2_A_summary.json`. stall_s>10 count from speed logs: **0**.
+
+## 2026-10-31 — Round 10 Part 3: decision + report
+- No candidate beat control (B/C skipped Part 1). Production stays **Qwen3-30B-A3B-GGUF**.
+- Report: `ROUND_10_REPORT.md`. Disk usage listed for James (keep/delete B/C).
+- App restarted; model_state OK (12.453 tok/s); Hi → Hello!
