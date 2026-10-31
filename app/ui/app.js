@@ -7,9 +7,13 @@
   const scroll = document.getElementById("scroll");
   const composer = document.getElementById("composer");
   const composerForm = document.getElementById("composer-form");
+  const composerWrap = document.getElementById("composer-wrap");
+  const attachRow = document.getElementById("attach-row");
+  const attachNote = document.getElementById("attach-note");
   const btnSend = document.getElementById("btn-send");
   const btnCloud = document.getElementById("btn-cloud");
   const btnNew = document.getElementById("btn-new-chat");
+  let attachments = [];
   let cloudEnabledDefault = false; // Part 5 measure may flip this
   let cloudExperimentalOn = false;
   const chipTaint = document.getElementById("chip-taint");
@@ -1208,6 +1212,92 @@
     }
   }
 
+  function formatBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+    return (n / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  function isImageAttachment(att) {
+    const name = String((att && att.name) || "").toLowerCase();
+    const mime = String((att && att.type) || "").toLowerCase();
+    if (mime.indexOf("image/") === 0) return true;
+    return /\.(png|jpe?g|gif|webp|bmp|tif|tiff|ico|svg)$/i.test(name);
+  }
+
+  function renderAttachments() {
+    if (!attachRow) return;
+    attachRow.innerHTML = "";
+    if (!attachments.length) {
+      attachRow.hidden = true;
+      if (attachNote) attachNote.hidden = true;
+      return;
+    }
+    attachRow.hidden = false;
+    let hasImage = false;
+    attachments.forEach(function (att, idx) {
+      if (isImageAttachment(att)) hasImage = true;
+      const chip = document.createElement("div");
+      chip.className = "attach-chip";
+      chip.innerHTML =
+        "<b title=\"" +
+        escapeHtml(att.path || att.name) +
+        "\">" +
+        escapeHtml(att.name || "file") +
+        "</b><span>" +
+        escapeHtml(formatBytes(att.size)) +
+        "</span>";
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.setAttribute("aria-label", "Remove attachment");
+      rm.textContent = "×";
+      rm.addEventListener("click", function () {
+        attachments.splice(idx, 1);
+        renderAttachments();
+      });
+      chip.appendChild(rm);
+      attachRow.appendChild(chip);
+    });
+    if (attachNote) attachNote.hidden = !hasImage;
+  }
+
+  function addAttachmentsFromFiles(fileList) {
+    const files = Array.from(fileList || []);
+    files.forEach(function (f) {
+      const path = (f && (f.path || f.webkitRelativePath)) || "";
+      const full = path || (f && f.name) || "";
+      if (!full) return;
+      // Prefer absolute path when WebView2 provides it.
+      const entry = {
+        path: path || full,
+        name: (f && f.name) || String(full).split(/[/\\]/).pop(),
+        size: (f && f.size) || 0,
+        type: (f && f.type) || "",
+      };
+      if (
+        attachments.some(function (a) {
+          return a.path === entry.path && a.name === entry.name;
+        })
+      ) {
+        return;
+      }
+      attachments.push(entry);
+    });
+    renderAttachments();
+  }
+
+  function buildAttachedPrefix() {
+    if (!attachments.length) return "";
+    const paths = attachments
+      .map(function (a) {
+        return a.path || a.name;
+      })
+      .filter(Boolean);
+    if (!paths.length) return "";
+    return "Attached files: " + paths.join("; ");
+  }
+
   function sendMessage(opts) {
     const toCloud = !!(opts && opts.cloud);
     clearSystemNotes();
@@ -1215,8 +1305,14 @@
       showSystemNote("Continue in a new chat");
       return;
     }
-    const text = (composer.value || "").trim();
-    if (!text) return;
+    const typed = (composer.value || "").trim();
+    const attachPrefix = buildAttachedPrefix();
+    if (!typed && !attachPrefix) return;
+    const text = attachPrefix
+      ? typed
+        ? attachPrefix + "\n\n" + typed
+        : attachPrefix
+      : typed;
     if (busy) {
       const a = api();
       if (a && a.stop_turn) a.stop_turn();
@@ -1232,6 +1328,8 @@
       return;
     }
     composer.value = "";
+    attachments = [];
+    renderAttachments();
     autoSize();
     lastUserAsk = text;
     startRun(text);
@@ -1270,6 +1368,37 @@
       sendMessage({ cloud: false });
     }
   });
+
+  // Drag-and-drop files onto the composer (WebView2 exposes file.path).
+  function onDragOver(e) {
+    if (!e.dataTransfer) return;
+    const types = e.dataTransfer.types || [];
+    let hasFiles = false;
+    for (let i = 0; i < types.length; i++) {
+      if (types[i] === "Files") hasFiles = true;
+    }
+    if (!hasFiles) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    if (composerWrap) composerWrap.classList.add("drag-over");
+  }
+  function onDragLeave(e) {
+    if (composerWrap) composerWrap.classList.remove("drag-over");
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    if (composerWrap) composerWrap.classList.remove("drag-over");
+    if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) {
+      return;
+    }
+    addAttachmentsFromFiles(e.dataTransfer.files);
+  }
+  if (composerWrap) {
+    composerWrap.addEventListener("dragenter", onDragOver);
+    composerWrap.addEventListener("dragover", onDragOver);
+    composerWrap.addEventListener("dragleave", onDragLeave);
+    composerWrap.addEventListener("drop", onDrop);
+  }
   function persistCloudExperimental(on) {
     cloudExperimentalOn = !!on;
     if (cloudExperimental) cloudExperimental.checked = cloudExperimentalOn;

@@ -1337,3 +1337,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Turn header shows phase + elapsed seconds (Warming up / Reading path / Waiting for approval / Thinking / Writing / Checking); no ETA.
 - Finishes as existing "Took N s · steps". `app/turn_phase.py` + activity `phase` payload; JS timer.
 - Capture: `app/design/actual_v15_live_phase.png`. Offline: `scripts/test_round12_part3.py` FAILURES=0.
+
+## 2026-11-01 — Round 12 Part 4: drag-and-drop files
+- Drop files on composer → attachment chips (name + size); send prepends `Attached files: <paths>`.
+- Image note: MiniAI can't see images yet. Gate test: dropped path same wrap as typed.
+- Capture: `app/design/actual_v15_dragdrop.png`. Offline: `scripts/test_round12_part4.py` FAILURES=0.

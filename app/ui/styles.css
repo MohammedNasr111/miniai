@@ -230,6 +230,21 @@ button,input,textarea{font:inherit;color:inherit}
 .send.is-stop::after{content:"■";font:600 14px/1 var(--display)}
 .send:disabled{opacity:.4;cursor:not-allowed}
 .hint{max-width:760px;margin:8px auto 0;font-size:var(--s1);color:var(--faint);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.composer.drag-over .cbox{border-color:color-mix(in srgb,var(--glacier) 55%,var(--line));box-shadow:0 0 0 1px color-mix(in srgb,var(--glacier) 35%,transparent)}
+.attach-row{max-width:760px;margin:0 auto 8px;display:flex;flex-wrap:wrap;gap:8px}
+.attach-chip{
+  display:inline-flex;align-items:center;gap:8px;max-width:100%;
+  border:1px solid var(--line);background:var(--raised);border-radius:8px;
+  padding:6px 8px 6px 10px;font-size:var(--s1);color:var(--text);
+}
+.attach-chip b{font:500 var(--s2)/1.2 var(--display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14rem}
+.attach-chip span{color:var(--faint);font-variant-numeric:tabular-nums;flex:none}
+.attach-chip button{
+  appearance:none;border:0;background:transparent;color:var(--muted);cursor:pointer;
+  padding:2px 4px;border-radius:4px;font-size:var(--s2);line-height:1;
+}
+.attach-chip button:hover{color:var(--text);background:var(--slate)}
+.attach-note{max-width:760px;margin:0 auto 8px;font-size:var(--s1);color:var(--amber)}
 
 /* jump to latest */
 .jump{position:sticky;bottom:12px;left:50%;transform:translateX(-50%);display:inline-flex;margin:0 auto;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--raised);color:var(--muted);font-size:var(--s1);cursor:pointer;z-index:5;box-shadow:0 4px 16px rgba(0,0,0,.35)}

@@ -61,7 +61,9 @@
       <button type="button" class="jump" id="jump-latest" hidden>Jump to latest</button>
     </div>
 
-    <div class="composer">
+    <div class="composer" id="composer-wrap">
+      <div class="attach-row" id="attach-row" hidden></div>
+      <p class="attach-note" id="attach-note" hidden>MiniAI can't see images yet — it can use the file name and size.</p>
       <form class="cbox" id="composer-form">
         <textarea id="composer" rows="1" placeholder="Ask MiniAI…" aria-label="Message" autocomplete="off"></textarea>
         <button class="send-cloud" id="btn-cloud" type="button" hidden title="Send to cloud (Ctrl+Enter)" aria-label="Send to cloud">Cloud</button>
