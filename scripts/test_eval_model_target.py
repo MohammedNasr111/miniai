@@ -30,15 +30,29 @@ class _FakeResp:
         self.text = text
 
 
+class _FakeHealthResp:
+    def __init__(self, payload: dict):
+        self.status_code = 200
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
 def test_a_fail_no_fallback() -> None:
     from eval.run import wait_for_target_model
 
     tried: list[str] = []
+    post_timeouts: list[float] = []
 
     def fake_post(url, json=None, timeout=90, **kwargs):
         model = (json or {}).get("model")
         tried.append(model)
+        post_timeouts.append(timeout)
         return _FakeResp(500, "model_load_error: boom")
+
+    def fake_get(url, timeout=5, **kwargs):
+        return _FakeHealthResp({"all_models_loaded": []})
 
     t = {"n": 0.0}
 
@@ -54,6 +68,7 @@ def test_a_fail_no_fallback() -> None:
                 "OnlyTarget-Model",
                 timeout_s=3.0,
                 post_fn=fake_post,
+                get_fn=fake_get,
                 base_url="http://localhost:9/api/v1",
             )
             raised = False
@@ -69,11 +84,13 @@ def test_a_fail_no_fallback() -> None:
         and 1 <= len(tried) <= 5
         and "Qwen3-14B" not in "".join(str(x) for x in tried)
         and "Qwen3-30B" not in "".join(str(x) for x in tried)
+        and all(to == 180 for to in post_timeouts)
     )
     _check(
         "a_fail_no_fallback",
         ok,
-        f"raised={raised} n_tried={len(tried)} unique={set(tried)} err={err!r}",
+        f"raised={raised} n_tried={len(tried)} unique={set(tried)} "
+        f"timeouts={post_timeouts} err={err!r}",
     )
 
 

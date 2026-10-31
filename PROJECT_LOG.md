@@ -1342,3 +1342,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Drop files on composer → attachment chips (name + size); send prepends `Attached files: <paths>`.
 - Image note: MiniAI can't see images yet. Gate test: dropped path same wrap as typed.
 - Capture: `app/design/actual_v15_dragdrop.png`. Offline: `scripts/test_round12_part4.py` FAILURES=0.
+
+## 2026-11-01 — Round 12 Part 5: skip load when /health ready
+- Root cause: `eval/run.wait_for_target_model` ran a chat/completions probe before every live task (incl. retries) with HTTP timeout 90s; mid-battery that timed out even when Qwen was already loaded.
+- Fix: if `/health` shows the target LLM ready, return immediately (no probe). Real-load HTTP timeout raised to 180s. On timeout, log `/health` + free RAM and include `free_ram_gb=` in the RuntimeError.
+- Offline: `scripts/test_round12_part5.py` FAILURES=0; `scripts/test_eval_model_target.py` FAILURES=0.
+- Full code dump: `logs/review_20261101-0116_round12_part5.log`. Battery proof (zero load timeouts) deferred to Measure after Part 6.

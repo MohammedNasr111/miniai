@@ -185,27 +185,122 @@ def capture_lemonade_status() -> dict[str, Any]:
     return info
 
 
+def _health_snapshot(
+    base_url: str,
+    *,
+    get_fn: Optional[Callable[..., Any]] = None,
+) -> dict[str, Any]:
+    """Best-effort Lemonade /health JSON (empty dict on failure)."""
+    import requests
+
+    getter = get_fn or requests.get
+    try:
+        r = getter(f"{base_url.rstrip('/')}/health", timeout=5)
+        data = r.json() if getattr(r, "status_code", None) == 200 else {}
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        return {"_error": type(exc).__name__}
+
+
+def _free_ram_gb() -> Optional[float]:
+    try:
+        import psutil
+
+        return round(psutil.virtual_memory().available / (1024**3), 3)
+    except Exception:
+        return None
+
+
+def _target_model_ready_in_health(model: str, health: dict[str, Any]) -> bool:
+    """True when /health already shows the target LLM loaded and ready.
+
+    Round 12 Part 5: skip chat/completions 'load' probes when Lemonade already
+    has the model up — those probes were timing out at 90s mid-battery while
+    the model was busy, not actually unloaded.
+    """
+    models = health.get("all_models_loaded") or []
+    if not isinstance(models, list):
+        return False
+    for m in models:
+        if not isinstance(m, dict):
+            continue
+        if m.get("type") and m.get("type") != "llm":
+            continue
+        name = str(m.get("model_name") or m.get("checkpoint") or "")
+        if not (
+            name == model
+            or model in name
+            or name in model
+            or name.startswith(model)
+            or model.startswith(name.split(":")[0])
+        ):
+            continue
+        # Prefer explicit loaded/ready flags when present.
+        if m.get("loaded") is False:
+            continue
+        health_s = str(m.get("backend_health") or m.get("status") or "").lower()
+        if health_s and health_s not in ("ready", "ok", "loaded", "healthy", ""):
+            # Still treat missing/empty as ok if loaded is true-ish.
+            if health_s in ("error", "failed", "down", "unloaded"):
+                continue
+        if m.get("backend_alive") is False:
+            continue
+        return True
+    return False
+
+
 def wait_for_target_model(
     model: str,
     timeout_s: float = 180.0,
     *,
     post_fn: Optional[Callable[..., Any]] = None,
     base_url: Optional[str] = None,
+    get_fn: Optional[Callable[..., Any]] = None,
 ) -> None:
-    """Block until the *single* target model answers. Never tries another model."""
+    """Block until the *single* target model is ready. Never tries another model.
+
+    If /health already shows the model loaded and ready, returns immediately
+    (no chat/completions probe). Real load waits use a 180s HTTP timeout.
+    """
+    import logging
+
     import requests
 
     from config import settings
     from scripts.agent_loop import _require_lemonade
 
+    log = logging.getLogger(__name__)
     if post_fn is None:
         _require_lemonade()
         post_fn = requests.post
+    if get_fn is None:
+        get_fn = requests.get
     base = (base_url or settings.LEMONADE_BASE_URL).rstrip("/")
     url = f"{base}/chat/completions"
+
+    # Fast path: already loaded.
+    try:
+        health = get_fn(f"{base}/health", timeout=5).json()
+        if isinstance(health, dict) and _target_model_ready_in_health(model, health):
+            os.environ["MINIAI_MODEL"] = model
+            settings.LEMONADE_MODEL = model
+            return
+    except Exception:
+        pass
+
     deadline = time.time() + timeout_s
     last_err = ""
+    http_timeout = 180  # Round 12: was 90; real loads need more headroom
     while time.time() < deadline:
+        # Re-check health each loop — model may finish loading without a probe.
+        try:
+            health = get_fn(f"{base}/health", timeout=5).json()
+            if isinstance(health, dict) and _target_model_ready_in_health(model, health):
+                os.environ["MINIAI_MODEL"] = model
+                settings.LEMONADE_MODEL = model
+                return
+        except Exception:
+            pass
         try:
             r = post_fn(
                 url,
@@ -214,7 +309,7 @@ def wait_for_target_model(
                     "messages": [{"role": "user", "content": "Reply OK"}],
                     "max_tokens": 8,
                 },
-                timeout=90,
+                timeout=http_timeout,
             )
             if getattr(r, "status_code", None) == 200:
                 os.environ["MINIAI_MODEL"] = model
@@ -225,8 +320,24 @@ def wait_for_target_model(
         except Exception as exc:
             last_err = str(exc)
         time.sleep(5)
+
+    health = _health_snapshot(base, get_fn=get_fn)
+    free_ram = _free_ram_gb()
+    log.error(
+        "wait_for_target_model timeout model=%s last_err=%s free_ram_gb=%s health=%s",
+        model,
+        last_err,
+        free_ram,
+        health,
+    )
+    print(
+        f"[eval] load timeout model={model} free_ram_gb={free_ram} "
+        f"health_keys={list(health.keys())} last_err={last_err[:200]}",
+        flush=True,
+    )
     raise RuntimeError(
         f"Target model {model} failed to load: {last_err}. "
+        f"free_ram_gb={free_ram}. "
         "Use --model to choose another explicitly."
     )
 
