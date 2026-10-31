@@ -1265,3 +1265,11 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Production restored: `Qwen3-30B-A3B-GGUF` (Lemonade ready + saved options). Report: `ROUND_10B_REPORT.md`.
 - A `model_ref` re-established 13.311 → min 11.98 (14.444 capture left OK unreachable).
 - App restarted; model_state OK (13.193 tok/s); Hi → Hello! (`logs/_qa_round10b_hi.txt`).
+
+## 2026-10-31 — Round 11 Part 0: Groq provider (planner-only, opt-in)
+- DPAPI key: `%LOCALAPPDATA%\MiniAI\secrets\groq.bin`; Settings paste/save/test/remove.
+- Host-locked `api.groq.com`; model `openai/gpt-oss-120b`; planner payload = system + user (~) + tool names only (no tools/files/memory/history).
+- Local quota gate RPM/RPD/TPM/TPD + `retry-after`; 429 → fall back note; footprint lists Groq requests.
+- `MINIAI_PLANNER` / prefs `planner_mode`: off|local|groq (default off until keep rule).
+- `log_redact` covers `gsk_…` + stored Groq key.
+- Offline: `scripts/test_round11_part0.py` FAILURES=0.

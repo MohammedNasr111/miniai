@@ -773,6 +773,69 @@ class AppBridge:
             pass
         return {"ok": True, "on": bool(saved)}
 
+    def groq_status(self) -> dict[str, Any]:
+        from security.groq_key import ui_status
+
+        return ui_status()
+
+    def groq_save_key(self, key: str) -> dict[str, Any]:
+        from security.groq_key import clear_rejected, save_key
+
+        result = save_key(str(key or ""))
+        if result.get("ok"):
+            clear_rejected()
+        try:
+            self.push_status()
+        except Exception:
+            pass
+        return {
+            "ok": bool(result.get("ok")),
+            "connected": bool(result.get("connected")),
+            "status": result.get("status") or "Not connected",
+        }
+
+    def groq_remove_key(self) -> dict[str, Any]:
+        from security.groq_key import clear_rejected, remove_key
+
+        clear_rejected()
+        result = remove_key()
+        try:
+            self.push_status()
+        except Exception:
+            pass
+        return {
+            "ok": bool(result.get("ok")),
+            "connected": bool(result.get("connected")),
+            "status": result.get("status") or "Not connected",
+        }
+
+    def groq_test_key(self) -> dict[str, Any]:
+        """Live ping to api.groq.com/models. Never returns the key."""
+        try:
+            from llm.groq.provider import GroqConfigError, GroqProvider
+            from security.groq_key import has_key
+
+            if not has_key():
+                return {"ok": False, "status": "Not connected", "error": "no_key"}
+            prov = GroqProvider()
+            return prov.test_key()
+        except GroqConfigError as exc:
+            return {"ok": False, "status": "Test failed", "error": str(exc)[:80]}
+        except Exception as exc:
+            logger.info("groq test failed: %s", type(exc).__name__)
+            return {"ok": False, "status": "Test failed", "error": type(exc).__name__}
+
+    def get_planner_mode(self) -> dict[str, Any]:
+        from app.prefs import get_planner_mode
+
+        return {"ok": True, "mode": get_planner_mode()}
+
+    def set_planner_mode(self, mode: object = "off") -> dict[str, Any]:
+        from app.prefs import set_planner_mode
+
+        saved = set_planner_mode(str(mode or "off"))
+        return {"ok": True, "mode": saved}
+
     def open_external(self, url: str) -> dict[str, Any]:
         raw = (url or "").strip()
         self._external_log.append(raw)
@@ -1871,6 +1934,36 @@ class _JsApi:
         if not self._require_index():
             return {"ok": False, "on": False}
         return self._bridge.set_cloud_experimental(on)
+
+    def groq_status(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "connected": False, "status": "Not connected"}
+        return self._bridge.groq_status()
+
+    def groq_save_key(self, key: str) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "connected": False, "status": "Not connected"}
+        return self._bridge.groq_save_key(str(key or ""))
+
+    def groq_remove_key(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "connected": False, "status": "Not connected"}
+        return self._bridge.groq_remove_key()
+
+    def groq_test_key(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "status": "Not connected"}
+        return self._bridge.groq_test_key()
+
+    def get_planner_mode(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "mode": "off"}
+        return self._bridge.get_planner_mode()
+
+    def set_planner_mode(self, mode: object = "off") -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "mode": "off"}
+        return self._bridge.set_planner_mode(mode)
 
     def restore_model(self) -> dict[str, Any]:
         if not self._require_index():

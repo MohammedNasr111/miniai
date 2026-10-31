@@ -229,6 +229,8 @@ def footprint_left_pc_line(
     message_chars: int | None = None,
     body_chars: int | None = None,
     request_index: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> str:
     """Honest footprint line from a captured request (counts, not estimates)."""
     q = question or ""
@@ -238,9 +240,15 @@ def footprint_left_pc_line(
         else (message_chars if message_chars is not None else len(q))
     )
     pages = max(0, int(web_pages))
-    prefix = "Sent to Google Gemini"
+    prov = (provider or "").strip().lower()
+    if prov == "groq" or (model or "").startswith("openai/gpt-oss"):
+        prefix = "Sent to Groq"
+        if model:
+            prefix = f"Sent to Groq ({model})"
+    else:
+        prefix = "Sent to Google Gemini"
     if request_index is not None and int(request_index) > 1:
-        prefix = f"Sent to Google Gemini (request {int(request_index)})"
+        prefix = f"{prefix} (request {int(request_index)})"
     return f"{prefix}: your question ({n} characters) + {pages} web pages"
 
 
@@ -250,7 +258,7 @@ def footprint_lines_for_turn(
     web_pages: int = 0,
     requests: Optional[list[dict[str, Any]]] = None,
 ) -> list[str]:
-    """One Footprint 'Left this PC' line per recorded Gemini HTTP request."""
+    """One Footprint 'Left this PC' line per recorded cloud HTTP request."""
     reqs = requests if requests is not None else cloud_requests_this_turn()
     if not reqs:
         return []
@@ -273,6 +281,8 @@ def footprint_lines_for_turn(
                 message_chars=msg_n,
                 body_chars=body_n,
                 request_index=i if len(reqs) > 1 else None,
+                provider=str(meta.get("provider") or ""),
+                model=str(meta.get("model") or ""),
             )
         )
     return lines

@@ -31,6 +31,12 @@
   const geminiStatusLine = document.getElementById("gemini-status-line");
   const cloudExperimental = document.getElementById("cloud-experimental");
   const cloudExperimentalWrap = document.getElementById("cloud-experimental-wrap");
+  const plannerMode = document.getElementById("planner-mode");
+  const groqKeyInput = document.getElementById("groq-key-input");
+  const groqSave = document.getElementById("groq-save");
+  const groqTest = document.getElementById("groq-test");
+  const groqRemove = document.getElementById("groq-remove");
+  const groqStatusLine = document.getElementById("groq-status-line");
   const chatTitle = document.getElementById("chat-title");
   const historyList = document.getElementById("history-list");
   const ctxMenu = document.getElementById("ctx-menu");
@@ -1198,7 +1204,10 @@
       geminiKeyInput.value = "";
       geminiKeyInput.focus();
     }
+    if (groqKeyInput) groqKeyInput.value = "";
     refreshGeminiStatus();
+    refreshGroqStatus();
+    refreshPlannerMode();
     closePalette();
   }
 
@@ -1206,6 +1215,7 @@
     if (!settingsPanel) return;
     settingsPanel.hidden = true;
     if (geminiKeyInput) geminiKeyInput.value = "";
+    if (groqKeyInput) groqKeyInput.value = "";
   }
 
   if (settingsClose) {
@@ -1233,6 +1243,77 @@
       const st = await a.gemini_remove_key();
       if (geminiKeyInput) geminiKeyInput.value = "";
       setGeminiStatusLine((st && st.status) || "Not connected");
+    });
+  }
+
+  function setGroqStatusLine(text) {
+    if (!groqStatusLine) return;
+    const t = String(text || "Not connected");
+    groqStatusLine.textContent = t;
+    groqStatusLine.classList.remove("ok", "bad");
+    if (/rejected|fail/i.test(t)) groqStatusLine.classList.add("bad");
+    else if (/^connected$/i.test(t.trim()) || /^test ok$/i.test(t.trim())) groqStatusLine.classList.add("ok");
+  }
+
+  async function refreshGroqStatus() {
+    const a = api();
+    if (!a || !a.groq_status) return;
+    try {
+      const st = await a.groq_status();
+      setGroqStatusLine((st && st.status) || "Not connected");
+    } catch (e) {
+      setGroqStatusLine("Not connected");
+    }
+  }
+
+  async function refreshPlannerMode() {
+    const a = api();
+    if (!plannerMode) return;
+    try {
+      if (a && a.get_planner_mode) {
+        const st = await a.get_planner_mode();
+        const mode = (st && st.mode) || "off";
+        plannerMode.value = mode;
+      }
+    } catch (e) {
+      plannerMode.value = "off";
+    }
+  }
+
+  if (plannerMode) {
+    plannerMode.addEventListener("change", async function () {
+      const a = api();
+      if (!a || !a.set_planner_mode) return;
+      const st = await a.set_planner_mode(plannerMode.value);
+      plannerMode.value = (st && st.mode) || "off";
+    });
+  }
+  if (groqSave) {
+    groqSave.addEventListener("click", async function () {
+      const a = api();
+      if (!a || !a.groq_save_key) return;
+      const key = groqKeyInput ? groqKeyInput.value : "";
+      const st = await a.groq_save_key(key);
+      if (groqKeyInput) groqKeyInput.value = "";
+      setGroqStatusLine((st && st.status) || "Not connected");
+    });
+  }
+  if (groqTest) {
+    groqTest.addEventListener("click", async function () {
+      const a = api();
+      if (!a || !a.groq_test_key) return;
+      setGroqStatusLine("Testing…");
+      const st = await a.groq_test_key();
+      setGroqStatusLine((st && st.status) || "Test failed");
+    });
+  }
+  if (groqRemove) {
+    groqRemove.addEventListener("click", async function () {
+      const a = api();
+      if (!a || !a.groq_remove_key) return;
+      const st = await a.groq_remove_key();
+      if (groqKeyInput) groqKeyInput.value = "";
+      setGroqStatusLine((st && st.status) || "Not connected");
     });
   }
 

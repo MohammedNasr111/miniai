@@ -87,6 +87,9 @@ FEATURE_PDF_CITATIONS = os.environ.get("MINIAI_FEATURE_PDF_CITATIONS", "off").st
     "false",
     "no",
 )
+# Round 11 planner: off | local | groq. Default off until Part 3 keep rule.
+_PLANNER_RAW = os.environ.get("MINIAI_PLANNER", "off").strip().lower()
+PLANNER_MODE = _PLANNER_RAW if _PLANNER_RAW in ("off", "local", "groq") else "off"
 EMBEDDING_MODEL = "nomic-embed-text-v1-GGUF"
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")  # may be None; never print or log this
 

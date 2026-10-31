@@ -89,3 +89,26 @@ def set_gemini_quota_hit_at(when: float | None) -> None:
     else:
         data["gemini_quota_hit_at"] = float(when)
     save_prefs(data)
+
+
+# Round 11 planner: off | local | groq (default off until Part 3 keep rule).
+_PLANNER_MODES = frozenset({"off", "local", "groq"})
+
+
+def get_planner_mode() -> str:
+    """Planner setting. Env MINIAI_PLANNER overrides disk for attribution."""
+    env = os.environ.get("MINIAI_PLANNER", "").strip().lower()
+    if env in _PLANNER_MODES:
+        return env
+    raw = str(load_prefs().get("planner_mode") or "off").strip().lower()
+    return raw if raw in _PLANNER_MODES else "off"
+
+
+def set_planner_mode(mode: str) -> str:
+    v = str(mode or "off").strip().lower()
+    if v not in _PLANNER_MODES:
+        v = "off"
+    data = load_prefs()
+    data["planner_mode"] = v
+    save_prefs(data)
+    return v

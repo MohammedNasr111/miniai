@@ -113,6 +113,28 @@
       <input type="checkbox" id="cloud-experimental">
       <span>Experimental: cloud brain (enable Send to cloud)</span>
     </label>
+
+    <hr class="settings-rule" />
+    <h3 class="settings-subhead">Planner</h3>
+    <p class="settings-lead">Optional checklist before long multi-step jobs. Groq is planner-only (no tools, files, or memory leave this PC).</p>
+    <label class="settings-field">
+      <span>Planner mode</span>
+      <select id="planner-mode">
+        <option value="off">Off</option>
+        <option value="local">On this PC</option>
+        <option value="groq">Groq (opt-in)</option>
+      </select>
+    </label>
+    <label class="settings-field">
+      <span>Paste your Groq API key</span>
+      <input id="groq-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…">
+    </label>
+    <div class="settings-actions">
+      <button type="button" class="settings-primary" id="groq-save">Save</button>
+      <button type="button" class="settings-primary" id="groq-test">Test</button>
+      <button type="button" class="settings-danger" id="groq-remove">Remove</button>
+    </div>
+    <p class="settings-status" id="groq-status-line">Not connected</p>
   </div>
 </div>
 

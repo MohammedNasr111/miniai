@@ -239,9 +239,11 @@ button,input,textarea{font:inherit;color:inherit}
 .settings header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .settings h2{margin:0;font:600 var(--s4)/1.2 var(--display)}
 .settings-lead{margin:0;font-size:var(--s2);color:var(--muted);line-height:1.45}
+.settings-subhead{margin:0;font-size:var(--s3);font-weight:600;color:var(--text)}
+.settings-rule{border:0;border-top:1px solid var(--line);margin:4px 0}
 .settings-field{display:grid;gap:6px;font-size:var(--s2);color:var(--muted)}
-.settings-field input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--slate);color:var(--text)}
-.settings-actions{display:flex;gap:8px}
+.settings-field input,.settings-field select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--slate);color:var(--text)}
+.settings-actions{display:flex;gap:8px;flex-wrap:wrap}
 .settings-primary,.settings-danger{border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:var(--s2);background:var(--slate)}
 .settings-primary{border-color:color-mix(in srgb,var(--glacier) 50%,var(--line));color:var(--text)}
 .settings-primary:hover{background:color-mix(in srgb,var(--glacier) 12%,var(--slate))}
