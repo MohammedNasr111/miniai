@@ -1327,3 +1327,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Click opens System popover (model, writing speed, memory, self-check, Gemini + Groq opt-in, Reload model).
 - Footer: "Runs on this PC. Web searches and opt-in cloud requests are listed in the Footprint." Cloud wording no longer says the brain left this PC.
 - Capture: `app/design/actual_v15_status_chip.png`. Offline: `scripts/test_round12_part1.py` FAILURES=0.
+
+## 2026-11-01 — Round 12 Part 2: Settings panel
+- Gear in sidebar header; Ctrl+,; Ctrl+K matches Settings / Gemini / Groq / Planner / Cloud / Keys.
+- Three scrollable sections: This PC (model, speed, reload), Cloud (Gemini key + experimental), Planner (mode + Groq key). DPAPI save/test/remove unchanged.
+- Capture: `app/design/actual_v15_settings.png`. Offline: `scripts/test_round12_part2.py` FAILURES=0.

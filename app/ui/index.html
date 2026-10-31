@@ -10,7 +10,10 @@
 <body>
 <div class="app" id="app">
   <aside class="rail" aria-label="Chats and machine status">
-    <div class="brand"><div class="mark" aria-hidden="true">M</div><b>MiniAI</b></div>
+    <div class="brand">
+      <div class="mark" aria-hidden="true">M</div><b>MiniAI</b>
+      <button type="button" class="gear" id="btn-settings" title="Settings (Ctrl+,)" aria-label="Settings">⚙</button>
+    </div>
     <button class="newchat" id="btn-new-chat" type="button">New chat <kbd>Ctrl N</kbd></button>
     <nav class="chats" id="history-list" aria-label="Chats"></nav>
     <section class="machine" aria-label="This PC">
@@ -114,47 +117,63 @@
 </div>
 
 <div class="settings-scrim" id="settings-panel" hidden>
-  <div class="settings" role="dialog" aria-label="Cloud brain settings">
+  <div class="settings" role="dialog" aria-label="Settings">
     <header>
-      <h2>Cloud brain</h2>
+      <h2>Settings</h2>
       <button type="button" class="iconbtn" id="settings-close" aria-label="Close">Close</button>
     </header>
-    <p class="settings-lead">Optional Google Gemini for heavy, non-private jobs. Keys stay on this PC (Windows DPAPI). Cloud turns never receive your files or memories.</p>
-    <label class="settings-field">
-      <span>Paste your Gemini API key</span>
-      <input id="gemini-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
-    </label>
-    <div class="settings-actions">
-      <button type="button" class="settings-primary" id="gemini-save">Save</button>
-      <button type="button" class="settings-danger" id="gemini-remove">Remove</button>
-    </div>
-    <p class="settings-status" id="gemini-status-line">Not connected</p>
-    <label class="settings-check" id="cloud-experimental-wrap" hidden>
-      <input type="checkbox" id="cloud-experimental">
-      <span>Experimental: cloud brain (enable Send to cloud)</span>
-    </label>
+    <div class="settings-scroll">
+      <section class="settings-section" id="settings-this-pc" aria-labelledby="settings-pc-h">
+        <h3 class="settings-subhead" id="settings-pc-h">This PC</h3>
+        <p class="settings-lead">MiniAI runs on this computer. Reload if answers feel slow.</p>
+        <div class="mrow"><span>Model</span><strong id="settings-model">—</strong></div>
+        <div class="mrow"><span>Writing speed</span><strong id="settings-tok">—</strong></div>
+        <button type="button" class="settings-primary" id="settings-reload">Reload model</button>
+      </section>
 
-    <hr class="settings-rule" />
-    <h3 class="settings-subhead">Planner</h3>
-    <p class="settings-lead">Optional checklist before long multi-step jobs. Groq is planner-only (no tools, files, or memory leave this PC).</p>
-    <label class="settings-field">
-      <span>Planner mode</span>
-      <select id="planner-mode">
-        <option value="off">Off</option>
-        <option value="local">On this PC</option>
-        <option value="groq">Groq (opt-in)</option>
-      </select>
-    </label>
-    <label class="settings-field">
-      <span>Paste your Groq API key</span>
-      <input id="groq-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…">
-    </label>
-    <div class="settings-actions">
-      <button type="button" class="settings-primary" id="groq-save">Save</button>
-      <button type="button" class="settings-primary" id="groq-test">Test</button>
-      <button type="button" class="settings-danger" id="groq-remove">Remove</button>
+      <hr class="settings-rule" />
+      <section class="settings-section" id="settings-gemini" aria-labelledby="settings-gemini-h">
+        <h3 class="settings-subhead" id="settings-gemini-h">Cloud (Gemini)</h3>
+        <p class="settings-lead">Optional Google Gemini for heavy, non-private jobs. Keys stay on this PC (Windows DPAPI). Cloud turns never receive your files or memories.</p>
+        <label class="settings-field">
+          <span>Paste your Gemini API key</span>
+          <input id="gemini-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+        </label>
+        <div class="settings-actions">
+          <button type="button" class="settings-primary" id="gemini-save">Save</button>
+          <button type="button" class="settings-danger" id="gemini-remove">Remove</button>
+        </div>
+        <p class="settings-status" id="gemini-status-line">Not connected</p>
+        <label class="settings-check" id="cloud-experimental-wrap" hidden>
+          <input type="checkbox" id="cloud-experimental">
+          <span>Experimental: cloud brain (enable Send to cloud)</span>
+        </label>
+      </section>
+
+      <hr class="settings-rule" />
+      <section class="settings-section" id="settings-planner" aria-labelledby="settings-planner-h">
+        <h3 class="settings-subhead" id="settings-planner-h">Planner</h3>
+        <p class="settings-lead">Optional checklist before long multi-step jobs. Groq is planner-only (no tools, files, or memory leave this PC).</p>
+        <label class="settings-field">
+          <span>Planner mode</span>
+          <select id="planner-mode">
+            <option value="off">Off</option>
+            <option value="local">On this PC</option>
+            <option value="groq">Groq (opt-in)</option>
+          </select>
+        </label>
+        <label class="settings-field">
+          <span>Paste your Groq API key</span>
+          <input id="groq-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…">
+        </label>
+        <div class="settings-actions">
+          <button type="button" class="settings-primary" id="groq-save">Save</button>
+          <button type="button" class="settings-primary" id="groq-test">Test</button>
+          <button type="button" class="settings-danger" id="groq-remove">Remove</button>
+        </div>
+        <p class="settings-status" id="groq-status-line">Not connected</p>
+      </section>
     </div>
-    <p class="settings-status" id="groq-status-line">Not connected</p>
   </div>
 </div>
 

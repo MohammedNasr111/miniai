@@ -45,7 +45,9 @@ button,input,textarea{font:inherit;color:inherit}
 .rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding:18px 14px 14px}
 .brand{display:flex;align-items:center;gap:10px;padding:0 6px 18px}
 .mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(150deg,#93A9FF,#6C78F0);display:grid;place-items:center;font:600 16px/1 var(--display);color:#fff}
-.brand b{font:600 18px/1 var(--display);letter-spacing:.2px}
+.brand b{font:600 18px/1 var(--display);letter-spacing:.2px;flex:1;min-width:0}
+.gear{appearance:none;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1;flex:none}
+.gear:hover{color:var(--text);background:var(--raised)}
 .newchat{display:flex;justify-content:space-between;align-items:center;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;cursor:pointer;font-size:var(--s2)}
 .newchat:hover{background:var(--raised)}
 .newchat kbd{font:500 11px var(--display);color:var(--muted);letter-spacing:.3px}
@@ -285,15 +287,23 @@ button,input,textarea{font:inherit;color:inherit}
 .ctx-menu button{display:block;width:100%;text-align:left;padding:8px 12px;border:0;border-radius:6px;background:none;cursor:pointer;font-size:var(--s2);color:var(--text)}
 .ctx-menu button:hover{background:var(--slate)}
 
-/* Cloud brain settings */
-.settings-scrim{position:fixed;inset:0;background:rgba(5,8,12,.55);z-index:45;display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
+/* Settings panel — scrolls inside itself to fit the default window */
+.settings-scrim{position:fixed;inset:0;background:rgba(5,8,12,.55);z-index:45;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .settings-scrim[hidden]{display:none!important}
-.settings{width:min(440px,100%);background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px;box-shadow:0 16px 48px rgba(0,0,0,.45);display:grid;gap:12px}
-.settings header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.settings{
+  width:min(440px,100%);max-height:min(640px,calc(100vh - 48px));
+  background:var(--raised);border:1px solid var(--line);border-radius:12px;
+  padding:14px 14px 12px;box-shadow:0 16px 48px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;gap:10px;min-height:0;
+}
+.settings header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}
 .settings h2{margin:0;font:600 var(--s4)/1.2 var(--display)}
+.settings .iconbtn{display:inline-block}
+.settings-scroll{overflow:auto;min-height:0;flex:1;display:grid;gap:12px;padding-right:2px}
+.settings-section{display:grid;gap:10px}
 .settings-lead{margin:0;font-size:var(--s2);color:var(--muted);line-height:1.45}
 .settings-subhead{margin:0;font-size:var(--s3);font-weight:600;color:var(--text)}
-.settings-rule{border:0;border-top:1px solid var(--line);margin:4px 0}
+.settings-rule{border:0;border-top:1px solid var(--line);margin:2px 0}
 .settings-field{display:grid;gap:6px;font-size:var(--s2);color:var(--muted)}
 .settings-field input,.settings-field select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--slate);color:var(--text)}
 .settings-actions{display:flex;gap:8px;flex-wrap:wrap}

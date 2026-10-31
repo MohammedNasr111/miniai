@@ -38,6 +38,10 @@
   const settingsPanel = document.getElementById("settings-panel");
   let lastStatus = null;
   const settingsClose = document.getElementById("settings-close");
+  const btnSettings = document.getElementById("btn-settings");
+  const settingsModel = document.getElementById("settings-model");
+  const settingsTok = document.getElementById("settings-tok");
+  const settingsReload = document.getElementById("settings-reload");
   const geminiKeyInput = document.getElementById("gemini-key-input");
   const geminiSave = document.getElementById("gemini-save");
   const geminiRemove = document.getElementById("gemini-remove");
@@ -1273,18 +1277,54 @@
     }
   }
 
-  function openSettings() {
+  function fillSettingsThisPc(s) {
+    s = s || lastStatus || {};
+    if (settingsModel) {
+      settingsModel.textContent = s.model_name || s.model || "—";
+    }
+    if (settingsTok) {
+      const tok = s.tok_s != null ? Number(s.tok_s) : 0;
+      settingsTok.textContent = tok > 0 ? tok.toFixed(1) + " tok/s" : "—";
+    }
+    if (settingsReload) {
+      settingsReload.disabled = !!(s.restore_busy || s.turn_busy);
+    }
+  }
+
+  function openSettings(focusSection) {
     if (!settingsPanel) return;
     settingsPanel.hidden = false;
-    if (geminiKeyInput) {
-      geminiKeyInput.value = "";
-      geminiKeyInput.focus();
-    }
+    fillSettingsThisPc(lastStatus);
+    if (geminiKeyInput) geminiKeyInput.value = "";
     if (groqKeyInput) groqKeyInput.value = "";
     refreshGeminiStatus();
     refreshGroqStatus();
     refreshPlannerMode();
     closePalette();
+    closeSystemPop();
+    const map = {
+      gemini: "settings-gemini",
+      cloud: "settings-gemini",
+      keys: "settings-gemini",
+      planner: "settings-planner",
+      groq: "settings-planner",
+      pc: "settings-this-pc",
+    };
+    const id = map[String(focusSection || "").toLowerCase()] || "settings-this-pc";
+    const el = document.getElementById(id);
+    if (el && el.scrollIntoView) {
+      try {
+        el.scrollIntoView({ block: "nearest" });
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    if (focusSection === "groq" && groqKeyInput) groqKeyInput.focus();
+    else if ((focusSection === "gemini" || focusSection === "keys" || focusSection === "cloud") && geminiKeyInput) {
+      geminiKeyInput.focus();
+    } else if (plannerMode && focusSection === "planner") {
+      plannerMode.focus();
+    }
   }
 
   function closeSettings() {
@@ -1296,6 +1336,16 @@
 
   if (settingsClose) {
     settingsClose.addEventListener("click", closeSettings);
+  }
+  if (btnSettings) {
+    btnSettings.addEventListener("click", function () {
+      openSettings();
+    });
+  }
+  if (settingsReload) {
+    settingsReload.addEventListener("click", function () {
+      startReloadModel();
+    });
   }
   if (settingsPanel) {
     settingsPanel.addEventListener("click", function (e) {
@@ -1463,10 +1513,52 @@
         },
       },
       {
-        id: "cloud",
-        label: "Cloud brain settings",
+        id: "settings",
+        label: "Settings",
+        kbd: "Ctrl ,",
+        aliases: ["settings", "keys", "cloud", "gemini", "groq", "planner"],
         run: function () {
           openSettings();
+        },
+      },
+      {
+        id: "gemini",
+        label: "Gemini",
+        aliases: ["gemini", "cloud", "keys"],
+        run: function () {
+          openSettings("gemini");
+        },
+      },
+      {
+        id: "groq",
+        label: "Groq",
+        aliases: ["groq", "planner", "keys"],
+        run: function () {
+          openSettings("groq");
+        },
+      },
+      {
+        id: "planner",
+        label: "Planner",
+        aliases: ["planner", "groq"],
+        run: function () {
+          openSettings("planner");
+        },
+      },
+      {
+        id: "cloud",
+        label: "Cloud",
+        aliases: ["cloud", "gemini", "keys"],
+        run: function () {
+          openSettings("cloud");
+        },
+      },
+      {
+        id: "keys",
+        label: "Keys",
+        aliases: ["keys", "gemini", "groq", "cloud"],
+        run: function () {
+          openSettings("keys");
         },
       },
       {
@@ -1492,7 +1584,12 @@
       });
     });
     return base.filter(function (c) {
-      return fuzzy(filter, c.label);
+      if (fuzzy(filter, c.label)) return true;
+      const aliases = c.aliases || [];
+      for (let i = 0; i < aliases.length; i++) {
+        if (fuzzy(filter, aliases[i])) return true;
+      }
+      return false;
     });
   }
 
@@ -1577,6 +1674,10 @@
       e.preventDefault();
       if (palette.hidden) openPalette();
       else closePalette();
+    } else if (mod && e.key === ",") {
+      e.preventDefault();
+      if (settingsPanel && !settingsPanel.hidden) closeSettings();
+      else openSettings();
     } else if (mod && e.key === ".") {
       e.preventDefault();
       appEl.classList.toggle("show-foot");
@@ -1766,6 +1867,7 @@
       if (geminiStatusLine && s.cloud && settingsPanel && !settingsPanel.hidden) {
         setGeminiStatusLine(s.cloud.status || "Not connected");
       }
+      if (settingsPanel && !settingsPanel.hidden) fillSettingsThisPc(s);
       setTainted(!!s.tainted);
     },
     on_history: function (groups) {
