@@ -257,6 +257,20 @@ class GroqProvider:
             note_cloud_http_sent(meta)
         except Exception:
             pass
+        # Optional measure log (Round 11B): path via MINIAI_GROQ_REQUEST_LOG.
+        # Never writes the API key or full user text — meta counts only.
+        # Call after usage tokens are attached when possible.
+        try:
+            import os
+            from pathlib import Path
+
+            dest = (os.environ.get("MINIAI_GROQ_REQUEST_LOG") or "").strip()
+            if dest:
+                Path(dest).parent.mkdir(parents=True, exist_ok=True)
+                with Path(dest).open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(meta, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
     def _post(self, payload: dict[str, Any], *, timeout: float) -> requests.Response:
         assert_allowed_base_url(self.base_url)
@@ -298,10 +312,40 @@ class GroqProvider:
             raise GroqQuotaError(f"{QUOTA_MESSAGE} ({reason})")
 
         meta = self._build_request_meta(payload, messages)
+        # One-shot sample for audits (shortened user text; no key).
+        try:
+            import os
+            from pathlib import Path
+
+            sample = (os.environ.get("MINIAI_GROQ_PAYLOAD_SAMPLE") or "").strip()
+            if sample and not Path(sample).is_file():
+                user_msg = ""
+                for m in messages:
+                    if m.role == "user":
+                        user_msg = (m.content or "")[:180]
+                        if len(m.content or "") > 180:
+                            user_msg += "…"
+                        break
+                safe = {
+                    "model": payload.get("model"),
+                    "keys": sorted(payload.keys()),
+                    "n_messages": len(payload.get("messages") or []),
+                    "has_tools": bool(payload.get("tools")),
+                    "user_text_short": user_msg,
+                    "system_head": ((messages[0].content or "")[:120] + "…")
+                    if messages
+                    else "",
+                }
+                Path(sample).parent.mkdir(parents=True, exist_ok=True)
+                Path(sample).write_text(
+                    json.dumps(safe, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+        except Exception:
+            pass
         t = float(timeout if timeout is not None else self.timeout)
         resp = self._post(payload, timeout=t)
         self._handle_http_error(resp)
-        self._note_sent(meta)
         resp.encoding = "utf-8"
         data = resp.json()
         usage = data.get("usage") if isinstance(data, dict) else None
@@ -321,6 +365,7 @@ class GroqProvider:
         record_request(tokens=tokens)
         meta["tokens"] = tokens
         self.last_request_meta = meta
+        self._note_sent(meta)
         choice = (data.get("choices") or [{}])[0]
         message = choice.get("message") or {}
         return ChatResponse(

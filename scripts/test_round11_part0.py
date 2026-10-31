@@ -15,7 +15,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from tests.support import use_temp_data
 
-use_temp_data()
+_temp_root = use_temp_data()
+# Isolate DPAPI tests from the user's real Groq key (secrets_dir now prefers
+# real LocalAppData so eval redirects still see the production key).
+_os_secrets = Path(os.environ["LOCALAPPDATA"]) / "MiniAI" / "secrets"
+_os_secrets.mkdir(parents=True, exist_ok=True)
+os.environ["MINIAI_GROQ_SECRETS_DIR"] = str(_os_secrets)
 
 FAILURES: list[str] = []
 

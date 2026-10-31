@@ -1309,3 +1309,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Failing total: true revenue total is **1240** (100+250+180+90+400+220). Off ×3 wrote May/April best/worst correctly but **omitted any total** in `summary.md` (`ok_total=False`). Logs: `logs/round11b_multistep_off.json`.
 - `MINIAI_FEATURE_ANALYZE_TABLE=on` ×3: **0/3** (timeouts / wrong summary; `ok_best`/`ok_worst` also false). Log: `logs/round11b_multistep_on.json`.
 - Keep rule needs ≥+2/3 then battery×2 — on did not improve over off (0/3 → 0/3). **ANALYZE_TABLE stays Off** (default in `config/settings.py`).
+
+## 2026-10-31 — Round 11B Part 4: Groq real-secrets measure; leave planner Off
+- `security/groq_key.secrets_dir()` now resolves via `real_local_appdata()` (override `MINIAI_GROQ_SECRETS_DIR` for tests). Under redirected `LOCALAPPDATA`, `has_key=True` + Test → connected (`scripts/test_round11b_part4_secrets.py` FAILURES=0). Key never printed.
+- Off re-baseline (organise harness fixed): targets **1/9**, guards **8/9**, mean wall targets **139.524 s** (`logs/round11b_off_targets.json`).
+- Groq planner ×3: targets **3/9**, guards **6/9**, mean wall **171.583 s** (`logs/round11b_groq_targets.json`). Organise **3/3** with Groq; two guard walls 0.0 from Lemonade load timeout.
+- Keep gates: targets need ≥4 (got 3) fail; guards need ≥7 (got 6) fail; wall ≤209.3 s (got 171.6) pass. No battery. **Planner stays Off.**
+- Groq traffic: **16** requests to `api.groq.com`, `tool_count=0`, body_chars sum **18930** (est ≈4732 tokens; usage tokens logged after this run’s fix). Sample payload: `logs/round11b_groq_payload_sample.json` (messages+model only; user text shortened).

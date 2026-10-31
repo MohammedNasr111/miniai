@@ -21,12 +21,27 @@ STATUS_TEST_FAIL = "Test failed"
 
 
 def secrets_dir() -> Path:
-    local = os.environ.get("LOCALAPPDATA")
-    if local:
-        root = Path(local) / "MiniAI" / "secrets"
-    else:
-        root = Path.home() / "AppData" / "Local" / "MiniAI" / "secrets"
-    return root
+    """Resolve the Groq secrets folder.
+
+    Prefer the user's real LocalAppData (ignores a redirected ``LOCALAPPDATA``
+    env var). Eval harnesses redirect LocalAppData into a temp tree; without
+    this, the DPAPI key at the real ``…\\MiniAI\\secrets\\groq.bin`` is invisible
+    (``has_key=False``). Tests may set ``MINIAI_GROQ_SECRETS_DIR`` to a temp
+    folder. The key value is never printed, logged, or copied — only the path
+    is resolved for read/write of the encrypted blob.
+    """
+    override = (os.environ.get("MINIAI_GROQ_SECRETS_DIR") or "").strip()
+    if override:
+        return Path(override)
+    try:
+        from config.paths import real_local_appdata
+
+        return real_local_appdata() / "MiniAI" / "secrets"
+    except Exception:
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            return Path(local) / "MiniAI" / "secrets"
+        return Path.home() / "AppData" / "Local" / "MiniAI" / "secrets"
 
 
 def key_path() -> Path:
