@@ -1,4 +1,4 @@
-# Round 11B report — Groq measure + harness fixes
+﻿# Round 11B report — Groq measure + harness fixes
 
 Date: 2026-10-31. Task: `tasks/ROUND_11B_GROQ_AND_HARNESS.md`.
 
@@ -198,7 +198,7 @@ Payload keys are only `messages` + `model` — no `tools`, no file bodies, no me
 | 2 | `74fcc9c` | Round 11B Part 2 — fix organise harness approvals + grader budget |
 | 3 | `08c1037` | Round 11B Part 3 — measure analyze_table on multistep; leave Off |
 | 4 | `e6a06ef` | Round 11B Part 4 — Groq real-secrets path + measure; leave Off |
-| Report | *(this commit)* | Round 11B — report + restart |
+| Report | `b391afb` | Round 11B — report + restart |
 
 ## Restart / smoke
 
