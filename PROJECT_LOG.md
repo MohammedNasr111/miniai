@@ -1304,3 +1304,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Diagnosis ×2: every `create_folder` approval answered **no** (YAML lacked `create_folder`; default deny). Answers: "You declined…". Log: `logs/round11b_organise_diag.json`.
 - Fix: approve `create_folder` / moves; do **not** approve `delete_file`. Grader approval budget `nfiles+2` → `nfiles+6` (type-folder confirms).
 - Re-run ×3 planner off: **2/3** pass (`logs/round11b_organise_x3.json`); one fail `bad_folder:report.pdf->other`.
+
+## 2026-10-31 — Round 11B Part 3: multistep + analyze_table; leave Off
+- Failing total: true revenue total is **1240** (100+250+180+90+400+220). Off ×3 wrote May/April best/worst correctly but **omitted any total** in `summary.md` (`ok_total=False`). Logs: `logs/round11b_multistep_off.json`.
+- `MINIAI_FEATURE_ANALYZE_TABLE=on` ×3: **0/3** (timeouts / wrong summary; `ok_best`/`ok_worst` also false). Log: `logs/round11b_multistep_on.json`.
+- Keep rule needs ≥+2/3 then battery×2 — on did not improve over off (0/3 → 0/3). **ANALYZE_TABLE stays Off** (default in `config/settings.py`).
