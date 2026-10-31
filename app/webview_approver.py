@@ -836,6 +836,48 @@ class AppBridge:
         saved = set_planner_mode(str(mode or "off"))
         return {"ok": True, "mode": saved}
 
+    def demo_plan_checklist(self) -> dict[str, Any]:
+        """Hand-test hook (Round 11 Part 2): show a sample plan checklist in the run log."""
+        sample = {
+            "source": "local",
+            "note": "",
+            "steps": [
+                {
+                    "step": "Create type folders",
+                    "tool_hint": "create_folder",
+                    "done_when": "folders exist",
+                    "done": True,
+                },
+                {
+                    "step": "Move each file into its type folder",
+                    "tool_hint": "move_files",
+                    "done_when": "no files left in root",
+                    "done": False,
+                },
+                {
+                    "step": "Confirm layout with a listing",
+                    "tool_hint": "list_directory",
+                    "done_when": "list shows files under type folders",
+                    "done": False,
+                },
+            ],
+        }
+        try:
+            # Ensure a run article exists so the checklist has a home.
+            self._call_js(
+                "on_activity",
+                {
+                    "steps": [],
+                    "waiting": False,
+                    "running": False,
+                    "ask": "Organise Downloads by file type, then confirm the layout.",
+                },
+            )
+            self._call_js("on_plan", sample)
+            return {"ok": True}
+        except Exception as exc:
+            return {"ok": False, "error": type(exc).__name__}
+
     def open_external(self, url: str) -> dict[str, Any]:
         raw = (url or "").strip()
         self._external_log.append(raw)
@@ -1507,6 +1549,19 @@ class AppBridge:
 
             set_research_progress(self._on_research_progress)
             set_cloud_http_sent_hook(_on_cloud_http if cloud else None)
+
+            def _on_plan(plan: dict) -> None:
+                try:
+                    self._call_js("on_plan", plan)
+                except Exception:
+                    pass
+
+            try:
+                from agent.planner import set_plan_hook
+
+                set_plan_hook(_on_plan)
+            except Exception:
+                pass
             try:
                 answer = run_user_turn(
                     self._session,
@@ -1523,6 +1578,12 @@ class AppBridge:
             finally:
                 set_research_progress(None)
                 set_cloud_http_sent_hook(None)
+                try:
+                    from agent.planner import set_plan_hook as _clear_plan_hook
+
+                    _clear_plan_hook(None)
+                except Exception:
+                    pass
             check_meta_early = getattr(self._session, "last_check", None)
             self._append_guard_verify_steps(check_meta_early)
             total = format_duration(time.perf_counter() - self._turn_t0)
@@ -1725,6 +1786,15 @@ class AppBridge:
                 ] + list(steps)
             fp_ui = ui_payload((self._chat_doc or {}).get("footprint") or {})
             self._refresh_writing_speed(cloud=bool(cloud) and answered_by == "gemini")
+            plan_payload = None
+            try:
+                from agent.planner import plan_ui_payload
+
+                plan_payload = plan_ui_payload()
+                if plan_payload is None and isinstance(check_meta, dict):
+                    plan_payload = check_meta.get("plan")
+            except Exception:
+                plan_payload = None
             self._call_js(
                 "on_answer",
                 {
@@ -1739,6 +1809,7 @@ class AppBridge:
                     "answered_by": answered_by,
                     "answered_label": answered_label,
                     "fallback_reason": fallback_reason,
+                    "plan": plan_payload,
                 },
             )
             self._call_js("on_history", self.list_chats())
@@ -1809,6 +1880,19 @@ class _JsApi:
             return
         self._bridge.push_status()
         self._bridge._call_js("on_history", self._bridge.list_chats())
+        # Round 11 Part 2 hand-test capture: show sample plan checklist once.
+        import os
+
+        if os.environ.get("MINIAI_DEMO_PLAN", "").strip().lower() in (
+            "1",
+            "on",
+            "true",
+            "yes",
+        ):
+            try:
+                self._bridge.demo_plan_checklist()
+            except Exception:
+                pass
 
     def poll_approval(self) -> Optional[dict[str, Any]]:
         if not self._require_index():
@@ -1964,6 +2048,11 @@ class _JsApi:
         if not self._require_index():
             return {"ok": False, "mode": "off"}
         return self._bridge.set_planner_mode(mode)
+
+    def demo_plan_checklist(self) -> dict[str, Any]:
+        if not self._require_index():
+            return {"ok": False, "error": "foreign page"}
+        return self._bridge.demo_plan_checklist()
 
     def restore_model(self) -> dict[str, Any]:
         if not self._require_index():

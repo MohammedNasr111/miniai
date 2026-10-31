@@ -1280,3 +1280,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Groq planner: same JSON; 20s; fallback to local with note.
 - Plan appended as system message; finish guard once per planned turn.
 - `MINIAI_PLANNER=off|local|groq`. Offline: `scripts/test_round11_part1.py` FAILURES=0.
+
+## 2026-10-31 — Round 11 Part 2: plan checklist UI
+- Run-log checklist under turn header (`.plan-check`), v2 tokens; ticks use `--verdigris` when finish-guard marks done.
+- Bridge `on_plan` + answer `plan` payload; `demo_plan_checklist` / `MINIAI_DEMO_PLAN` hand-test hook.
+- Capture: `app/design/actual_v14_plan_checklist.png` via `miniai_capture.py`.
+- Offline: `scripts/test_round11_part2.py` FAILURES=0.

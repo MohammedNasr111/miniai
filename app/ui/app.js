@@ -282,6 +282,10 @@
       "</b></span><span class=\"meta-status\">Working</span><span class=\"meta-steps\"><b>0</b> steps</span><span class=\"meta-left\"><b>Nothing</b> left this PC</span>";
     ask.appendChild(meta);
     art.appendChild(ask);
+    const planBox = document.createElement("div");
+    planBox.className = "plan-check";
+    planBox.hidden = true;
+    art.appendChild(planBox);
     const trace = document.createElement("ol");
     trace.className = "trace";
     art.appendChild(trace);
@@ -295,12 +299,71 @@
       trace: trace,
       answer: answer,
       meta: meta,
+      planBox: planBox,
       stepEls: [],
       leftCount: 0,
       t0: Date.now(),
     };
     maybeScrollBottom();
     return currentRun;
+  }
+
+  function showPlanChecklist(plan) {
+    let run = currentRun;
+    if (!run) {
+      run = startRun(lastUserAsk || "…");
+    }
+    if (!run.planBox) {
+      const box = document.createElement("div");
+      box.className = "plan-check";
+      const askEl = run.root.querySelector(".ask");
+      if (askEl && askEl.nextSibling) {
+        run.root.insertBefore(box, askEl.nextSibling);
+      } else {
+        run.root.appendChild(box);
+      }
+      run.planBox = box;
+    }
+    const box = run.planBox;
+    const steps = (plan && plan.steps) || [];
+    if (!steps.length) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    box.hidden = false;
+    let html =
+      '<div class="plan-check-head">Plan' +
+      (plan.source ? ' <span class="plan-check-src">' + escapeHtml(String(plan.source)) + "</span>" : "") +
+      "</div><ol class=\"plan-check-list\">";
+    steps.forEach(function (s, i) {
+      const done = !!s.done;
+      html +=
+        '<li class="plan-check-item' +
+        (done ? " done" : "") +
+        '" data-i="' +
+        i +
+        '">' +
+        '<span class="plan-tick" aria-hidden="true">' +
+        (done ? "✓" : "") +
+        "</span>" +
+        '<span class="plan-step-text">' +
+        escapeHtml(String(s.step || "")) +
+        "</span>" +
+        (s.done_when
+          ? '<small class="plan-done-when">' +
+            escapeHtml(String(s.done_when)) +
+            "</small>"
+          : "") +
+        "</li>";
+    });
+    html += "</ol>";
+    if (plan.note) {
+      html +=
+        '<p class="plan-check-note">' + escapeHtml(String(plan.note)) + "</p>";
+    }
+    box.innerHTML = html;
+    maybeScrollBottom();
   }
 
   function updateRunMeta(run, opts) {
@@ -1629,8 +1692,14 @@
     on_thinking_start: function () {
       onThinkingStart();
     },
+    on_plan: function (payload) {
+      showPlanChecklist(payload || {});
+    },
     on_answer: function (payload) {
       setTurnControls(false);
+      if (payload && payload.plan) {
+        showPlanChecklist(payload.plan);
+      }
       showAnswer(
         (payload && payload.text) || "",
         (payload && payload.sources) || [],
