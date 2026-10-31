@@ -1316,3 +1316,8 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Groq planner ×3: targets **3/9**, guards **6/9**, mean wall **171.583 s** (`logs/round11b_groq_targets.json`). Organise **3/3** with Groq; two guard walls 0.0 from Lemonade load timeout.
 - Keep gates: targets need ≥4 (got 3) fail; guards need ≥7 (got 6) fail; wall ≤209.3 s (got 171.6) pass. No battery. **Planner stays Off.**
 - Groq traffic: **16** requests to `api.groq.com`, `tool_count=0`, body_chars sum **18930** (est ≈4732 tokens; usage tokens logged after this run’s fix). Sample payload: `logs/round11b_groq_payload_sample.json` (messages+model only; user text shortened).
+
+## 2026-10-31 — Round 11B report + restart
+- Report: `ROUND_11B_REPORT.md`. Review dump: `logs/review_20261101-0038_round11b_report.log`.
+- Decisions: keep eval folder redirect + organise harness fix; leave `ANALYZE_TABLE` Off; leave Planner Off.
+- App restarted; model_state OK (12.244 tok/s); Hi → Hello! (`logs/_qa_round11b_hi.txt`).
