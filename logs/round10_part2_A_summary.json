@@ -1,0 +1,130 @@
+{
+  "cases": {
+    "a": {
+      "walls": [
+        19.006,
+        18.613,
+        18.804
+      ],
+      "mean": 18.808
+    },
+    "b": {
+      "walls": [
+        9.303,
+        8.586,
+        9.693
+      ],
+      "mean": 9.194
+    },
+    "c": {
+      "walls": [
+        6.398,
+        6.459,
+        6.487
+      ],
+      "mean": 6.448
+    },
+    "e": {
+      "walls": [
+        44.371,
+        40.968,
+        61.193
+      ],
+      "mean": 48.844
+    }
+  },
+  "case_e_dedicated": {
+    "walls": [
+      41.477,
+      51.568,
+      49.607
+    ],
+    "mean": 47.551
+  },
+  "stalls_from_speed": [
+    {
+      "case": "a",
+      "stall_s": 0.076
+    },
+    {
+      "case": "a",
+      "stall_s": 0.058
+    },
+    {
+      "case": "a",
+      "stall_s": 0.051
+    },
+    {
+      "case": "a",
+      "stall_s": 0.066
+    },
+    {
+      "case": "a",
+      "stall_s": 0.063
+    },
+    {
+      "case": "a",
+      "stall_s": 0.11
+    },
+    {
+      "case": "b",
+      "stall_s": 0.069
+    },
+    {
+      "case": "b",
+      "stall_s": 0.071
+    },
+    {
+      "case": "b",
+      "stall_s": 0.065
+    },
+    {
+      "case": "c",
+      "stall_s": 0.057
+    },
+    {
+      "case": "c",
+      "stall_s": 0.072
+    },
+    {
+      "case": "c",
+      "stall_s": 0.073
+    },
+    {
+      "case": "c",
+      "stall_s": 0.067
+    },
+    {
+      "case": "c",
+      "stall_s": 0.108
+    },
+    {
+      "case": "c",
+      "stall_s": 0.078
+    },
+    {
+      "case": "e",
+      "stall_s": 0.064
+    },
+    {
+      "case": "e",
+      "stall_s": 0.068
+    },
+    {
+      "case": "e",
+      "stall_s": 0.07
+    }
+  ],
+  "stall_gt10_count": 0,
+  "battery": {
+    "per_run": [
+      15,
+      15,
+      15
+    ],
+    "mean": 15.0,
+    "n_tasks_total": 60,
+    "mean_task_wall_s": 56.747
+  },
+  "ram_note": "Background RAM sampler failed to write during battery; free_ram at model_state checks stayed >=5 GB around measures."
+}

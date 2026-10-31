@@ -1,0 +1,314 @@
+{
+  "repeats": [
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_qmb0w0ls",
+      "cases": {
+        "e": {
+          "prompt": "In about 150 words, explain how a CPU cache works.",
+          "wall_s": 41.477,
+          "first_token_s": 25.126,
+          "answer_head": "A CPU cache is a small, high-speed memory located close to the processor, designed to reduce access latency to frequently used data and instructions. It acts as a temporary storage buffer between the CPU and main memory (RAM), which is significantly slower. When the CPU needs data, it first checks t",
+          "free_ram_gb": 5.228,
+          "top_processes": [
+            {
+              "pid": 20580,
+              "name": "llama-server.exe",
+              "rss_gb": 10.213
+            },
+            {
+              "pid": 19616,
+              "name": "Cursor.exe",
+              "rss_gb": 0.457
+            },
+            {
+              "pid": 14256,
+              "name": "Cursor.exe",
+              "rss_gb": 0.413
+            },
+            {
+              "pid": 11556,
+              "name": "claude.exe",
+              "rss_gb": 0.354
+            },
+            {
+              "pid": 14348,
+              "name": "llama-server.exe",
+              "rss_gb": 0.26
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6171,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.071,
+          "stall_s_sum": 0.071,
+          "tok_s": 12.749,
+          "calls": [
+            {
+              "wall_s": 40.108,
+              "discarded": false,
+              "enable_thinking": true,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6171,
+              "stall_s": 0.071,
+              "free_ram_gb": {
+                "before": 5.19,
+                "after": 5.225
+              },
+              "lemonade_page_faults_delta": 447,
+              "predicted_per_second": 12.748911724941602
+            }
+          ],
+          "draft_discarded": false,
+          "discarded_n": 0
+        }
+      },
+      "only": "e"
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_agwcsuha",
+      "cases": {
+        "e": {
+          "prompt": "In about 150 words, explain how a CPU cache works.",
+          "wall_s": 51.568,
+          "first_token_s": 34.85,
+          "answer_head": "A CPU cache is a small, high-speed memory located closer to the processor than main RAM. It stores copies of frequently accessed data and instructions to reduce latency. When the CPU needs data, it first checks the cache (L1, L2, or L3) before accessing slower main memory. \n\nCaches are organized int",
+          "free_ram_gb": 5.224,
+          "top_processes": [
+            {
+              "pid": 20580,
+              "name": "llama-server.exe",
+              "rss_gb": 10.215
+            },
+            {
+              "pid": 19616,
+              "name": "Cursor.exe",
+              "rss_gb": 0.457
+            },
+            {
+              "pid": 14256,
+              "name": "Cursor.exe",
+              "rss_gb": 0.416
+            },
+            {
+              "pid": 11556,
+              "name": "claude.exe",
+              "rss_gb": 0.354
+            },
+            {
+              "pid": 14348,
+              "name": "llama-server.exe",
+              "rss_gb": 0.26
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6343,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.068,
+          "stall_s_sum": 0.068,
+          "tok_s": 12.654,
+          "calls": [
+            {
+              "wall_s": 50.255,
+              "discarded": false,
+              "enable_thinking": true,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6343,
+              "stall_s": 0.068,
+              "free_ram_gb": {
+                "before": 5.209,
+                "after": 5.221
+              },
+              "lemonade_page_faults_delta": 979,
+              "predicted_per_second": 12.654048571028591
+            }
+          ],
+          "draft_discarded": false,
+          "discarded_n": 0
+        }
+      },
+      "only": "e"
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_4yisw2zi",
+      "cases": {
+        "e": {
+          "prompt": "In about 150 words, explain how a CPU cache works.",
+          "wall_s": 49.607,
+          "first_token_s": 32.257,
+          "answer_head": "A CPU cache is a small, high-speed memory located close to the processor, designed to reduce the time needed to access frequently used data and instructions. It acts as a buffer between the CPU and slower main RAM, storing copies of recently accessed or frequently used data. Caches are organized int",
+          "free_ram_gb": 5.207,
+          "top_processes": [
+            {
+              "pid": 20580,
+              "name": "llama-server.exe",
+              "rss_gb": 10.215
+            },
+            {
+              "pid": 19616,
+              "name": "Cursor.exe",
+              "rss_gb": 0.457
+            },
+            {
+              "pid": 14256,
+              "name": "Cursor.exe",
+              "rss_gb": 0.442
+            },
+            {
+              "pid": 11556,
+              "name": "claude.exe",
+              "rss_gb": 0.359
+            },
+            {
+              "pid": 14348,
+              "name": "llama-server.exe",
+              "rss_gb": 0.26
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6343,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.067,
+          "stall_s_sum": 0.067,
+          "tok_s": 12.741,
+          "calls": [
+            {
+              "wall_s": 48.264,
+              "discarded": false,
+              "enable_thinking": true,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6343,
+              "stall_s": 0.067,
+              "free_ram_gb": {
+                "before": 5.207,
+                "after": 5.209
+              },
+              "lemonade_page_faults_delta": 487,
+              "predicted_per_second": 12.740608363425833
+            }
+          ],
+          "draft_discarded": false,
+          "discarded_n": 0
+        }
+      },
+      "only": "e"
+    }
+  ],
+  "n": 3,
+  "six_turn": false,
+  "model_state": {
+    "captured_at": "2026-10-31T01:57:08Z",
+    "stamp": "20261031-015708",
+    "thresholds": {
+      "tok_s_min": 11.0,
+      "note": "RSS logged only; not used in verdict (architect 30 Oct)"
+    },
+    "llm": {
+      "model_name": "Qwen3-30B-A3B-GGUF",
+      "pid": 20580,
+      "device": "gpu",
+      "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+      "recipe_options": {
+        "ctx_size": 16384,
+        "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+      },
+      "launch_command": [
+        "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+        "-m",
+        "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+        "--ctx-size",
+        "16384",
+        "--port",
+        "8001",
+        "--jinja",
+        "--metrics",
+        "--n-gpu-layers",
+        "99",
+        "-ctk",
+        "q8_0",
+        "-ctv",
+        "q8_0",
+        "-fa",
+        "on",
+        "--parallel",
+        "1"
+      ],
+      "status": "ready"
+    },
+    "llm_rss_gb": 10.218,
+    "free_ram_gb": 5.329,
+    "total_ram_gb": 23.618,
+    "gpu": {
+      "dedicated": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 8380145664.0,
+          "gb": 7.805
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        }
+      ],
+      "shared": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 11092193280.0,
+          "gb": 10.33
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 8192.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 1081061376.0,
+          "gb": 1.007
+        }
+      ]
+    },
+    "probe": {
+      "wall_s": 7.222,
+      "completion_tokens": 86,
+      "prompt_tokens": 6193,
+      "est_prompt_tokens": 7389,
+      "tok_s": 12.843,
+      "tok_s_source": "predicted_per_second",
+      "timings": {
+        "cache_n": 6171,
+        "predicted_ms": 6618.246,
+        "predicted_n": 86,
+        "predicted_per_second": 12.843282041797782,
+        "predicted_per_token_ms": 77.86171764705882,
+        "prompt_ms": 515.87,
+        "prompt_n": 22,
+        "prompt_per_second": 42.64640316358772,
+        "prompt_per_token_ms": 23.448636363636364
+      },
+      "model": "Qwen3-30B-A3B-GGUF",
+      "probe_kind": "realistic_system_tools",
+      "user": "In one short paragraph, what is a page fault?"
+    },
+    "verdict": "OK",
+    "reason": "tok/s=12.843 \u2265 11.0 (RSS=10.218 GB logged only; prompt_tokens=6193)",
+    "log_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_state_20261031-015708.json"
+  }
+}

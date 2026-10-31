@@ -1240,3 +1240,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - **B** Qwen3.6 IQ4_XS: pulled; Lemonade vision+mmproj load failed; text-only `Qwen36-IQ4XS-text` loads; free RAM OK (~6.9 GB) but `check_model_state` **DEGRADED** tok/s ~10.5 < 11 → **skip** (`doesn't fit at ctx 16384`). MTP skipped (no draft for this quant).
 - **C** Nemotron Lightning Q4_0 (+mtp draft 1.08 GB): Vulkan **ErrorOutOfDeviceMemory** / Lemonade load fail → **skip**.
 - Control A restored; model_state OK. Logs: `round10_part1_{B,C,summary}.json`.
+
+## 2026-10-31 — Round 10 Part 2: measure control A only
+- B/C did not pass Part 1 → only A measured.
+- Quick: Safety PASS (`logs/round10_quick_A.json`).
+- Battery ×3: **15/20 + 15/20 + 15/20** mean **15.0** (`logs/round10_battery_A.json`).
+- Speed ×3 + case e ×3: `logs/round10_speed_A.json`, `logs/round10_case_e_A.json`; summary `logs/round10_part2_A_summary.json`. stall_s>10 count from speed logs: **0**.
