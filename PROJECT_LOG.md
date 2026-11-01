@@ -1407,3 +1407,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - Updated `ARCHITECTURE.md` with Round 13 production snapshot (providers, loop, honesty, Footprint, model-state, eval isolation, flags).
 - Added `docs/HANDOVER.md` (state, failing tasks, how to run, lessons, RAM/future).
 - `README.md`: three lines + links to USER_GUIDE and HANDOVER. No behaviour change.
+
+## 2026-11-01 — Round 13 Part 9: finish + ROUND_13_REPORT
+- Restarted via `pythonw -m app`; `check_model_state` OK; Hi → `Hello! How can I assist you today?` (`logs/_qa_round13_hi.txt`).
+- Nightly `MiniAI-NightlySelfCheck` at 03:17, StartWhenAvailable=False.
+- Real-folder eval leftovers: none on Desktop/Documents; Downloads name `miniai_design.png` only.
+- Wrote `ROUND_13_REPORT.md`. Full file dump: `logs/review_20261101-1303_round13_report.log`.
+- **Stop** — no next round queued.
