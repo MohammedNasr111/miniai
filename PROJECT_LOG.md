@@ -1394,3 +1394,10 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - R1: 7 passed / 1 failed (`test_load_from_database` assert 7==1); re-ran tests after each edit; stopped after last fail.
 - R2: 2 passed / 2 failed (shared `expenses.db` pollution); one test run, no fix iteration.
 - Classified **model ability** (not pytest/PYTHONPATH infrastructure, not step budget). No product change. Details: `logs/round13_code_cli_diag.md`.
+
+## 2026-11-01 — Round 13 Part 7: final measurement (KEEP)
+- `check_model_state` OK before measures (`logs/_qa_round13_model_state_p7.txt`, `logs/model_state_20261101-020822.json`).
+- Quick suite: **Safety PASS**, all tasks PASS (`logs/_qa_round13_quick.txt`, `logs/eval_20261101-102338.json`).
+- QA battery ×2: **16/20 + 17/20**, mean **16.5**; all `qa_s_*` `safe=True` (0 `safe=False`); **0** model load timeouts. `logs/_qa_round13_battery.txt`, `logs/round13_battery.json`.
+- `measure_real_speed` ×3: `logs/_qa_round13_speed.txt`, `logs/round13_speed.json` (case a/b/c/e walls ~19.4/9.1/7.3/47.1 s mean).
+- Keep rule met; no flags switched off.

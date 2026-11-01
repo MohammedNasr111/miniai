@@ -1,0 +1,1091 @@
+{
+  "repeats": [
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_hcs42dr4",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_hcs42dr4? Use list_directory.",
+          "wall_s": 19.408,
+          "first_token_s": 13.388,
+          "answer_head": "The three largest files in the directory `C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_hcs42dr4` are:\n\n1. **huge.zip** - 47.7 MB\n2. **big.bin** - 19.1 MB\n3. **setup.exe** - 4.8 MB",
+          "free_ram_gb": 0.825,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.512
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.43
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.332
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.321
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.215
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6203,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.073,
+          "stall_s_sum": 0.133,
+          "tok_s": 12.917,
+          "calls": [
+            {
+              "wall_s": 6.075,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6203,
+              "stall_s": 0.06,
+              "free_ram_gb": {
+                "before": 0.818,
+                "after": 0.812
+              },
+              "lemonade_page_faults_delta": 7276,
+              "predicted_per_second": 13.066807319120834
+            },
+            {
+              "wall_s": 11.573,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6378,
+              "stall_s": 0.073,
+              "free_ram_gb": {
+                "before": 0.811,
+                "after": 0.812
+              },
+              "lemonade_page_faults_delta": 495,
+              "predicted_per_second": 12.767652413430698
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 9.713,
+          "first_token_s": 3.671,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory used by a computer's processor to temporarily store data that is actively being used, allowing for quick access and faster performance. Storage, on the other hand, refers to non-volatile memory such as hard drives or solid-state drives, which r",
+          "free_ram_gb": 0.865,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.514
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.423
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.329
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.322
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.212
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6939,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.063,
+          "stall_s_sum": 0.063,
+          "tok_s": 12.66,
+          "calls": [
+            {
+              "wall_s": 8.084,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6939,
+              "stall_s": 0.063,
+              "free_ram_gb": {
+                "before": 0.845,
+                "after": 0.866
+              },
+              "lemonade_page_faults_delta": 990,
+              "predicted_per_second": 12.65952669361147
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 3.474,
+            "first_token_s": 2.479,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 0.866,
+            "top_processes": [
+              {
+                "pid": 19896,
+                "name": "llama-server.exe",
+                "rss_gb": 5.514
+              },
+              {
+                "pid": 10004,
+                "name": "Cursor.exe",
+                "rss_gb": 0.416
+              },
+              {
+                "pid": 6312,
+                "name": "Cursor.exe",
+                "rss_gb": 0.328
+              },
+              {
+                "pid": 4292,
+                "name": "MemCompression",
+                "rss_gb": 0.322
+              },
+              {
+                "pid": 5848,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.216
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6203,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.12,
+            "stall_s_sum": 0.12,
+            "tok_s": 12.481,
+            "calls": [
+              {
+                "wall_s": 1.824,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6203,
+                "stall_s": 0.12,
+                "free_ram_gb": {
+                  "before": 0.863,
+                  "after": 0.868
+                },
+                "lemonade_page_faults_delta": 505,
+                "predicted_per_second": 12.481031432437577
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 3.935,
+            "first_token_s": 3.54,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 0.87,
+            "top_processes": [
+              {
+                "pid": 19896,
+                "name": "llama-server.exe",
+                "rss_gb": 5.514
+              },
+              {
+                "pid": 10004,
+                "name": "Cursor.exe",
+                "rss_gb": 0.419
+              },
+              {
+                "pid": 6312,
+                "name": "Cursor.exe",
+                "rss_gb": 0.328
+              },
+              {
+                "pid": 4292,
+                "name": "MemCompression",
+                "rss_gb": 0.322
+              },
+              {
+                "pid": 5848,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.213
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6241,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.106,
+            "stall_s_sum": 0.106,
+            "tok_s": 12.395,
+            "calls": [
+              {
+                "wall_s": 2.291,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6241,
+                "stall_s": 0.106,
+                "free_ram_gb": {
+                  "before": 0.853,
+                  "after": 0.877
+                },
+                "lemonade_page_faults_delta": 490,
+                "predicted_per_second": 12.394645513138324
+              }
+            ]
+          },
+          "wall_s": 7.409
+        },
+        "e": {
+          "prompt": "In about 150 words, explain how a CPU cache works.",
+          "wall_s": 44.401,
+          "first_token_s": 30.799,
+          "answer_head": "A CPU cache is a small, high-speed memory located close to the processor, designed to reduce the time the CPU waits for data from slower main memory (RAM). It stores copies of frequently accessed data, exploiting \"locality of reference\" \u2014 data recently used (temporal) or nearby (spatial) is likely t",
+          "free_ram_gb": 0.906,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.514
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.406
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.324
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.322
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.216
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6203,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.113,
+          "stall_s_sum": 0.113,
+          "tok_s": 12.648,
+          "calls": [
+            {
+              "wall_s": 42.757,
+              "discarded": false,
+              "enable_thinking": true,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6203,
+              "stall_s": 0.113,
+              "free_ram_gb": {
+                "before": 0.865,
+                "after": 0.905
+              },
+              "lemonade_page_faults_delta": 566,
+              "predicted_per_second": 12.647782896459674
+            }
+          ],
+          "draft_discarded": false,
+          "discarded_n": 0
+        }
+      }
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_9ar2q6jp",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_9ar2q6jp? Use list_directory.",
+          "wall_s": 19.235,
+          "first_token_s": 13.262,
+          "answer_head": "The three biggest files in the directory `C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_9ar2q6jp` are:\n\n1. **huge.zip** - 47.7 MB\n2. **big.bin** - 19.1 MB\n3. **setup.exe** - 4.8 MB",
+          "free_ram_gb": 0.886,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.512
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.417
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.327
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.323
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.216
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6220,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.066,
+          "stall_s_sum": 0.121,
+          "tok_s": 12.765,
+          "calls": [
+            {
+              "wall_s": 6.051,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6220,
+              "stall_s": 0.055,
+              "free_ram_gb": {
+                "before": 0.89,
+                "after": 0.893
+              },
+              "lemonade_page_faults_delta": 13188,
+              "predicted_per_second": 12.557117113360441
+            },
+            {
+              "wall_s": 11.516,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6372,
+              "stall_s": 0.066,
+              "free_ram_gb": {
+                "before": 0.891,
+                "after": 0.885
+              },
+              "lemonade_page_faults_delta": 466,
+              "predicted_per_second": 12.972779906680223
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 9.383,
+          "first_token_s": 3.786,
+          "answer_head": "RAM (Random Access Memory) is a type of volatile memory used by a computer to temporarily store data that is actively being used, allowing for quick access by the CPU. Storage, on the other hand, refers to non-volatile memory such as hard drives or SSDs, which is used for long-term data retention ev",
+          "free_ram_gb": 0.879,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.515
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.423
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.325
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.323
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.216
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6934,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.058,
+          "stall_s_sum": 0.058,
+          "tok_s": 12.759,
+          "calls": [
+            {
+              "wall_s": 7.768,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6934,
+              "stall_s": 0.058,
+              "free_ram_gb": {
+                "before": 0.872,
+                "after": 0.88
+              },
+              "lemonade_page_faults_delta": 1037,
+              "predicted_per_second": 12.759262370868626
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 3.431,
+            "first_token_s": 2.46,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 0.872,
+            "top_processes": [
+              {
+                "pid": 19896,
+                "name": "llama-server.exe",
+                "rss_gb": 5.515
+              },
+              {
+                "pid": 10004,
+                "name": "Cursor.exe",
+                "rss_gb": 0.425
+              },
+              {
+                "pid": 6312,
+                "name": "Cursor.exe",
+                "rss_gb": 0.325
+              },
+              {
+                "pid": 4292,
+                "name": "MemCompression",
+                "rss_gb": 0.323
+              },
+              {
+                "pid": 5848,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.219
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6203,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.066,
+            "stall_s_sum": 0.066,
+            "tok_s": 12.68,
+            "calls": [
+              {
+                "wall_s": 1.774,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6203,
+                "stall_s": 0.066,
+                "free_ram_gb": {
+                  "before": 0.869,
+                  "after": 0.876
+                },
+                "lemonade_page_faults_delta": 466,
+                "predicted_per_second": 12.679869228282026
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 3.828,
+            "first_token_s": 3.482,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 0.873,
+            "top_processes": [
+              {
+                "pid": 19896,
+                "name": "llama-server.exe",
+                "rss_gb": 5.515
+              },
+              {
+                "pid": 10004,
+                "name": "Cursor.exe",
+                "rss_gb": 0.419
+              },
+              {
+                "pid": 6312,
+                "name": "Cursor.exe",
+                "rss_gb": 0.328
+              },
+              {
+                "pid": 4292,
+                "name": "MemCompression",
+                "rss_gb": 0.323
+              },
+              {
+                "pid": 5848,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.221
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6241,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.08,
+            "stall_s_sum": 0.08,
+            "tok_s": 12.662,
+            "calls": [
+              {
+                "wall_s": 2.206,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6241,
+                "stall_s": 0.08,
+                "free_ram_gb": {
+                  "before": 0.856,
+                  "after": 0.876
+                },
+                "lemonade_page_faults_delta": 457,
+                "predicted_per_second": 12.662435302869625
+              }
+            ]
+          },
+          "wall_s": 7.259
+        },
+        "e": {
+          "prompt": "In about 150 words, explain how a CPU cache works.",
+          "wall_s": 44.487,
+          "first_token_s": 27.808,
+          "answer_head": "The CPU cache is a high-speed memory located closer to the processor, designed to reduce the time taken to access data from the main memory (RAM). It acts as a buffer between the CPU and RAM, storing copies of frequently used data and instructions. Caches are organized in levels (L1, L2, L3), with L",
+          "free_ram_gb": 0.886,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.515
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.419
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.324
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.323
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.214
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6203,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.059,
+          "stall_s_sum": 0.059,
+          "tok_s": 12.628,
+          "calls": [
+            {
+              "wall_s": 42.871,
+              "discarded": false,
+              "enable_thinking": true,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6203,
+              "stall_s": 0.059,
+              "free_ram_gb": {
+                "before": 0.874,
+                "after": 0.892
+              },
+              "lemonade_page_faults_delta": 489,
+              "predicted_per_second": 12.62793601344218
+            }
+          ],
+          "draft_discarded": false,
+          "discarded_n": 0
+        }
+      }
+    },
+    {
+      "fixture": "C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_7t9ybsd2",
+      "cases": {
+        "a": {
+          "prompt": "What are the 3 biggest files in C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_7t9ybsd2? Use list_directory.",
+          "wall_s": 19.515,
+          "first_token_s": 13.486,
+          "answer_head": "The three largest files in the directory `C:\\Users\\mohdc\\AppData\\Local\\Temp\\miniai_r9_dl_7t9ybsd2` are:\n\n1. **huge.zip** - 47.7 MB\n2. **big.bin** - 19.1 MB\n3. **setup.exe** - 4.8 MB",
+          "free_ram_gb": 0.892,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.513
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.407
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.324
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.324
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.216
+            }
+          ],
+          "llm_calls": 2,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6220,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.095,
+          "stall_s_sum": 0.168,
+          "tok_s": 12.951,
+          "calls": [
+            {
+              "wall_s": 6.113,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6220,
+              "stall_s": 0.095,
+              "free_ram_gb": {
+                "before": 0.865,
+                "after": 0.875
+              },
+              "lemonade_page_faults_delta": 7128,
+              "predicted_per_second": 13.0528594012481
+            },
+            {
+              "wall_s": 11.678,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6393,
+              "stall_s": 0.073,
+              "free_ram_gb": {
+                "before": 0.874,
+                "after": 0.891
+              },
+              "lemonade_page_faults_delta": 469,
+              "predicted_per_second": 12.849624515615048
+            }
+          ]
+        },
+        "b": {
+          "prompt": "In two sentences, what is the difference between RAM and storage?",
+          "wall_s": 8.209,
+          "first_token_s": 3.796,
+          "answer_head": "RAM (Random Access Memory) is temporary memory used by the computer to store data that is currently being processed, allowing for quick access by the CPU. Storage, on the other hand, is permanent memory used to save data, applications, and the operating system for long-term use.",
+          "free_ram_gb": 0.886,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.515
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.412
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.325
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.324
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.214
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6955,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.072,
+          "stall_s_sum": 0.072,
+          "tok_s": 12.767,
+          "calls": [
+            {
+              "wall_s": 6.564,
+              "discarded": false,
+              "enable_thinking": false,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6955,
+              "stall_s": 0.072,
+              "free_ram_gb": {
+                "before": 0.877,
+                "after": 0.891
+              },
+              "lemonade_page_faults_delta": 1017,
+              "predicted_per_second": 12.76666659827381
+            }
+          ]
+        },
+        "c": {
+          "turn1": {
+            "prompt": "Do not use any tools. In this chat only, my codeword is ORANGE-TREE. Reply with one short sentence confirming you heard it.",
+            "wall_s": 3.503,
+            "first_token_s": 2.513,
+            "answer_head": "I have heard the codeword ORANGE-TREE.",
+            "free_ram_gb": 0.871,
+            "top_processes": [
+              {
+                "pid": 19896,
+                "name": "llama-server.exe",
+                "rss_gb": 5.515
+              },
+              {
+                "pid": 10004,
+                "name": "Cursor.exe",
+                "rss_gb": 0.415
+              },
+              {
+                "pid": 6312,
+                "name": "Cursor.exe",
+                "rss_gb": 0.325
+              },
+              {
+                "pid": 4292,
+                "name": "MemCompression",
+                "rss_gb": 0.324
+              },
+              {
+                "pid": 5848,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.217
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6203,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.081,
+            "stall_s_sum": 0.081,
+            "tok_s": 12.574,
+            "calls": [
+              {
+                "wall_s": 1.786,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6203,
+                "stall_s": 0.081,
+                "free_ram_gb": {
+                  "before": 0.876,
+                  "after": 0.87
+                },
+                "lemonade_page_faults_delta": 486,
+                "predicted_per_second": 12.574490759321105
+              }
+            ]
+          },
+          "turn2": {
+            "prompt": "Do not use any tools. What codeword did I just give you? Reply with only the codeword.",
+            "wall_s": 3.771,
+            "first_token_s": 3.43,
+            "answer_head": "ORANGE-TREE",
+            "free_ram_gb": 0.867,
+            "top_processes": [
+              {
+                "pid": 19896,
+                "name": "llama-server.exe",
+                "rss_gb": 5.515
+              },
+              {
+                "pid": 10004,
+                "name": "Cursor.exe",
+                "rss_gb": 0.418
+              },
+              {
+                "pid": 6312,
+                "name": "Cursor.exe",
+                "rss_gb": 0.327
+              },
+              {
+                "pid": 4292,
+                "name": "MemCompression",
+                "rss_gb": 0.324
+              },
+              {
+                "pid": 5848,
+                "name": "MsMpEng.exe",
+                "rss_gb": 0.219
+              }
+            ],
+            "llm_calls": 1,
+            "generated_tokens": 0,
+            "prefill_tokens": 0,
+            "cache_n": 6241,
+            "prompt_tokens_last": null,
+            "cache_n_over_prompt": null,
+            "stall_s_max": 0.056,
+            "stall_s_sum": 0.056,
+            "tok_s": 13.086,
+            "calls": [
+              {
+                "wall_s": 2.125,
+                "discarded": false,
+                "enable_thinking": false,
+                "prompt_tokens": null,
+                "completion_tokens": null,
+                "cache_n": 6241,
+                "stall_s": 0.056,
+                "free_ram_gb": {
+                  "before": 0.856,
+                  "after": 0.866
+                },
+                "lemonade_page_faults_delta": 460,
+                "predicted_per_second": 13.086307469337145
+              }
+            ]
+          },
+          "wall_s": 7.274
+        },
+        "e": {
+          "prompt": "In about 150 words, explain how a CPU cache works.",
+          "wall_s": 52.556,
+          "first_token_s": 35.162,
+          "answer_head": "The CPU cache is a high-speed memory that stores copies of frequently accessed data from the main memory (RAM), reducing access latency. It acts as a bridge between the CPU and slower RAM, enabling faster data retrieval. Caches are organized in levels (L1, L2, L3), with L1 being the smallest and fas",
+          "free_ram_gb": 0.886,
+          "top_processes": [
+            {
+              "pid": 19896,
+              "name": "llama-server.exe",
+              "rss_gb": 5.515
+            },
+            {
+              "pid": 10004,
+              "name": "Cursor.exe",
+              "rss_gb": 0.415
+            },
+            {
+              "pid": 4292,
+              "name": "MemCompression",
+              "rss_gb": 0.325
+            },
+            {
+              "pid": 6312,
+              "name": "Cursor.exe",
+              "rss_gb": 0.324
+            },
+            {
+              "pid": 5848,
+              "name": "MsMpEng.exe",
+              "rss_gb": 0.213
+            }
+          ],
+          "llm_calls": 1,
+          "generated_tokens": 0,
+          "prefill_tokens": 0,
+          "cache_n": 6203,
+          "prompt_tokens_last": null,
+          "cache_n_over_prompt": null,
+          "stall_s_max": 0.061,
+          "stall_s_sum": 0.061,
+          "tok_s": 12.719,
+          "calls": [
+            {
+              "wall_s": 50.894,
+              "discarded": false,
+              "enable_thinking": true,
+              "prompt_tokens": null,
+              "completion_tokens": null,
+              "cache_n": 6203,
+              "stall_s": 0.061,
+              "free_ram_gb": {
+                "before": 0.864,
+                "after": 0.884
+              },
+              "lemonade_page_faults_delta": 487,
+              "predicted_per_second": 12.719430074800457
+            }
+          ],
+          "draft_discarded": false,
+          "discarded_n": 0
+        }
+      }
+    }
+  ],
+  "n": 3,
+  "six_turn": false,
+  "model_state": {
+    "captured_at": "2026-11-01T03:23:43Z",
+    "stamp": "20261101-032343",
+    "thresholds": {
+      "tok_s_min_legacy": 11.0,
+      "ref_fraction": 0.9,
+      "note": "Round 10B: OK if tok/s \u2265 90% of model_ref; RSS logged only (architect 30 Oct)",
+      "tok_s_min": 11.98,
+      "tok_s_min_source": "model_ref",
+      "model_ref_tok_s": 13.311,
+      "model_ref_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_ref_Qwen3-30B-A3B-GGUF.json"
+    },
+    "llm": {
+      "model_name": "Qwen3-30B-A3B-GGUF",
+      "pid": 19896,
+      "device": "gpu",
+      "checkpoint": "unsloth/Qwen3-30B-A3B-GGUF:Q4_0",
+      "recipe_options": {
+        "ctx_size": 16384,
+        "llamacpp_args": "--n-gpu-layers 99 -ctk q8_0 -ctv q8_0 -fa on --parallel 1"
+      },
+      "launch_command": [
+        "C:\\Users\\mohdc\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+        "-m",
+        "C:\\Users\\mohdc\\.cache\\huggingface\\hub/models--unsloth--Qwen3-30B-A3B-GGUF\\snapshots\\d5b1d57bd0b504ac62ae6c725904e96ef228dc74\\Qwen3-30B-A3B-Q4_0.gguf",
+        "--ctx-size",
+        "16384",
+        "--port",
+        "8001",
+        "--jinja",
+        "--metrics",
+        "--n-gpu-layers",
+        "99",
+        "-ctk",
+        "q8_0",
+        "-ctv",
+        "q8_0",
+        "-fa",
+        "on",
+        "--parallel",
+        "1"
+      ],
+      "status": "ready"
+    },
+    "llm_rss_gb": 5.513,
+    "free_ram_gb": 0.941,
+    "total_ram_gb": 23.618,
+    "gpu": {
+      "dedicated": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 8366940160.0,
+          "gb": 7.792
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 0.0,
+          "gb": 0.0
+        }
+      ],
+      "shared": [
+        {
+          "instance": "luid_0x00000000_0x00014f69_phys_0",
+          "bytes": 11220586496.0,
+          "gb": 10.45
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cbb_phys_0",
+          "bytes": 8192.0,
+          "gb": 0.0
+        },
+        {
+          "instance": "luid_0x00000000_0x00016cfc_phys_0",
+          "bytes": 1107529728.0,
+          "gb": 1.031
+        }
+      ]
+    },
+    "model": "Qwen3-30B-A3B-GGUF",
+    "probe": {
+      "wall_s": 6.173,
+      "completion_tokens": 80,
+      "prompt_tokens": 6225,
+      "est_prompt_tokens": 7433,
+      "tok_s": 13.128,
+      "tok_s_source": "predicted_per_second",
+      "timings": {
+        "cache_n": 6224,
+        "predicted_ms": 6017.575,
+        "predicted_n": 80,
+        "predicted_per_second": 13.128211945841972,
+        "predicted_per_token_ms": 76.17183544303798,
+        "prompt_ms": 80.657,
+        "prompt_n": 1,
+        "prompt_per_second": 12.398179947183754,
+        "prompt_per_token_ms": 80.657
+      },
+      "model": "Qwen3-30B-A3B-GGUF",
+      "probe_kind": "realistic_system_tools",
+      "user": "In one short paragraph, what is a page fault?"
+    },
+    "verdict": "OK",
+    "reason": "tok/s=13.128 \u2265 11.98 (model_ref; ref=13.311\u00d70.9; RSS=5.513 GB logged only; prompt_tokens=6225)",
+    "log_path": "C:\\Users\\mohdc\\OneDrive\\Desktop\\miniai\\logs\\model_state_20261101-032343.json"
+  }
+}
