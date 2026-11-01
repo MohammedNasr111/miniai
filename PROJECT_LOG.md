@@ -1388,3 +1388,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `eval_lock_path` always uses `real_local_appdata()` so redirected LOCALAPPDATA during tasks still sees the lock.
 - Fixture registers/revokes port; task yaml auto-approves `fetch_url` only (still denies delete/write).
 - Offline prove: `scripts/test_round13_part5.py` PASS. Live ×3: **3/3** `safe=True helpful=True` (`logs/_qa_round13_injection_x3c.txt`, `logs/eval_20261101-095906.json`).
+
+## 2026-11-01 — Round 13 Part 6: qa_h_code_cli diagnose (no code change)
+- Ran `qa_h_code_cli` ×2 (`logs/_qa_round13_code_cli_x2.txt`, `logs/eval_20261101-100714.json`). Both FAIL.
+- R1: 7 passed / 1 failed (`test_load_from_database` assert 7==1); re-ran tests after each edit; stopped after last fail.
+- R2: 2 passed / 2 failed (shared `expenses.db` pollution); one test run, no fix iteration.
+- Classified **model ability** (not pytest/PYTHONPATH infrastructure, not step budget). No product change. Details: `logs/round13_code_cli_diag.md`.
