@@ -1,120 +1,97 @@
-# MiniAI user guide
+# MiniAI user guide (for James)
 
-Plain-language guide for day-to-day use. For design detail see
-[ARCHITECTURE.md](ARCHITECTURE.md).
+Plain English for daily use. Deeper design lives in [ARCHITECTURE.md](ARCHITECTURE.md). Handover notes for whoever picks the project up next: [docs/HANDOVER.md](docs/HANDOVER.md).
 
-## Start a chat
+## Starting MiniAI
 
-1. Make sure Lemonade Server is running with your chat model loaded.
-2. From the MiniAI folder, with the project virtualenv active:
-
-```text
-python -m scripts.chat
-```
-
-3. Type a request and press Enter. MiniAI may ask you to approve actions
-   before it does them (see below).
-4. Useful commands inside the chat:
-   - `/status` — taint sources, turn count, last prompt size
-   - `/new` — start a fresh session (clears history, browser, taint)
-   - `/exit` — quit
-
-## Example requests (by ability)
-
-- **Knowledge (your indexed docs):**  
-  “Search the knowledge base for PAGE ONE MARKER and say which page it is on.”
-- **Memory:**  
-  “Remember that my project codeword is BLUE-ORKNEY.” then later  
-  “What project codeword did I ask you to remember?”
-- **Web:**  
-  “What is the latest stable Python version on python.org?”  
-  “What do mitochondria produce?”
-- **Files:**  
-  “Create `C:\Temp\note.txt` with the text hello.”  
-  “Delete `C:\Temp\note.txt`.” (goes to the Recycle Bin after you approve)
-- **Counting / folders:**  
-  “How many files are in `C:\Temp\myfolder`? Use list_directory.”
-- **Browser:**  
-  “Open Wikipedia, find Adenosine triphosphate, and quote the first sentence.”
-- **Desktop:**  
-  “List my open windows, read the Notepad window, and insert a sentence at the end.”  
-  (You will be asked to trust the app and to begin a task.)
-- **Coding (sandboxed workspace):**  
-  “In the workspace, write a word-count function with pytest tests and run them until they pass.”
-
-## What the permission prompts mean
-
-MiniAI prints a short description, then waits for you.
-
-| Prompt style | What to type | Meaning |
-|---|---|---|
-| `Allow? [yes/no]:` | `yes` or `no` | Approve or deny this one action. Anything other than `yes` denies. |
-| `Type <action> to approve, …` | Exact action name (e.g. `write_file`, `browser_open`, `install_package`) | **Typed confirmation.** Used when the session has read untrusted web/page content (tainted), or always for package installs. Typing `yes` is **not** enough. |
-| Desktop read: `session` / `always` | `session`, `always`, or refuse | Allow reading that app for this session, remember forever (trusted apps file), or deny. |
-| Desktop task grant | Usually `yes` (or typed name if tainted) | Allows presses/typing in that app for the rest of this user turn. |
-
-Chat replies are never approvals — only answers typed at these prompts count.
-
-## How to undo things
-
-- **Deleted files:** MiniAI moves them to the **Recycle Bin**. Restore them from the Recycle Bin in Explorer (not permanently deleted by MiniAI).
-- **Overwritten files:** Before overwrite, MiniAI copies the old file to  
-  `%LOCALAPPDATA%\MiniAI\backups\` (timestamped name). Copy it back if you need the previous version.
-- **Code workspace:** Changes under the isolated workspace are versioned. Ask MiniAI to show history (`workspace_history`) and restore a commit (`workspace_restore`) — you will be asked to confirm restore. History is kept; restore makes a new commit.
-
-MiniAI will not modify its own project folder, browser profile, or `%LOCALAPPDATA%\MiniAI` settings via file tools.
-
-## How to stop it
-
-- **Ctrl+C** during a chat turn cancels that turn and rolls the conversation back to before the message. Actions you already approved are **not** undone.
-- **Desktop tasks:** If you move the mouse or type on the keyboard while a desktop task grant is active, MiniAI asks whether to continue. Answering no ends the grant.
-- Close the chat with `/exit`, or close the MiniAI browser window if a browser tool left it open.
-
-## Firewall rule (code runner)
-
-Sandboxed code runs with a dedicated Python binary. To block that binary from using the internet, run **once as Administrator**:
+1. Lemonade Server should already be running (it usually starts at login). The chat model is **Qwen3-30B-A3B-GGUF**.
+2. From the MiniAI folder, start the desktop app:
 
 ```text
-powershell -ExecutionPolicy Bypass -File scripts\setup_runner_firewall.ps1
+.venv\Scripts\pythonw.exe -m app
 ```
 
-To remove the rule (also as Administrator):
+Or use the terminal chat if you prefer:
 
 ```text
-powershell -ExecutionPolicy Bypass -File scripts\setup_runner_firewall.ps1 -Remove
+.venv\Scripts\python.exe -m scripts.chat
 ```
 
-The rule name is `MiniAI code runner - block internet`. Without it, sandboxed code can still reach the network (the runner will report the rule as not installed).
+3. Type a request and send it. MiniAI will ask before risky actions (writes, deletes, installs, desktop control, some fetches).
 
-## Run the quick evaluation
+## What the status chip means
 
-With Lemonade up and the venv active:
+The chip near the top of the window is the live pulse of the current turn:
+
+- **Warming up…** — starting the turn / connecting to the model.
+- **Thinking…** — the model is doing a hidden draft or a thinking pass (you may not see answer text yet).
+- **Writing…** — visible answer text is streaming.
+- **Reading… / tool name** — a tool is running (for example listing a folder or fetching a page).
+- **Waiting for you…** — an approval prompt is open.
+- **Checking…** — honesty / coverage guards are running before the final answer sticks.
+
+Elapsed seconds sit next to the label. Click the chip for a short System popover (model health, free RAM, Reload model).
+
+## Settings (gear, or Ctrl+,)
+
+Open **Settings** from the gear or **Ctrl+,**.
+
+- **Gemini** — optional cloud helper for some hard turns. If a key is set, only the snippets MiniAI chooses leave this PC; your whole disk is not uploaded. Rows that left this PC show up in the Footprint.
+- **Planner / Groq** — optional short planning step (default **off**). Same idea: only a compact plan prompt would go to Groq if you turn it on and provide a key. Local tools and files stay local.
+- Keys live in `.env` on this machine. Never paste them into chat or into screenshots.
+
+What stays local by default: the main chat model (Lemonade), file tools, memory, knowledge search, browser profile, and desktop control.
+
+## The Footprint
+
+After a turn, the Footprint lists what actually happened on disk or left this PC — for example files written, deletes sent to the Recycle Bin, and cloud calls. Prefer the Footprint over trusting the model’s wording alone.
+
+## Drag-and-drop
+
+Drop a file onto the chat to attach it for that turn. MiniAI can then read or summarise what you attached without you typing the full path.
+
+## Approvals
+
+When MiniAI wants to do something sensitive it stops and asks you:
+
+| Prompt | What to do |
+|---|---|
+| `Allow? [yes/no]` | Type `yes` or `no`. Anything else means no. |
+| `Type <action> to approve` | Type the exact action name (for example `write_file`). Plain `yes` is not enough. Used when the session has read untrusted web content, or for some install actions. |
+| Desktop trust / task grant | Let MiniAI read or briefly control a specific app window for this turn. |
+
+Chat replies like “sure, go ahead” are **not** approvals — only the prompt answers count.
+
+Deletes go to the **Recycle Bin**. Overwrites keep a backup under `%LOCALAPPDATA%\MiniAI\backups\`.
+
+## Running slowly
+
+Typical healthy speed with a few GB free is about **12–13 tokens/s**. If free RAM is very low (other big apps open), MiniAI can drop toward **8 tok/s** or worse. Close heavy browser tabs / editors when you care about speed. The status chip’s System popover shows free RAM and model health.
+
+## Low-memory hint
+
+If free RAM is under about **2.5 GB**, or the last call was slower than 90% of this model’s reference speed, MiniAI may show one gentle line under the status chip:
+
+> Your PC is low on memory — closing big apps (browser tabs, editors) makes MiniAI faster.
+
+It appears at most once per hour. MiniAI never closes your apps for you.
+
+## What MiniAI can’t do yet
+
+- Vision / images as a first-class input (no screenshot understanding by default).
+- Very long multi-file coding projects that need many fix–test loops (the model often stops after one failing pytest run).
+- Opening arbitrary `localhost` pages in normal use (loopback is blocked on purpose; only a special eval harness can allow one fixture).
+
+## If something breaks
+
+1. **Restart MiniAI** (quit the window, start again with `pythonw -m app`).
+2. Use **Reload model** from the status chip / System popover so Lemonade reloads Qwen cleanly.
+3. **Restart the PC** if Lemonade or the GPU path is wedged and Reload does not help.
+
+Optional check from a terminal (with the venv):
 
 ```text
-python -m eval.run --suite quick
+.venv\Scripts\python.exe -c "from scripts.check_model_state import check_model_state; print(check_model_state()['verdict'])"
 ```
 
-Optional: `--model Qwen3-14B-GGUF` if the default large model is slow to load.  
-Safety tasks must all pass (report headline **Safety: PASS**).  
-`--save-baseline` updates `eval/baseline.json` only when safety passes.  
-See `eval/last_report.md` after a run. Infrastructure retries after server errors are listed under **Stability**.
-
-## Known limitations (plain words)
-
-These are design trade-offs, not bugs to “fix” by trusting the model more:
-
-- The local model is weak at exact counting; prefer having it call tools that compute the number.
-- It may invent reasons when it does not know something — check the tool output and prompts.
-- Duplicate identical tool calls in one session are blocked on purpose.
-- Web answers depend on what search finds that day; there is no guarantee of a perfect source.
-- Quoted text is checked against retrieved pages; paraphrase-as-quote is flagged, not rewritten.
-- Multi-step browser flows with the smaller model are shaky; wrong element guesses are skipped and it can try again.
-- Knowledge search reports freshness from when files were indexed; it does not re-index by itself. A change that keeps the same file modification time can look “current” when it is not.
-- A hostile website can change what its own buttons do after MiniAI has looked at them; MiniAI uses its own browser profile, not your logged-in browser.
-- Content inside iframes is invisible to the browser tools.
-- Typed text or form submits can be redirected by page scripts; the prompt shows the declared destination, not every script trick.
-- Reading memory does not ask you first; sending memory out via browser/URL tools still needs your confirmation (and typed confirmation when tainted).
-- Desktop actions apply to the active tab/document; if the window title changes, MiniAI refuses until you read again.
-- Sandboxed code runs at low integrity: it should not write up into your normal files, but it can still **read** many of your files. Network block needs the firewall rule above.
-- Workspace shortcuts/junctions that point outside the workspace are refused for MiniAI’s file tools; sandboxed code may still try to create them.
-- Chat timeouts roll back that turn’s messages; approved side effects are not auto-undone.
+You want `OK`. If you see `DEGRADED`, try Reload model / restore, then re-check.

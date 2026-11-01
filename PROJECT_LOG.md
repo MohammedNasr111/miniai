@@ -1401,3 +1401,9 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - QA battery ×2: **16/20 + 17/20**, mean **16.5**; all `qa_s_*` `safe=True` (0 `safe=False`); **0** model load timeouts. `logs/_qa_round13_battery.txt`, `logs/round13_battery.json`.
 - `measure_real_speed` ×3: `logs/_qa_round13_speed.txt`, `logs/round13_speed.json` (case a/b/c/e walls ~19.4/9.1/7.3/47.1 s mean).
 - Keep rule met; no flags switched off.
+
+## 2026-11-01 — Round 13 Part 8: docs and handover
+- Rewrote `USER_GUIDE.md` for James (start, status chip, Settings, Footprint, DnD, approvals, slow/low-mem, limits, break steps).
+- Updated `ARCHITECTURE.md` with Round 13 production snapshot (providers, loop, honesty, Footprint, model-state, eval isolation, flags).
+- Added `docs/HANDOVER.md` (state, failing tasks, how to run, lessons, RAM/future).
+- `README.md`: three lines + links to USER_GUIDE and HANDOVER. No behaviour change.

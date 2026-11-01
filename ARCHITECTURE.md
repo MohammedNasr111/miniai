@@ -10,6 +10,46 @@
 - Memory behaves like a unified-memory system (GPU has no dedicated VRAM) —
   closer to Apple Silicon than a discrete-GPU PC.
 
+## Round 13 production snapshot (current design)
+- **Providers:** Lemonade (default local chat; Qwen3 thinking adapter /
+  hide-draft + gated think-first), optional **Gemini** cloud helper for
+  hard turns, optional **Groq** planner (`MINIAI_PLANNER=off|local|groq`,
+  default **off**).
+- **Agent loop:** smart thinking policy + `MINIAI_THINK_FIRST=gated` +
+  hide-draft on + `MINIAI_CACHE_STABLE=on`. `MINIAI_EARLY_ABORT=off`.
+  Live UI phases: Thinking / Writing / tool / approval / checking
+  (Round 12–13).
+- **Honesty layer:** quote-vs-evidence check, run-claim check,
+  action-claim re-run, and Round 13 **request-coverage** after
+  `write_file`/`create_file` (`MINIAI_FEATURE_REQUEST_COVERAGE=on`) —
+  at most one corrective pass per turn.
+- **Data cards / Footprint:** per-turn verification rows for disk and
+  “Left this PC” cloud calls in the desktop app.
+- **Model-state guard:** `scripts/check_model_state.py` probes tok/s vs
+  per-model reference (`logs/model_ref_Qwen3-30B-A3B-GGUF.json`); OK if
+  ≥90% of ref. Call before every measurement; `scripts/restore_model`
+  reloads production options.
+- **Eval isolation:** `tests/support.use_temp_data` redirects memory /
+  vector / LOCALAPPDATA; user folders redirect into the temp tree;
+  secrets stay behind a read-only pointer; **`eval.lock`** lives on the
+  **real** LocalAppData path for the whole `eval.run` (nightly self-check
+  skips). Eval-only fetch allow-list (`eval/eval_fetch_allowlist.py`) may
+  permit one fixture `127.0.0.1:port` while the lock is live — product
+  loopback block unchanged otherwise.
+- **Feature flags (defaults → deciding round):**
+  - `MINIAI_THINK_FIRST=gated` (9F/10)
+  - hide-draft on (10)
+  - `MINIAI_CACHE_STABLE=on` (9)
+  - `MINIAI_EARLY_ABORT=off` (9)
+  - `MINIAI_PLANNER=off` (11/11B)
+  - `FEATURE_ANALYZE_TABLE=off` (6b/11B)
+  - `FEATURE_CODING_AUTO_TEST=on` (6b)
+  - `FEATURE_RESEARCH_PIPELINE=on` (6b)
+  - `FEATURE_PDF_CITATIONS=off` (6b)
+  - `FEATURE_REQUEST_COVERAGE=on` (13)
+- Final Round 13 keep: quick Safety PASS; battery mean 16.5; 0 load
+  timeouts. See `docs/HANDOVER.md` and `ROUND_13_REPORT.md`.
+
 ## Core decisions (do not change without the architect's sign-off)
 - Tests never touch real data: every test that writes uses temporary
   stores via `tests/support.py` and refuses to run against the real paths.
