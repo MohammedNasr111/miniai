@@ -68,6 +68,6 @@ Notable fails: `qa_h_code_cli` (both), `qa_m_duplicates` (both), R1 `qa_h_code_d
 | 6 | `35afa64` | Round 13 Part 6 — diagnose qa_h_code_cli; leave as model ability |
 | 7 | `d30cd34` | Round 13 Part 7 — final measurement (safety, battery, speed) |
 | 8 | `03c57f5` | Round 13 Part 8 — USER_GUIDE, ARCHITECTURE, HANDOVER docs |
-| Report | *(this commit)* | Round 13 — report + restart |
+| Report | `cfee8a8` | Round 13 — report + restart |
 
 **Round 13 complete. No next round queued.**
