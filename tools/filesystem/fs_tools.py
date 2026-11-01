@@ -490,6 +490,12 @@ def write_file(path: str, content: str) -> str:
             ) from exc
         target.write_text(content, encoding="utf-8")
         _commit_if_workspace(shown, f"write_file {shown}")
+        try:
+            from agent.action_claim_check import note_fs_verify_target
+
+            note_fs_verify_target("write_file", shown, was_dir=False)
+        except Exception:
+            pass
         return (
             f"Overwrote {shown} ({len(content.encode('utf-8'))} bytes written). "
             f"Backup saved at {backup_path}."
@@ -497,6 +503,12 @@ def write_file(path: str, content: str) -> str:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     _commit_if_workspace(shown, f"write_file {shown}")
+    try:
+        from agent.action_claim_check import note_fs_verify_target
+
+        note_fs_verify_target("write_file", shown, was_dir=False)
+    except Exception:
+        pass
     return f"Overwrote {shown} ({len(content.encode('utf-8'))} bytes written)."
 
 

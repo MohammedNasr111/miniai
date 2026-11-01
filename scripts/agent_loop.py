@@ -43,6 +43,10 @@ from agent.action_claim_check import (
     reset_action_claim_state,
     should_skip_rerun_for_budget,
 )
+from agent.request_coverage_check import (
+    maybe_run_request_coverage,
+    reset_request_coverage_state,
+)
 from agent.injection_notice import maybe_append_injection_notice
 from agent.run_claim_check import (
     evidence_summary_line,
@@ -1061,6 +1065,7 @@ def run_tool_rounds(
     _register_user_urls(history)
     reset_turn_runs()
     reset_action_claim_state()
+    reset_request_coverage_state()
     streamed_final = ""
     last_auto_test_summary = ""
     pipeline_evidence = None
@@ -1512,6 +1517,26 @@ def run_tool_rounds(
                 if getattr(msg, "role", None) == "user":
                     q = msg.content or ""
                     break
+        # Round 13 Part 4(c): request-coverage after write_file/create_file.
+        coverage_meta = maybe_run_request_coverage(
+            provider=provider,
+            history=history,
+            question=q,
+            call_model_fn=_model,
+            consume_tool_round_fn=_consume_tool_round,
+            transcript=transcript,
+            on_stream_clear=on_stream_clear,
+            clear_fn=_clear if on_stream_clear else None,
+        )
+        cov_resp = coverage_meta.pop("response", None)
+        if coverage_meta.get("reran") and cov_resp is not None:
+            response = cov_resp
+            if not getattr(response, "tool_calls", None):
+                raw = response.content or raw
+                streamed_snapshot = streamed_final or raw
+                shown = clean_final_answer(raw)
+                shown = check_quotes_against_evidence(shown, transcript=transcript)
+                shown = check_run_claims(shown, transcript=transcript)
         # Action-claim honesty: re-run once with thinking ON if needed,
         # but only when ≥60s remains in the turn wall budget.
         needs, _unbacked, _rgap = needs_action_claim_fix(
@@ -1712,6 +1737,9 @@ def system_prompt() -> str:
         "do not silently refuse without attempting the tool that asks them. "
         "When asked to write a summary or report file, actually create it with "
         "create_file or write_file before finishing. "
+        "When the request lists several things to include in a file, include "
+        "every one; before finishing, re-read the request and check each item "
+        "is in the file. "
         "Never copy the untrusted-content markers or blocks of quoted page "
         "text into your answer; summarize in your own words and cite URLs. "
         "Browser element numbers are only valid for the most recent "

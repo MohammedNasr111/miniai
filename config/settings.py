@@ -87,6 +87,15 @@ FEATURE_PDF_CITATIONS = os.environ.get("MINIAI_FEATURE_PDF_CITATIONS", "off").st
     "false",
     "no",
 )
+# Round 13 Part 4(c): request-coverage after write_file/create_file.
+FEATURE_REQUEST_COVERAGE = os.environ.get(
+    "MINIAI_FEATURE_REQUEST_COVERAGE", "on"
+).strip().lower() not in (
+    "0",
+    "off",
+    "false",
+    "no",
+)
 # Round 11 planner: off | local | groq. Default off until Part 3 keep rule.
 _PLANNER_RAW = os.environ.get("MINIAI_PLANNER", "off").strip().lower()
 PLANNER_MODE = _PLANNER_RAW if _PLANNER_RAW in ("off", "local", "groq") else "off"
