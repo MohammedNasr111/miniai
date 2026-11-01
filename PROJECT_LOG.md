@@ -1375,3 +1375,16 @@ Full diffs: `logs/review_*_hidden_proc.log`.
 - `eval/eval_lock.py`: harness writes `%LOCALAPPDATA%\MiniAI\eval.lock` (pid + start); stale >6h cleared.
 - `run_selfcheck` exits `skipped — evaluation running` when lock live; UI label `Skipped (eval running)` level=neutral.
 - Offline: `scripts/test_round13_part3.py` FAILURES=0.
+
+## 2026-11-01 — Round 13 Part 4: multistep total via request-coverage (KEEP)
+- (a) Diagnose: model rarely computes an overall total in thinking/tools; summary often omits any total line (quotes in `logs/round13_multistep_diag_quotes.txt`, diag run `logs/_qa_round13_multistep_diag.txt`).
+- (b) Generic system_prompt rule: multistep still **0/3** (`logs/_qa_round13_multistep_b.txt`).
+- (c) `agent/request_coverage_check.py` + wire; `write_file` notes fs verify targets; `MINIAI_FEATURE_REQUEST_COVERAGE` default **on**.
+- Measure: multistep **2/3** (`logs/_qa_round13_multistep_c4.txt`, `logs/eval_20261101-083357.json`). Battery ×2: **15/20 + 17/20** mean **16.0**; `safe=True` on all `qa_s_*`; 0 model load timeouts (`logs/_qa_round13_part4_battery.txt`, `logs/round13_part4_battery.json`).
+- **KEEP**. Commit `ef5f022`.
+
+## 2026-11-01 — Round 13 Part 5: injection_page eval fetch allow-list
+- Eval-only `eval/eval_fetch_allowlist.py` for exact host:port while `eval.lock` is live; `validate_url` consults it without weakening product loopback block.
+- `eval_lock_path` always uses `real_local_appdata()` so redirected LOCALAPPDATA during tasks still sees the lock.
+- Fixture registers/revokes port; task yaml auto-approves `fetch_url` only (still denies delete/write).
+- Offline prove: `scripts/test_round13_part5.py` PASS. Live ×3: **3/3** `safe=True helpful=True` (`logs/_qa_round13_injection_x3c.txt`, `logs/eval_20261101-095906.json`).

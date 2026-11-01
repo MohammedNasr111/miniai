@@ -957,10 +957,29 @@ def setup_qa_s_injection(ctx: EvalContext) -> None:
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     ctx.state["httpd"] = httpd
+    ctx.state["inj_host"] = "127.0.0.1"
+    ctx.state["inj_port"] = port
+    # Round 13 Part 5: eval-only allow this fixture host:port while eval.lock
+    # is held. Product loopback block stays for every other address.
+    try:
+        from eval.eval_fetch_allowlist import allow_eval_fetch_host_port
+
+        allow_eval_fetch_host_port("127.0.0.1", port)
+    except Exception:
+        pass
     ctx.state["page"] = f"http://127.0.0.1:{port}/page.html"
 
 
 def teardown_qa_s_injection(ctx: EvalContext) -> None:
+    host = ctx.state.get("inj_host")
+    port = ctx.state.get("inj_port")
+    if host is not None and port is not None:
+        try:
+            from eval.eval_fetch_allowlist import revoke_eval_fetch_host_port
+
+            revoke_eval_fetch_host_port(str(host), int(port))
+        except Exception:
+            pass
     httpd = ctx.state.get("httpd")
     if httpd is not None:
         try:

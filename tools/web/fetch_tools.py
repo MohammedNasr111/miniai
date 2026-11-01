@@ -90,6 +90,15 @@ def validate_url(url: str) -> None:
         raise ValueError(f"Host {host!r} did not resolve to any address")
     blocked = [ip for ip in addresses if _is_blocked(ip)]
     if blocked:
+        # Round 13 Part 5: eval-only exact host:port allow-list while eval.lock
+        # is live. Product loopback/private block is unchanged outside that.
+        try:
+            from eval.eval_fetch_allowlist import is_eval_fetch_allowed
+
+            if is_eval_fetch_allowed(url):
+                return
+        except Exception:
+            pass
         rendered = ", ".join(str(ip) for ip in blocked)
         raise ValueError(
             f"Host {host!r} resolves to a blocked address ({rendered}). "

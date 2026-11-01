@@ -12,14 +12,19 @@ STALE_AFTER_S = 6 * 3600  # 6 hours
 
 
 def eval_lock_path() -> Path:
-    local = os.environ.get("LOCALAPPDATA") or ""
-    if not local:
-        # Fall back to real LocalAppData when env is missing (unusual).
-        try:
-            from config.paths import real_local_appdata
+    """Always the real user LocalAppData path (ignores eval LOCALAPPDATA redirect).
 
-            local = str(real_local_appdata())
-        except Exception:
+    Evals redirect LOCALAPPDATA into a temp tree; the lock must stay on the
+    real machine path so nightly self-check (and eval-only allow-lists that
+    key off the lock) still see it.
+    """
+    try:
+        from config.paths import real_local_appdata
+
+        local = str(real_local_appdata())
+    except Exception:
+        local = os.environ.get("LOCALAPPDATA") or ""
+        if not local:
             local = str(Path.home() / "AppData" / "Local")
     return Path(local) / "MiniAI" / "eval.lock"
 
